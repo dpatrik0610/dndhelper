@@ -6,5 +6,6 @@ namespace dndhelper.Authentication.Interfaces
     {
         Task<User> GetByUsernameAsync(string username);
         Task CreateAsync(User user);
+        Task<bool> CheckUserExists(string username);
     }
 }

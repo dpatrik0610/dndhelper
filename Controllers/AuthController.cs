@@ -1,6 +1,7 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -19,8 +20,15 @@ namespace dndhelper.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            await _authService.RegisterAsync(request.Username, request.Password);
-            return Ok();
+            try
+            {
+                await _authService.RegisterAsync(request.Username, request.Password);
+            }
+            catch
+            {
+                return BadRequest("User Already exists.");
+            }
+            return Created();
         }
 
         [HttpPost("login")]

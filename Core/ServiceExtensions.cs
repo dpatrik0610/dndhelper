@@ -1,6 +1,9 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Database;
+using dndhelper.Models;
+using dndhelper.Repositories;
+using dndhelper.Repositories.Interfaces;
 using dndhelper.Services;
 using dndhelper.Services.Auth;
 using dndhelper.Services.Interfaces;
@@ -27,7 +30,7 @@ namespace dndhelper.Core
                 var connectionString = config.GetValue<string>("MongoDB:ConnectionString");
                 var databaseName = config.GetValue<string>("MongoDB:DatabaseName");
                 var logger = sp.GetRequiredService<ILogger>();
-                logger.Information("Asd");
+
                 if (string.IsNullOrEmpty(databaseName))
                     throw new ArgumentException($"'{nameof(databaseName)}' cannot be null or empty.", nameof(databaseName));
                 if (string.IsNullOrEmpty(connectionString))
@@ -59,9 +62,20 @@ namespace dndhelper.Core
             });
 
             // Repos
+            services.AddScoped<ICharacterRepository, CharacterRepository>();
+            services.AddScoped<IEquipmentRepository, EquipmentRepository>();
+            services.AddScoped<IInventoryRepository, InventoryRepository>();
 
             // Services
             services.AddScoped<IDiceRollService, DiceRollService>();
+            services.AddScoped<ICharacterService, CharacterService>();
+            services.AddScoped<IEquipmentService, EquipmentService>();
+            services.AddScoped<IInventoryService, InventoryService>();
+            services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://www.dnd5eapi.co/api/2014/");
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+            });
 
             // Utils
             return services;

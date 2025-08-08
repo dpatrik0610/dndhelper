@@ -28,5 +28,11 @@ namespace dndhelper.Authentication
             _logger.Debug("Creating new user: {Username}", user.Username);
             await _users.InsertOneAsync(user);
         }
+
+        public async Task<bool> CheckUserExists(string username)
+        {
+            _logger.Debug($"Checking if user exists: {username}");
+            return await _users.CountDocumentsAsync(u => u.Username == username) != 0;
+        }
     }
 }

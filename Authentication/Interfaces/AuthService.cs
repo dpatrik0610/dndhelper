@@ -1,6 +1,5 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
-using dndhelper.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -65,6 +64,9 @@ namespace dndhelper.Services.Auth
                 Username = username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password)
             };
+            var exists = await _userRepository.CheckUserExists(username);
+            if (exists) throw new Exception("User Already exists by that username.");
+
             await _userRepository.CreateAsync(user);
         }
 
@@ -73,6 +75,14 @@ namespace dndhelper.Services.Auth
             var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             _logger.Information($"Retrieved user ID: [{userId ?? "null"}] ");
             return userId;
+        }
+
+        public async Task<User> GetUserFromTokenAsync()
+        {
+            var userName = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            User user = await _userRepository.GetByUsernameAsync(userName!);
+            if (user == null) throw new Exception("Could not find User.");
+            return user;
         }
     }
 }

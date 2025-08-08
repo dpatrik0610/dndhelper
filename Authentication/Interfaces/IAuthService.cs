@@ -7,5 +7,6 @@ namespace dndhelper.Authentication.Interfaces
         Task<string> AuthenticateAsync(string username, string password);
         Task RegisterAsync(string username, string password);
         string GetUserIdFromToken();
+        Task<User> GetUserFromTokenAsync();
     }
 }
