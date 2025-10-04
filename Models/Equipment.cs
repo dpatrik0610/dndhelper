@@ -2,10 +2,10 @@
 using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
 using System.Collections.Generic;
-
+using System;
 namespace dndhelper.Models
 {
-    public class Equipment
+    public class Equipment : IEntity
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
@@ -23,6 +23,8 @@ namespace dndhelper.Models
         [JsonProperty("weight")]
         public double? Weight { get; set; }
         public bool IsCustom { get; set; }
+        public DateTime? CreatedAt { get;set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 
     public class Cost

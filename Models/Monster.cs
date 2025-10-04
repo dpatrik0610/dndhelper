@@ -10,7 +10,7 @@ using System.Collections.Generic;
 namespace dndhelper.Models
 {
     [BsonIgnoreExtraElements]
-    public class Monster
+    public class Monster : IEntity
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
@@ -69,6 +69,9 @@ namespace dndhelper.Models
                 }
             }
         }
+
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         #endregion
 
 

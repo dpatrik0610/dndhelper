@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Faction
+    public class Faction : IEntity
     {
         public string? Id { get; set; }
         public string? Name { get; set; }
@@ -14,6 +15,7 @@ namespace dndhelper.Models
         public string? HeadquartersLocation { get; set; }
         public List<string>? Goals { get; set; }
         public List<string>? Resources { get; set; }
-
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }
