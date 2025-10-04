@@ -1,5 +1,5 @@
 ﻿using dndhelper.Authentication.Interfaces;
-using dndhelper.Services;
+using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;

@@ -1,7 +1,7 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
-using dndhelper.Models;
-using dndhelper.Services.Interfaces;
+using dndhelper.Models.CharacterModels;
+using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
