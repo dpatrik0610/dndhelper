@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Repositories.Interfaces
 {
-    public interface IInventoryRepository
+    public interface IInventoryRepository : IRepository<Inventory>
     {
         // Inventory CRUD
         Task<IEnumerable<Inventory>> GetByCharacterIdAsync(string characterId);

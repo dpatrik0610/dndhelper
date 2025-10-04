@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Repositories.Interfaces
 {
-    public interface ICharacterRepository
+    public interface ICharacterRepository : IRepository<Character>
     {
         Task<IEnumerable<Character>> GetByOwnerIdAsync(string ownerId);
     }

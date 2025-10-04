@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Repositories.Interfaces
 {
-    public interface IUserRepository
+    public interface IUserRepository : IRepository<User>
     {
         Task<User> GetByUsernameAsync(string username);
         Task<bool> CheckUserExists(string username);

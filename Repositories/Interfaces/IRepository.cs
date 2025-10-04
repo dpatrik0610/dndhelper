@@ -7,6 +7,7 @@ namespace dndhelper.Repositories.Interfaces
     public interface IRepository<T> where T : IEntity
     {
         Task<T?> GetByIdAsync(string id);
+        Task<List<T>> GetByIdsAsync(IEnumerable<string> ids);
         Task<IEnumerable<T>> GetAllAsync();
         Task<T> CreateAsync(T entity);
         Task<List<T>> CreateManyAsync(List<T> entities);

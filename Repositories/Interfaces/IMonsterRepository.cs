@@ -1,11 +1,11 @@
+using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using dndhelper.Authentication;
-using dndhelper.Models;
 
 namespace dndhelper.Repositories.Interfaces
 {
-    public interface IMonsterRepository
+    public interface IMonsterRepository : IRepository<Monster>
     {
         Task<List<Monster>> FindByNamePhraseAsync(string namePhrase);
         Task<List<Monster>> GetPagedAsync(int page, int pageSize);

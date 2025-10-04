@@ -206,6 +206,20 @@ namespace dndhelper.Repositories
             }
         }
 
+        public async Task<List<T>> GetByIdsAsync(IEnumerable<string> ids)
+        {
+            var results = new List<T>();
+            foreach (var id in ids)
+            {
+                var entity = await GetByIdAsync(id);
+                if (entity != null)
+                {
+                    results.Add(entity);
+                }
+            }
+            return results;
+        }
+
         public async Task<T?> UpdateAsync(T entity)
         {
             try
