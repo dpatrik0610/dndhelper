@@ -8,6 +8,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
@@ -40,13 +41,26 @@ namespace dndhelper.Authentication
             ValidateCredentials(username, password);
 
             var user = await _userService.GetByUsernameAsync(username);
-            if (!IsValidUser(user, password))
+
+            if (user == null)
             {
+                _logger.Warning($"User not found with username: {username}");
                 CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(username));
+            }
+
+            if (!IsValidUser(user, password)) CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(username));
+
+            if (user!.IsActive != UserStatus.Active)
+            {
+                _logger.Warning($"User {username} is inactive.");
+                CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(user.IsActive));
             }
 
             var token = GenerateJwtToken(user);
             _logger.Information($"Token generated for user: {username}");
+
+            await _userService.RefreshLastLogin(username);
+
             return token;
         }
 
@@ -117,14 +131,24 @@ namespace dndhelper.Authentication
         private string GenerateJwtToken(User user)
         {
             var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not configured."));
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-                new Claim(ClaimTypes.Role, string.IsNullOrWhiteSpace(user.Role.ToString()) ? "Player" : user.Role.ToString()),
                 new Claim("IsActive", user.IsActive.ToString())
             };
+
+            // Add one role claim per role
+            if (user.Roles != null && user.Roles.Any())
+            {
+                claims.AddRange(user.Roles.Select(r => new Claim(ClaimTypes.Role, r.ToString())));
+            }
+            else
+            {
+                // Default to Player if no roles are assigned
+                claims.Add(new Claim(ClaimTypes.Role, UserRole.User.ToString()));
+            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -146,15 +170,8 @@ namespace dndhelper.Authentication
             {
                 Username = username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-                Email = string.Empty,
-                Role = UserRole.Player,
-                ProfilePictureUrl = null,
                 DateCreated = DateTime.UtcNow,
                 LastLogin = null,
-                CharacterIds = new List<string>(),
-                CampaignIds = new List<string>(),
-                IsActive = UserStatus.Active,
-                Settings = new Dictionary<string, string>()
             };
         }
     }

@@ -35,10 +35,31 @@ namespace dndhelper.Utils
             throw new ApplicationException($"Application error related to parameter '{paramName}'.");
         }
 
-        public static Exception ThrowNotFoundException(ILogger logger, string paramName)
+        public static NotFoundException ThrowNotFoundException(ILogger logger, string paramName)
         {
             logger.Error($"Resource not found for parameter '{paramName}'.");
-            throw new Exception($"Resource not found for parameter '{paramName}'.");
+            throw new NotFoundException($"Resource not found for parameter '{paramName}'.");
         }
+
+        public static Exception ThrowCustomException(ILogger logger, string message)
+        {
+            logger.Error(message);
+            return new Exception(message);
+        }
+    }
+
+    public class NotFoundException : Exception
+    {
+        public NotFoundException(string message) : base(message) { }
+    }
+
+    public class ApplicationException : Exception
+    {
+        public ApplicationException(string message) : base(message) { }
+    }
+
+    public class AlreadyExistsException : Exception
+    {
+        public AlreadyExistsException(string message) : base(message) { }
     }
 }

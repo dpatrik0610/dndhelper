@@ -1,18 +1,21 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace dndhelper.Authentication
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum UserRole
     {
-        Player = 0,
-        DungeonMaster = 1,
+        User = 0,
+        Guest = 1,
         Admin = 2,
-        Guest = 3
+        DungeonMaster = 3,
     }
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum UserStatus
     {
         Active = 0,
@@ -28,15 +31,15 @@ namespace dndhelper.Authentication
         public string Id { get; set; } = null!;
         public string Username { get; set; } = null!;
         public string PasswordHash { get; set; } = null!;
-        public string Email { get; set; } = null!;
+        public string? Email { get; set; } = string.Empty;
         [BsonRepresentation(BsonType.String)]
-        public UserRole Role { get; set; } = UserRole.Player;
-        public string? ProfilePictureUrl { get; set; }
+        public List<UserRole> Roles { get; set; } = new List<UserRole> { UserRole.User };
+        public string? ProfilePictureUrl { get; set; } = null;
         public DateTime DateCreated { get; set; } = DateTime.UtcNow;
         public DateTime? LastLogin { get; set; }
-        public List<string>? CharacterIds { get; set; }
-        public List<string>? CampaignIds { get; set; }
+        public List<string>? CharacterIds { get; set; } = new List<string>();
+        public List<string>? CampaignIds { get; set; } = new List<string>();
         public UserStatus IsActive { get; set; } = UserStatus.Active;
-        public Dictionary<string, string>? Settings { get; set; }
+        public Dictionary<string, string>? Settings { get; set; } = new Dictionary<string, string>();
     }
 }
