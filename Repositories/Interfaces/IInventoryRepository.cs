@@ -8,10 +8,6 @@ namespace dndhelper.Repositories.Interfaces
     {
         // Inventory CRUD
         Task<IEnumerable<Inventory>> GetByCharacterIdAsync(string characterId);
-        Task<Inventory?> GetByIdAsync(string id);
-        Task<Inventory> AddAsync(Inventory inventory);
-        Task<Inventory> UpdateAsync(Inventory inventory);
-        Task DeleteAsync(string id);
 
         // InventoryItem CRUD inside Inventory
         Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId);

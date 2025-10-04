@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using dndhelper.Models;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ namespace dndhelper.Authentication
         LogicDeleted = 3
     }
 
-    public class User
+    public class User : IEntity
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
@@ -41,5 +42,8 @@ namespace dndhelper.Authentication
         public List<string>? CampaignIds { get; set; } = new List<string>();
         public UserStatus IsActive { get; set; } = UserStatus.Active;
         public Dictionary<string, string>? Settings { get; set; } = new Dictionary<string, string>();
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsDeleted { get; set; } = false;
     }
 }

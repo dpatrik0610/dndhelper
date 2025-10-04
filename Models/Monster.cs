@@ -15,6 +15,7 @@ namespace dndhelper.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
+        public bool IsDeleted { get; set; } = false;
         [BsonElement("createdByUserId")] public string? CreatedByUserId { get; set; }
         [BsonElement("ownerId")] public List<string>? OwnerIds { get; set; } = new List<string>();
         [BsonElement("name")] public string? Name { get; set; }

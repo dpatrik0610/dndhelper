@@ -8,8 +8,18 @@ namespace dndhelper.Repositories.Interfaces
     {
         Task<T?> GetByIdAsync(string id);
         Task<IEnumerable<T>> GetAllAsync();
-        Task<T> AddAsync(T entity);
+        Task<T> CreateAsync(T entity);
+        Task<List<T>> CreateManyAsync(List<T> entities);
         Task<T?> UpdateAsync(T entity);
         Task<bool> DeleteAsync(string id);
+        Task<bool> LogicDeleteAsync(string id);
+        Task<bool> ExistsAsync(string id);
+        Task<long> CountAsync();
+
+        // Cache management
+        void AddToCache(T entity);
+        T? GetFromCache(string id);
+        void UpdateCache(T entity);
+        void RemoveFromCache(string id);
     }
 }

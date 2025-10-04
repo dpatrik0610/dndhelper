@@ -121,6 +121,7 @@ namespace dndhelper.Models.CharacterModels
         public List<string>? FactionIds { get; set; } = new List<string>();
         public List<string>? InventoryIds { get; set; } = new List<string>();
         public string EquipmentId { get; set; } = string.Empty;
+        public bool IsDeleted { get; set; } = false;
 
         #endregion
     }

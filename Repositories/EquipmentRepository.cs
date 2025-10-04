@@ -1,6 +1,7 @@
 ﻿using dndhelper.Database;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Driver;
 using Serilog;
 using System;
@@ -9,46 +10,14 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Repositories
 {
-    public class EquipmentRepository : IEquipmentRepository
+    public class EquipmentRepository : MongoRepository<Equipment>, IEquipmentRepository
     {
-        private readonly IMongoCollection<Equipment> _collection;
-        private readonly ILogger _logger;
-        public EquipmentRepository(MongoDbContext context, ILogger logger)
-        {
-            _collection = context.GetCollection<Equipment>("Equipment");
-            _logger = logger;
-        }
+        public EquipmentRepository(MongoDbContext context, ILogger logger, IMemoryCache cache) : base(logger, cache, context, "Equipment") { }
 
-        public async Task<IEnumerable<Equipment>> GetEquipmentAsync() =>
-            await _collection.Find(_ => true).ToListAsync();
-
-        public async Task<Equipment?> GetEquipmentByIdAsync(string id) =>
-            await _collection.Find(e => e.Index == id).FirstOrDefaultAsync();
-
-        public async Task<Equipment> AddEquipmentAsync(Equipment equipment)
-        {
-            await _collection.InsertOneAsync(equipment);
-            return equipment;
-        }
-
-        public async Task<bool> AddMultipleEquipmentAsync(IEnumerable<Equipment> equipments)
-        {
-            try
-            {
-                await _collection.InsertManyAsync(equipments);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error($"There was an error adding multiple equipments: {ex}");
-                return false;
-            }
-            return true;
-        }
-
-        public async Task<Equipment?> GetEquipmentByIndexAsync(string index) =>
+        public async Task<Equipment?> GetByIndexAsync(string index) =>
             await _collection.Find(e => e.Index == index).FirstOrDefaultAsync();
 
-        public async Task<Equipment> UpdateEquipmentAsync(Equipment equipment)
+        public new async Task<Equipment> UpdateAsync(Equipment equipment)
         {
             var filter = Builders<Equipment>.Filter.Eq(e => e.Index, equipment.Index);
             var result = await _collection.ReplaceOneAsync(filter, equipment);
@@ -59,7 +28,7 @@ namespace dndhelper.Repositories
             throw new KeyNotFoundException($"Equipment with index '{equipment.Index}' not found.");
         }
 
-        public async Task DeleteEquipmentAsync(string index)
+        public async Task DeleteByIndex(string index)
         {
             var result = await _collection.DeleteOneAsync(e => e.Index == index);
             if (!result.IsAcknowledged || result.DeletedCount == 0)

@@ -1,6 +1,7 @@
 ﻿using dndhelper.Database;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog;
@@ -11,29 +12,9 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Repositories
 {
-    public class InventoryRepository : IInventoryRepository
+    public class InventoryRepository : MongoRepository<Inventory>, IInventoryRepository
     {
-        private const string InventoryCollectionName = "Inventories";
-        private readonly IMongoCollection<Inventory> _collection;
-        private readonly ILogger _logger;
-
-        public InventoryRepository(MongoDbContext context, ILogger logger)
-        {
-            try
-            {
-                _collection = context.GetCollection<Inventory>(InventoryCollectionName) 
-                    ?? throw new ArgumentNullException(nameof(context), $"Failed to load Inventory collection from context: {context}");
-                _logger = logger 
-                    ?? throw new ArgumentNullException(nameof(logger), $"Logger cannot be null for context: {context}");
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, $"Failed to initialize InventoryRepository: {ex.Message}");
-                throw new ApplicationException($"Failed to initialize InventoryRepository: {ex.Message} | Exception: {ex}");
-            }
-        }
-
-        // Inventory CRUD
+        public InventoryRepository(MongoDbContext context, ILogger logger, IMemoryCache cache) : base(logger, cache, context, "Inventories") { }
 
         public async Task<IEnumerable<Inventory>> GetByCharacterIdAsync(string characterId)
         {
@@ -48,79 +29,6 @@ namespace dndhelper.Repositories
             {
                 _logger.Error(ex, $"Error in GetByCharacterIdAsync for CharacterId: {characterId}");
                 throw new ApplicationException($"Failed to get inventories by character ID: {characterId} | Exception: {ex.Message}", ex);
-            }
-        }
-
-        public async Task<Inventory?> GetByIdAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{id}'", nameof(id));
-
-            try
-            {
-                return await _collection.Find(i => i.Id == id).FirstOrDefaultAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in GetByIdAsync for Id: {id}");
-                throw new ApplicationException($"Failed to get inventory by ID: {id} | Exception: {ex.Message}", ex);
-            }
-        }
-
-        public async Task<Inventory> AddAsync(Inventory inventory)
-        {
-            if (inventory == null)
-                throw new ArgumentNullException(nameof(inventory), $"Inventory object is null.");
-
-            try
-            {
-                await _collection.InsertOneAsync(inventory);
-                return inventory;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in AddAsync for Inventory: {inventory}");
-                throw new ApplicationException($"Failed to add inventory: {inventory} | Exception: {ex.Message}", ex);
-            }
-        }
-
-        public async Task<Inventory?> UpdateAsync(Inventory inventory)
-        {
-            if (inventory == null)
-                throw new ArgumentNullException(nameof(inventory), $"Inventory object is null.");
-            if (string.IsNullOrWhiteSpace(inventory.Id))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventory.Id}'", nameof(inventory.Id));
-
-            try
-            {
-                var filter = Builders<Inventory>.Filter.Eq(x => x.Id, inventory.Id);
-                var result = await _collection.ReplaceOneAsync(filter, inventory);
-
-                if (result.MatchedCount == 0)
-                    return null;
-
-                return inventory;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in UpdateAsync for Inventory: {inventory}");
-                throw new ApplicationException($"Failed to update inventory: {inventory} | Exception: {ex.Message}", ex);
-            }
-        }
-
-        public async Task DeleteAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{id}'", nameof(id));
-
-            try
-            {
-                await _collection.DeleteOneAsync(i => i.Id == id);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in DeleteAsync for Id: {id}");
-                throw new ApplicationException($"Failed to delete inventory with ID: {id} | Exception: {ex.Message}", ex);
             }
         }
 
