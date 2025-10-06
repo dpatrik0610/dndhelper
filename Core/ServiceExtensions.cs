@@ -4,8 +4,7 @@ using dndhelper.Database;
 using dndhelper.Repositories;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services;
-using dndhelper.Services.Character;
-using dndhelper.Services.Character.Interfaces;
+using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -61,7 +60,7 @@ namespace dndhelper.Core
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = config["Jwt:Issuer"],
                     ValidAudience = config["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!))
                 };
             });
 

@@ -8,16 +8,10 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Services
 {
-    public class InventoryService : IInventoryService
+    public class InventoryService : BaseService<Inventory, IInventoryRepository>, IInventoryService
     {
-        private readonly IInventoryRepository _repository;
-        private readonly ILogger _logger;
+        public InventoryService(IInventoryRepository repo, ILogger logger) : base(repo, logger) { }
 
-        public InventoryService(IInventoryRepository repo, ILogger logger)
-        {
-            _repository = repo ?? throw new ArgumentNullException(nameof(repo));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
 
         // Helper for argument validation
         private void ValidateId(string id, string paramName)
@@ -27,8 +21,7 @@ namespace dndhelper.Services
         }
 
         // Inventories
-
-        public async Task<IEnumerable<Inventory>> GetInventoriesByCharacterAsync(string characterId)
+        public async Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId)
         {
             ValidateId(characterId, nameof(characterId));
             _logger.Information($"Fetching inventories for character {characterId}");
@@ -46,85 +39,6 @@ namespace dndhelper.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, $"Error fetching inventories for character {characterId}");
-                throw;
-            }
-        }
-
-        public async Task<Inventory?> GetInventoryByIdAsync(string id)
-        {
-            ValidateId(id, nameof(id));
-            _logger.Information($"Fetching inventory with ID {id}");
-
-            try
-            {
-                var inventory = await _repository.GetByIdAsync(id);
-                if (inventory == null)
-                    _logger.Warning($"Inventory not found with ID {id}");
-                return inventory;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error fetching inventory with ID {id}");
-                throw;
-            }
-        }
-
-        public async Task<Inventory> CreateInventoryAsync(Inventory inventory)
-        {
-            if (inventory == null) throw new ArgumentNullException(nameof(inventory));
-            _logger.Information($"Creating inventory for character {inventory.CharacterId}");
-
-            try
-            {
-                return await _repository.AddAsync(inventory);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error creating inventory for character {inventory.CharacterId}");
-                throw;
-            }
-        }
-
-        public async Task<Inventory?> UpdateInventoryAsync(Inventory inventory)
-        {
-            if (inventory == null) throw new ArgumentNullException(nameof(inventory));
-            _logger.Information($"Updating inventory with ID {inventory.Id}");
-
-            try
-            {
-                var updated = await _repository.UpdateAsync(inventory);
-                if (updated == null)
-                {
-                    _logger.Warning($"Inventory with ID {inventory.Id} not found");
-                    return null;
-                }
-                _logger.Information($"Inventory with ID {inventory.Id} updated successfully");
-                return updated;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error updating inventory with ID {inventory.Id}");
-                throw;
-            }
-        }
-
-        public async Task DeleteInventoryAsync(string id)
-        {
-            ValidateId(id, nameof(id));
-            _logger.Information($"Deleting inventory with ID {id}");
-
-            try
-            {
-                await _repository.DeleteAsync(id);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.Warning(ex, $"Delete failed. Inventory not found: {id}");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error deleting inventory with ID {id}");
                 throw;
             }
         }
@@ -153,22 +67,22 @@ namespace dndhelper.Services
             }
         }
 
-        public async Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentIndex)
+        public async Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId)
         {
             ValidateId(inventoryId, nameof(inventoryId));
-            ValidateId(equipmentIndex, nameof(equipmentIndex));
-            _logger.Information($"Fetching item {equipmentIndex} in inventory {inventoryId}");
+            ValidateId(equipmentId, nameof(equipmentId));
+            _logger.Information($"Fetching item {equipmentId} in inventory {inventoryId}");
 
             try
             {
-                var item = await _repository.GetItemAsync(inventoryId, equipmentIndex);
+                var item = await _repository.GetItemAsync(inventoryId, equipmentId);
                 if (item == null)
-                    _logger.Warning($"Item {equipmentIndex} not found in inventory {inventoryId}");
+                    _logger.Warning($"Item {equipmentId} not found in inventory {inventoryId}");
                 return item;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error fetching item {equipmentIndex} in inventory {inventoryId}");
+                _logger.Error(ex, $"Error fetching item {equipmentId} in inventory {inventoryId}");
                 throw;
             }
         }
@@ -178,19 +92,19 @@ namespace dndhelper.Services
             ValidateId(inventoryId, nameof(inventoryId));
             if (item == null) throw new ArgumentNullException(nameof(item));
 
-            _logger.Information($"Adding item {item.EquipmentIndex} to inventory {inventoryId}");
+            _logger.Information($"Adding item {item.EquipmentId} to inventory {inventoryId}");
             try
             {
                 var addedItem = await _repository.AddItemAsync(inventoryId, item);
                 if (addedItem == null)
                 {
-                    _logger.Warning($"Failed to add item {item.EquipmentIndex} to inventory {inventoryId}");
+                    _logger.Warning($"Failed to add item {item.EquipmentId} to inventory {inventoryId}");
                     throw new KeyNotFoundException($"Inventory {inventoryId} not found or item not added.");
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error adding item {item.EquipmentIndex} to inventory {inventoryId}");
+                _logger.Error(ex, $"Error adding item {item.EquipmentId} to inventory {inventoryId}");
                 throw;
             }
         }
@@ -199,7 +113,7 @@ namespace dndhelper.Services
         {
             ValidateId(inventoryId, nameof(inventoryId));
             if (item == null) throw new ArgumentNullException(nameof(item));
-            _logger.Information($"Updating item {item.EquipmentIndex} in inventory {inventoryId}");
+            _logger.Information($"Updating item {item.EquipmentId} in inventory {inventoryId}");
 
             try
             {
@@ -207,29 +121,29 @@ namespace dndhelper.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error updating item {item.EquipmentIndex} in inventory {inventoryId}");
+                _logger.Error(ex, $"Error updating item {item.EquipmentId} in inventory {inventoryId}");
                 throw;
             }
         }
 
-        public async Task DeleteItemAsync(string inventoryId, string equipmentIndex)
+        public async Task DeleteItemAsync(string inventoryId, string equipmentId)
         {
             ValidateId(inventoryId, nameof(inventoryId));
-            ValidateId(equipmentIndex, nameof(equipmentIndex));
-            _logger.Information($"Deleting item {equipmentIndex} from inventory {inventoryId}");
+            ValidateId(equipmentId, nameof(equipmentId));
+            _logger.Information($"Deleting item {equipmentId} from inventory {inventoryId}");
 
             try
             {
-                await _repository.DeleteItemAsync(inventoryId, equipmentIndex);
+                await _repository.DeleteItemAsync(inventoryId, equipmentId);
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.Warning(ex, $"Delete failed. Item {equipmentIndex} not found in inventory {inventoryId}");
+                _logger.Warning(ex, $"Delete failed. Item {equipmentId} not found in inventory {inventoryId}");
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error deleting item {equipmentIndex} from inventory {inventoryId}");
+                _logger.Error(ex, $"Error deleting item {equipmentId} from inventory {inventoryId}");
                 throw;
             }
         }

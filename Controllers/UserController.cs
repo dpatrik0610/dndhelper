@@ -12,7 +12,7 @@ namespace dndhelper.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // All endpoints require authentication by default
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;

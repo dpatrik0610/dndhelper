@@ -1,33 +1,23 @@
 ﻿using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
-using System;
-using System.Collections.Generic;
+using Serilog;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services
 {
-    public class EquipmentService : IEquipmentService
+    public class EquipmentService : BaseService<Equipment, IEquipmentRepository>, IEquipmentService
     {
-        private readonly IEquipmentRepository _repo;
         private readonly IPublicDndApiClient _apiClient;  // Wrapper for Official DnD API calls.
 
-        public EquipmentService(IEquipmentRepository repo, IPublicDndApiClient apiClient)
+        public EquipmentService(IEquipmentRepository repository, IPublicDndApiClient apiClient, ILogger logger): base(repository, logger)
         {
-            _repo = repo;
             _apiClient = apiClient;
-        }
-
-        public async Task<IEnumerable<Equipment>> GetAllEquipmentAsync()
-        {
-            var equipments = await _repo.GetEquipmentAsync() ?? new List<Equipment>();
-
-            return equipments;
         }
 
         public async Task<Equipment?> GetEquipmentByIndexAsync(string index)
         {
-            var local = await _repo.GetEquipmentByIndexAsync(index);
+            var local = await _repository.GetByIndexAsync(index);
             if (local != null) return local;
 
             //var official = await _apiClient.GetEquipmentByIndexAsync(index);
@@ -36,36 +26,17 @@ namespace dndhelper.Services
             return null;
         }
 
-        public async Task<Equipment> CreateEquipmentAsync(Equipment equipment)
+        public new async Task DeleteAsync(string index)
         {
-            equipment.IsCustom = true;
-            if (await CheckIfIndexExists(equipment.Index)) 
-                throw new Exception("Index already Exists.");
-
-            return await _repo.AddEquipmentAsync(equipment);
-        }
-
-        public async Task<Equipment> UpdateEquipmentAsync(Equipment equipment)
-        {
-            equipment.IsCustom = true;
-            return await _repo.UpdateEquipmentAsync(equipment);
-        }
-
-        public async Task DeleteEquipmentAsync(string index)
-        {
-            await _repo.DeleteEquipmentAsync(index);
+            await _repository.DeleteByIndex(index);
         }
 
         public async Task<bool> CheckIfIndexExists(string index)
         {
-            // Check local DB first
-            var localExists = await _repo.GetEquipmentByIndexAsync(index) != null;
+            var localExists = await _repository.GetByIndexAsync(index) != null;
             if (localExists) return true;
 
             return false;
-            //// If not local, check public API
-            //var official = await _apiClient.GetEquipmentByIndexAsync(index);
-            //return official != null;
         }
     }
 }

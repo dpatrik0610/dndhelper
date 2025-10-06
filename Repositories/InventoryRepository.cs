@@ -51,22 +51,22 @@ namespace dndhelper.Repositories
             }
         }
 
-        public async Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentIndex)
+        public async Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId)
         {
             if (string.IsNullOrWhiteSpace(inventoryId))
                 throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
-            if (string.IsNullOrWhiteSpace(equipmentIndex))
-                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{equipmentIndex}'", nameof(equipmentIndex));
+            if (string.IsNullOrWhiteSpace(equipmentId))
+                throw new ArgumentException($"EquipmentId must not be empty. Provided value: '{equipmentId}'", nameof(equipmentId));
 
             try
             {
                 var inventory = await _collection.Find(i => i.Id == inventoryId).FirstOrDefaultAsync();
-                return inventory?.Items?.FirstOrDefault(item => item.EquipmentIndex == equipmentIndex);
+                return inventory?.Items?.FirstOrDefault(item => item.EquipmentId == equipmentId);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in GetItemAsync for InventoryId: {inventoryId}, EquipmentIndex: {equipmentIndex}");
-                throw new ApplicationException($"Failed to get inventory item for InventoryId: {inventoryId}, EquipmentIndex: {equipmentIndex} | Exception: {ex.Message}", ex);
+                _logger.Error(ex, $"Error in GetItemAsync for InventoryId: {inventoryId}, EquipmentId: {equipmentId}");
+                throw new ApplicationException($"Failed to get inventory item for InventoryId: {inventoryId}, EquipmentId: {equipmentId} | Exception: {ex.Message}", ex);
             }
         }
 
@@ -90,7 +90,7 @@ namespace dndhelper.Repositories
                     return null;
 
                 var inventory = await _collection.Find(filter).FirstOrDefaultAsync();
-                return inventory?.Items?.Find(i => i.EquipmentIndex == item.EquipmentIndex);
+                return inventory?.Items?.Find(i => i.EquipmentId == item.EquipmentId);
             }
             catch (Exception ex)
             {
@@ -105,19 +105,18 @@ namespace dndhelper.Repositories
                 throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
             if (item == null)
                 throw new ArgumentNullException(nameof(item), $"InventoryItem object is null.");
-            if (string.IsNullOrWhiteSpace(item.EquipmentIndex))
-                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{item.EquipmentIndex}'", nameof(item.EquipmentIndex));
+            if (string.IsNullOrWhiteSpace(item.EquipmentId))
+                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{item.EquipmentId}'", nameof(item.EquipmentId));
 
             try
             {
                 var filter = Builders<Inventory>.Filter.And(
                     Builders<Inventory>.Filter.Eq(i => i.Id, inventoryId),
-                    Builders<Inventory>.Filter.ElemMatch(i => i.Items, x => x.EquipmentIndex == item.EquipmentIndex)
+                    Builders<Inventory>.Filter.ElemMatch(i => i.Items, x => x.EquipmentId == item.EquipmentId)
                 );
 
                 var update = Builders<Inventory>.Update
-                    .Set("Items.$.Quantity", item.Quantity)
-                    .Set("Items.$.Note", item.Note);
+                    .Set("Items.$.Quantity", item.Quantity);
 
                 await _collection.UpdateOneAsync(filter, update);
             }
@@ -128,22 +127,22 @@ namespace dndhelper.Repositories
             }
         }
 
-        public async Task DeleteItemAsync(string inventoryId, string equipmentIndex)
+        public async Task DeleteItemAsync(string inventoryId, string equipmentId)
         {
             if (string.IsNullOrWhiteSpace(inventoryId))
                 throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
-            if (string.IsNullOrWhiteSpace(equipmentIndex))
-                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{equipmentIndex}'", nameof(equipmentIndex));
+            if (string.IsNullOrWhiteSpace(equipmentId))
+                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{equipmentId}'", nameof(equipmentId));
 
             try
             {
-                var update = Builders<Inventory>.Update.PullFilter(i => i.Items, x => x.EquipmentIndex == equipmentIndex);
+                var update = Builders<Inventory>.Update.PullFilter(i => i.Items, x => x.EquipmentId == equipmentId);
                 await _collection.UpdateOneAsync(i => i.Id == inventoryId, update);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in DeleteItemAsync for InventoryId: {inventoryId}, EquipmentIndex: {equipmentIndex}");
-                throw new ApplicationException($"Failed to delete inventory item for InventoryId: {inventoryId}, EquipmentIndex: {equipmentIndex} | Exception: {ex.Message}", ex);
+                _logger.Error(ex, $"Error in DeleteItemAsync for InventoryId: {inventoryId}, EquipmentId: {equipmentId}");
+                throw new ApplicationException($"Failed to delete inventory item for InventoryId: {inventoryId}, EquipmentId: {equipmentId} | Exception: {ex.Message}", ex);
             }
         }
     }

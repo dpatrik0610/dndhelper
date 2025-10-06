@@ -29,7 +29,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var inventories = await _service.GetInventoriesByCharacterAsync(characterId);
+                var inventories = await _service.GetByCharacterAsync(characterId);
                 return Ok(inventories);
             }
             catch (Exception ex)
@@ -43,7 +43,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var inventory = await _service.GetInventoryByIdAsync(id);
+                var inventory = await _service.GetByIdAsync(id);
                 if (inventory == null) return NotFound();
                 return Ok(inventory);
             }
@@ -58,8 +58,8 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var created = await _service.CreateInventoryAsync(inventory);
-                return CreatedAtAction(nameof(GetInventory), new { id = created.Id }, created);
+                var created = await _service.CreateAsync(inventory);
+                return CreatedAtAction(nameof(GetInventory), new { id = created!.Id }, created);
             }
             catch (Exception ex)
             {
@@ -75,7 +75,7 @@ namespace dndhelper.Controllers
 
             try
             {
-                var updated = await _service.UpdateInventoryAsync(inventory);
+                var updated = await _service.UpdateAsync(inventory);
                 return Ok(updated);
             }
             catch (Exception ex)
@@ -89,7 +89,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                await _service.DeleteInventoryAsync(id);
+                await _service.DeleteAsync(id);
                 return NoContent();
             }
             catch (Exception ex)
@@ -145,10 +145,10 @@ namespace dndhelper.Controllers
             }
         }
 
-        [HttpPut("{inventoryId}/items/{equipmentIndex}")]
+        [HttpPut("{inventoryId}/items/{equipmentId}")]
         public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentIndex, InventoryItem item)
         {
-            if (equipmentIndex != item.EquipmentIndex)
+            if (equipmentIndex != item.EquipmentId)
                 return BadRequest("Equipment index mismatch.");
 
             try

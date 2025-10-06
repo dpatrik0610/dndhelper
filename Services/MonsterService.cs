@@ -8,32 +8,10 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Services
 {
-    public class MonsterService : IMonsterService
+    public class MonsterService : BaseService<Monster, IMonsterRepository>, IMonsterService
     {
-        private readonly IMonsterRepository _repository;
-        private readonly ILogger _logger;
-
-        public MonsterService(IMonsterRepository repository, ILogger logger)
+        public MonsterService(IMonsterRepository repository, ILogger logger) : base(repository, logger)
         {
-            _repository = repository;
-            _logger = logger;
-        }
-
-        public async Task<Monster> CreateMonsterAsync(Monster monster)
-        {
-            if (monster == null || string.IsNullOrWhiteSpace(monster.Name))
-                throw new ArgumentException("Monster data is invalid.");
-
-            _logger.Information($"Creating monster: {monster.Name}");
-            await _repository.CreateAsync(monster);
-            return monster;
-        }
-
-        public Task<Monster?> GetMonsterByIdAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Monster ID cannot be null or empty.");
-            return _repository.GetByIdAsync(id);
         }
 
         public Task<List<Monster>> GetMonstersByNameAsync(string name)
@@ -42,11 +20,6 @@ namespace dndhelper.Services
                 throw new ArgumentException("Monster name cannot be null or empty.");
 
             return _repository.FindByNamePhraseAsync(name);
-        }
-
-        public Task<List<Monster>> GetAllMonstersAsync()
-        {
-            return _repository.GetAllAsync();
         }
 
         public Task<List<Monster>> GetPagedMonstersAsync(int page, int pageSize)
@@ -63,40 +36,6 @@ namespace dndhelper.Services
             if (page <= 0 || pageSize <= 0)
                 throw new ArgumentException("Page and page size must be greater than zero.");
             return _repository.SearchAsync(query, page, pageSize);
-        }
-
-        public Task<bool> MonsterExistsAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Monster ID cannot be null or empty.");
-            return _repository.ExistsAsync(id);
-        }
-
-        public async Task<Monster> UpdateMonsterAsync(Monster monster)
-        {
-            if (monster == null || string.IsNullOrWhiteSpace(monster.Id))
-                throw new ArgumentException("Monster data is invalid.");
-
-            _logger.Information($"Updating monster: {monster.Id}");
-            await _repository.UpdateAsync(monster);
-            return monster;
-        }
-
-        public async Task DeleteMonsterAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Monster ID cannot be null or empty.");
-
-            _logger.Warning($"Deleting monster: {id}");
-            await _repository.DeleteAsync(id);
-        }
-
-        public Task<bool> LogicDeleteMonsterAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException("Monster ID cannot be null or empty.");
-            _logger.Warning($"Soft deleting monster: {id}");
-            return _repository.LogicDeleteAsync(id);
         }
 
         public async Task<bool> DeleteOwnMonsterAsync(string monsterId, string userId)

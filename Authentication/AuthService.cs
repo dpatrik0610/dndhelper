@@ -71,7 +71,7 @@ namespace dndhelper.Authentication
         {
             ValidateCredentials(username, password);
 
-            if (await _userService.CheckUserExists(username))
+            if (await _userService.CheckExistsByUsername(username))
             {
                 _logger.Warning($"User already exists with username: {username}");
                 CustomExceptions.ThrowInvalidOperationException(_logger, nameof(username));
@@ -109,7 +109,7 @@ namespace dndhelper.Authentication
                 _logger.Warning($"Could not find user with ID: {userId}");
                 CustomExceptions.ThrowNotFoundException(_logger, nameof(userId));
             }
-            _logger.Information($"User retrieved from token: {user.Username}");
+            _logger.Information($"User retrieved from token: {user!.Username}");
             return user;
         }
 

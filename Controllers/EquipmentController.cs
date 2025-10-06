@@ -25,7 +25,21 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var equipment = await _service.GetAllEquipmentAsync();
+                var equipment = await _service.GetAllAsync();
+                return Ok(equipment);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+        [HttpGet("id")]
+        public async Task<ActionResult<Equipment>> GetById(string id)
+        {
+            try
+            {
+                var equipment = await _service.GetByIdAsync(id);
+                if (equipment == null) return NotFound("Item not found by that ID.");
                 return Ok(equipment);
             }
             catch (Exception ex)
@@ -40,7 +54,7 @@ namespace dndhelper.Controllers
             try
             {
                 var equipment = await _service.GetEquipmentByIndexAsync(index);
-                if (equipment == null) return NotFound();
+                if (equipment == null) return NotFound("Item not found by that Index.");
                 return Ok(equipment);
             }
             catch (Exception ex)
@@ -54,8 +68,8 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var created = await _service.CreateEquipmentAsync(equipment);
-                return CreatedAtAction(nameof(GetByIndex), new { index = created.Index }, created);
+                var created = await _service.CreateAsync(equipment);
+                return CreatedAtAction(nameof(GetByIndex), new { index = created!.Index }, created);
             }
             catch (Exception ex)
             {
@@ -71,7 +85,7 @@ namespace dndhelper.Controllers
                 if (index != equipment.Index)
                     return BadRequest("Index mismatch.");
 
-                var updated = await _service.UpdateEquipmentAsync(equipment);
+                var updated = await _service.UpdateAsync(equipment);
                 return Ok(updated);
             }
             catch (Exception ex)
@@ -85,7 +99,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                await _service.DeleteEquipmentAsync(index);
+                await _service.DeleteAsync(index);
                 return NoContent();
             }
             catch (Exception ex)

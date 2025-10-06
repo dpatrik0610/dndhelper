@@ -4,28 +4,19 @@ using dndhelper.Authentication;
 
 namespace dndhelper.Services.Interfaces
 {
-    public interface IUserService
+    public interface IUserService : IBaseService<User>
     {
-        // Create
-        Task<User> CreateAsync(User user);
 
         // Read
         Task<User> GetSelfAsync(string userId);
         Task<User?> GetByUsernameAsync(string username);
-        Task<User?> GetByIdAsync(string id);
-        Task<List<User>> GetAllAsync();
-        Task<bool> CheckUserExists(string username);
+        Task<bool> CheckExistsByUsername(string username);
 
         // Update
-        Task<User> UpdateAsync(User user);
-        Task<User> UpdateEmailAsync(string username, string newEmail);
-        Task<User> UpdateStatusAsync(string username, UserStatus newStatus);
-        Task<User> UpdateCharacterIds(User user, List<string> characterIds);
-        Task<User> UpdateCampaignIds(User user, List<string> campaignIds);
-        Task<User> RefreshLastLogin(string username);
-
-        // Delete
-        Task<bool> DeleteAsync(string id);
-        Task<bool> LogicDeleteAsync(string id);
+        Task<User?> UpdateEmailAsync(string username, string newEmail);
+        Task<User?> UpdateStatusAsync(string username, UserStatus newStatus);
+        Task<User?> UpdateCharacterIds(User user, List<string> characterIds);
+        Task<User?> UpdateCampaignIds(User user, List<string> campaignIds);
+        Task<User?> RefreshLastLogin(string username);
     }
 }

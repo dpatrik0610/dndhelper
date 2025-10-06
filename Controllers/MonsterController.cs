@@ -32,7 +32,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var monster = await _monsterService.GetMonsterByIdAsync(id);
+                var monster = await _monsterService.GetByIdAsync(id);
                 if (monster == null) return NotFound();
                 return Ok(monster);
             }
@@ -64,7 +64,7 @@ namespace dndhelper.Controllers
         [Authorize(Roles = "User,Admin")]
         public async Task<IActionResult> GetAll()
         {
-            var monsters = await _monsterService.GetAllMonstersAsync();
+            var monsters = await _monsterService.GetAllAsync();
             return Ok(monsters);
         }
 
@@ -105,7 +105,7 @@ namespace dndhelper.Controllers
                     MinCR = minCR,
                     MaxCR = maxCR,
                     Tags = tags,
-                    SortBy = sortBy,
+                    SortBy = sortBy!,
                     SortDescending = desc,
                     Page = page,
                     PageSize = pageSize
@@ -137,8 +137,8 @@ namespace dndhelper.Controllers
                 monster.CreatedByUserId = userId;
                 monster.OwnerIds!.Add(userId);
 
-                var created = await _monsterService.CreateMonsterAsync(monster);
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+                var created = await _monsterService.CreateAsync(monster);
+                return CreatedAtAction(nameof(GetById), new { id = created!.Id }, created);
             }
             catch (ArgumentException ex)
             {
@@ -156,7 +156,7 @@ namespace dndhelper.Controllers
 
             try
             {
-                var updated = await _monsterService.UpdateMonsterAsync(monster);
+                var updated = await _monsterService.UpdateAsync(monster);
                 return Ok(updated);
             }
             catch (ArgumentException ex)
@@ -171,7 +171,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                await _monsterService.DeleteMonsterAsync(id);
+                await _monsterService.DeleteAsync(id);
                 return NoContent();
             }
             catch (ArgumentException ex)
@@ -186,7 +186,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var result = await _monsterService.LogicDeleteMonsterAsync(id);
+                var result = await _monsterService.LogicDeleteAsync(id);
                 if (!result) return NotFound();
                 return NoContent();
             }
