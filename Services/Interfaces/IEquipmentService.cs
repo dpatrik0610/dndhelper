@@ -7,6 +7,7 @@ namespace dndhelper.Services.Interfaces
 {
     public interface IEquipmentService : IBaseService<Equipment>
     {
+        Task DeleteByIndexAsync(string index);
         Task<Equipment?> GetEquipmentByIndexAsync(string index);
         Task<bool> CheckIfIndexExists(string index);
     }

@@ -26,7 +26,7 @@ namespace dndhelper.Services
             return null;
         }
 
-        public new async Task DeleteAsync(string index)
+        public async Task DeleteByIndexAsync(string index)
         {
             await _repository.DeleteByIndex(index);
         }

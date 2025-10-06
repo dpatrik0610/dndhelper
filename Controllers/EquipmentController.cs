@@ -33,7 +33,7 @@ namespace dndhelper.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
-        [HttpGet("id")]
+        [HttpGet("{id}")]
         public async Task<ActionResult<Equipment>> GetById(string id)
         {
             try
@@ -48,7 +48,7 @@ namespace dndhelper.Controllers
             }
         }
 
-        [HttpGet("{index}")]
+        [HttpGet("/index/{index}")]
         public async Task<ActionResult<Equipment>> GetByIndex(string index)
         {
             try
@@ -77,13 +77,13 @@ namespace dndhelper.Controllers
             }
         }
 
-        [HttpPut("{index}")]
-        public async Task<ActionResult<Equipment>> Update(string index, Equipment equipment)
+        [HttpPut("{id}")]
+        public async Task<ActionResult<Equipment>> Update(string id, Equipment equipment)
         {
             try
             {
-                if (index != equipment.Index)
-                    return BadRequest("Index mismatch.");
+                if (id != equipment.Id)
+                    return BadRequest("Id mismatch.");
 
                 var updated = await _service.UpdateAsync(equipment);
                 return Ok(updated);
@@ -94,12 +94,30 @@ namespace dndhelper.Controllers
             }
         }
 
-        [HttpDelete("{index}")]
-        public async Task<IActionResult> Delete(string index)
+        [HttpPut("/index/{index}")]
+        public async Task<ActionResult<Equipment>> UpdateByIndex(string index, Equipment equipment)
         {
             try
             {
-                await _service.DeleteAsync(index);
+                if (index != equipment.Index)
+                    return BadRequest("Id mismatch.");
+
+                var updated = await _service.UpdateAsync(equipment);
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            try
+            {
+                await _service.DeleteAsync(id);
                 return NoContent();
             }
             catch (Exception ex)
