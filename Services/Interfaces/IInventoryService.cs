@@ -1,5 +1,4 @@
-﻿using dndhelper.Authentication;
-using dndhelper.Models;
+﻿using dndhelper.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -12,9 +11,12 @@ namespace dndhelper.Services.Interfaces
 
         // Inventory Items
         Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId);
-        Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentIndex);
-        Task AddItemAsync(string inventoryId, InventoryItem item);
+        Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId);
+        Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, InventoryItem item);
+        Task<InventoryItem> AddNewItemAsync(string inventoryId, Equipment equipment);
         Task UpdateItemAsync(string inventoryId, InventoryItem item);
-        Task DeleteItemAsync(string inventoryId, string equipmentIndex);
+        Task DeleteItemAsync(string inventoryId, string equipmentId);
+        Task<bool> ItemExistsInInventoryAsync(string inventoryId, string equipmentId);
+        Task DecrementItemQuantityAsync(string inventoryId, string equipmentId, int decrementBy = 1);
     }
 }

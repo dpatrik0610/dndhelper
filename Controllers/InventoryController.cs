@@ -1,5 +1,6 @@
 ﻿using dndhelper.Models;
 using dndhelper.Services.Interfaces;
+using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -13,11 +14,11 @@ namespace dndhelper.Controllers
     [Authorize]
     public class InventoryController : ControllerBase
     {
-        private readonly IInventoryService _service;
+        private readonly IInventoryService _inventoryService;
 
-        public InventoryController(IInventoryService service)
+        public InventoryController(IInventoryService inventoryService)
         {
-            _service = service;
+            _inventoryService = inventoryService;
         }
 
         // -------------------
@@ -29,7 +30,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var inventories = await _service.GetByCharacterAsync(characterId);
+                var inventories = await _inventoryService.GetByCharacterAsync(characterId);
                 return Ok(inventories);
             }
             catch (Exception ex)
@@ -43,7 +44,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var inventory = await _service.GetByIdAsync(id);
+                var inventory = await _inventoryService.GetByIdAsync(id);
                 if (inventory == null) return NotFound();
                 return Ok(inventory);
             }
@@ -58,7 +59,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var created = await _service.CreateAsync(inventory);
+                var created = await _inventoryService.CreateAsync(inventory);
                 return CreatedAtAction(nameof(GetInventory), new { id = created!.Id }, created);
             }
             catch (Exception ex)
@@ -75,7 +76,7 @@ namespace dndhelper.Controllers
 
             try
             {
-                var updated = await _service.UpdateAsync(inventory);
+                var updated = await _inventoryService.UpdateAsync(inventory);
                 return Ok(updated);
             }
             catch (Exception ex)
@@ -89,7 +90,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                await _service.DeleteAsync(id);
+                await _inventoryService.DeleteAsync(id);
                 return NoContent();
             }
             catch (Exception ex)
@@ -107,7 +108,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var items = await _service.GetItemsAsync(inventoryId);
+                var items = await _inventoryService.GetItemsAsync(inventoryId);
                 return Ok(items);
             }
             catch (Exception ex)
@@ -121,7 +122,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                var item = await _service.GetItemAsync(inventoryId, equipmentIndex);
+                var item = await _inventoryService.GetItemAsync(inventoryId, equipmentIndex);
                 if (item == null) return NotFound();
                 return Ok(item);
             }
@@ -131,13 +132,27 @@ namespace dndhelper.Controllers
             }
         }
 
-        [HttpPost("{inventoryId}/items")]
+        [HttpPost("{inventoryId}/additem")]
         public async Task<IActionResult> AddItem(string inventoryId, InventoryItem item)
         {
             try
             {
-                await _service.AddItemAsync(inventoryId, item);
-                return NoContent();
+                var response = await _inventoryService.AddOrIncrementItemAsync(inventoryId, item);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpPost("{inventoryId}/additem/new")]
+        public async Task<IActionResult> AddNewItem(string inventoryId, Equipment equipment)
+        {
+            try
+            {
+                var item = await _inventoryService.AddNewItemAsync(inventoryId, equipment);
+                return Ok(item);
             }
             catch (Exception ex)
             {
@@ -153,7 +168,7 @@ namespace dndhelper.Controllers
 
             try
             {
-                await _service.UpdateItemAsync(inventoryId, item);
+                await _inventoryService.UpdateItemAsync(inventoryId, item);
                 return NoContent();
             }
             catch (Exception ex)
@@ -167,7 +182,7 @@ namespace dndhelper.Controllers
         {
             try
             {
-                await _service.DeleteItemAsync(inventoryId, equipmentIndex);
+                await _inventoryService.DeleteItemAsync(inventoryId, equipmentIndex);
                 return NoContent();
             }
             catch (Exception ex)
@@ -175,5 +190,35 @@ namespace dndhelper.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+        // PATCH: api/inventory/{inventoryId}/items/{equipmentId}/decrement?amount=1
+        [HttpPatch("{inventoryId}/items/{equipmentId}/decrement")]
+        public async Task<IActionResult> DecrementItemQuantity(string inventoryId, string equipmentId, [FromQuery] int amount = 1)
+        {
+            if (string.IsNullOrWhiteSpace(inventoryId) || string.IsNullOrWhiteSpace(equipmentId))
+                return BadRequest("Invalid inventory or equipment ID.");
+
+            if (amount <= 0)
+                return BadRequest("Decrement amount must be greater than zero.");
+
+            try
+            {
+                await _inventoryService.DecrementItemQuantityAsync(inventoryId, equipmentId, amount);
+                return Ok(new { message = $"Item {equipmentId} decremented by {amount} in inventory {inventoryId}." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An unexpected error occurred." });
+            }
+        }
+
     }
 }

@@ -1,16 +1,22 @@
 ﻿using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Utils;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services
 {
     public class InventoryService : BaseService<Inventory, IInventoryRepository>, IInventoryService
     {
-        public InventoryService(IInventoryRepository repo, ILogger logger) : base(repo, logger) { }
+        private readonly IEquipmentRepository _equipmentRepo;
+        public InventoryService(IInventoryRepository repo, ILogger logger, IEquipmentRepository equipmentRepo) : base(repo, logger) 
+        {
+            _equipmentRepo = equipmentRepo;
+        }
 
 
         // Helper for argument validation
@@ -87,20 +93,33 @@ namespace dndhelper.Services
             }
         }
 
-        public async Task AddItemAsync(string inventoryId, InventoryItem item)
+        public async Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, InventoryItem item)
         {
             ValidateId(inventoryId, nameof(inventoryId));
             if (item == null) throw new ArgumentNullException(nameof(item));
 
+            if (!await _equipmentRepo.ExistsAsync(item.EquipmentId))
+                throw new KeyNotFoundException("Equipment not found globally. Use 'Add New Item' instead.");
+
+            var inventory = await _repository.GetByIdAsync(inventoryId)
+                ?? throw new InvalidOperationException($"Inventory {inventoryId} does not exist.");
+
             _logger.Information($"Adding item {item.EquipmentId} to inventory {inventoryId}");
+
             try
             {
-                var addedItem = await _repository.AddItemAsync(inventoryId, item);
-                if (addedItem == null)
+                var existing = inventory.Items?.Find(x => x.EquipmentId == item.EquipmentId);
+                if (existing != null)
                 {
-                    _logger.Warning($"Failed to add item {item.EquipmentId} to inventory {inventoryId}");
-                    throw new KeyNotFoundException($"Inventory {inventoryId} not found or item not added.");
+                    existing.Quantity += item.Quantity;
+                    await _repository.UpdateItemAsync(inventoryId, existing);
+                    return existing;
                 }
+
+                var addedItem = await _repository.AddItemAsync(inventoryId, item)
+                    ?? throw new KeyNotFoundException($"Item {item.EquipmentId} could not be added to inventory {inventoryId}.");
+
+                return addedItem;
             }
             catch (Exception ex)
             {
@@ -108,6 +127,7 @@ namespace dndhelper.Services
                 throw;
             }
         }
+
 
         public async Task UpdateItemAsync(string inventoryId, InventoryItem item)
         {
@@ -146,6 +166,72 @@ namespace dndhelper.Services
                 _logger.Error(ex, $"Error deleting item {equipmentId} from inventory {inventoryId}");
                 throw;
             }
+        }
+
+        public async Task<InventoryItem?> AddNewItemAsync(string inventoryId, Equipment equipment)
+        {
+            if (equipment == null) throw new ArgumentNullException(nameof(equipment));
+            if (inventoryId == null) throw new ArgumentNullException(nameof(inventoryId));
+
+            var newItem = await _equipmentRepo.CreateAsync(equipment);
+            _logger.Information("Creating new item from " + newItem.Id);
+
+            InventoryItem inventoryItem = new InventoryItem { EquipmentId = equipment.Id, EquipmentName = equipment.Name, Quantity = 1 };
+            return await _repository.AddItemAsync(inventoryId, inventoryItem);
+        }
+
+        public async Task DecrementItemQuantityAsync(string inventoryId, string equipmentId, int decrementBy = 1)
+        {
+            ValidateId(inventoryId, nameof(inventoryId));
+            ValidateId(equipmentId, nameof(equipmentId));
+
+            if (decrementBy <= 0)
+                throw new ArgumentOutOfRangeException(nameof(decrementBy), "Decrement value must be greater than zero.");
+
+            _logger.Information($"Decrementing item {equipmentId} by {decrementBy} in inventory {inventoryId}");
+
+            try
+            {
+                var inventory = await _repository.GetByIdAsync(inventoryId)
+                                ?? throw new KeyNotFoundException($"Inventory {inventoryId} not found.");
+
+                var existing = inventory.Items?.Find(x => x.EquipmentId == equipmentId);
+                if (existing == null)
+                    throw new KeyNotFoundException($"Item {equipmentId} not found in inventory {inventoryId}.");
+
+                if (existing.Quantity > decrementBy)
+                {
+                    existing.Quantity -= decrementBy;
+                    await _repository.UpdateItemAsync(inventoryId, existing);
+                    _logger.Information($"Decremented quantity of {equipmentId} to {existing.Quantity} in inventory {inventoryId}");
+                }
+                else
+                {
+                    await _repository.DeleteItemAsync(inventoryId, equipmentId);
+                    _logger.Information($"Removed item {equipmentId} from inventory {inventoryId} after reaching 0 or below");
+                }
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.Warning(ex, $"Decrement failed. Item {equipmentId} not found in inventory {inventoryId}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error decrementing item {equipmentId} in inventory {inventoryId}");
+                throw;
+            }
+        }
+
+
+        public async Task<bool> ItemExistsInInventoryAsync(string inventoryId, string equipmentId)
+        {
+            var inventory = await _repository.GetByIdAsync(inventoryId);
+            if (inventory is null) return false;
+            if (!EnumerableExtensions.IsNullOrEmpty(inventory.Items)) return false;
+
+            return inventory.Items!.Any(x => x.EquipmentId == equipmentId);
+            
         }
     }
 }
