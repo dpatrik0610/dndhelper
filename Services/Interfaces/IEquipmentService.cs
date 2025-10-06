@@ -10,5 +10,6 @@ namespace dndhelper.Services.Interfaces
         Task DeleteByIndexAsync(string index);
         Task<Equipment?> GetEquipmentByIndexAsync(string index);
         Task<bool> CheckIfIndexExists(string index);
+        Task<List<Equipment>> SearchByName(string name);
     }
 }

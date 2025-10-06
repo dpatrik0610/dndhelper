@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace dndhelper.Repositories.Interfaces

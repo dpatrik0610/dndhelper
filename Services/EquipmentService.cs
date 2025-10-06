@@ -1,7 +1,11 @@
 ﻿using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Utils;
 using Serilog;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services
@@ -24,6 +28,43 @@ namespace dndhelper.Services
             //if (official == null) return official;
 
             return null;
+        }
+        public async Task<List<Equipment>> SearchByName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Search term cannot be empty.", nameof(name));
+
+            _logger.Information($"Searching equipments by name: {name}");
+
+            try
+            {
+                // 1️⃣ Get all non-deleted equipments from repository
+                var allItems = await _repository.GetAllAsync(); // assume this exists
+                if (EnumerableExtensions.IsNullOrEmpty(allItems))
+                {
+                    _logger.Information("No equipment found in the database.");
+                    return new List<Equipment>();
+                }
+
+                // 2️⃣ Filter in-memory by name (case-insensitive)
+                var lowerName = name.Trim().ToLowerInvariant();
+                var filtered = allItems
+                    .Where(e => !e.IsDeleted && e.Name.ToLowerInvariant().Contains(lowerName))
+                    .ToList();
+
+                if (!filtered.Any())
+                {
+                    _logger.Information($"No equipments matched the search term '{name}'.");
+                    return new List<Equipment>();
+                }
+
+                return filtered;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error while searching equipments by name: {name}");
+                throw;
+            }
         }
 
         public async Task DeleteByIndexAsync(string index)

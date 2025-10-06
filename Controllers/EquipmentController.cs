@@ -63,6 +63,13 @@ namespace dndhelper.Controllers
             }
         }
 
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchEquipments([FromQuery] string name)
+        {
+            var result = await _service.SearchByName(name);
+            return Ok(result);
+        }
+
         [HttpPost]
         public async Task<ActionResult<Equipment>> Create(Equipment equipment)
         {
