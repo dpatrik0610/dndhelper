@@ -2,11 +2,11 @@
 {
     public class SavingThrows
     {
-        public bool Strength { get; set; } = false;
-        public bool Dexterity { get; set; } = false;
-        public bool Constitution { get; set; } = false;
-        public bool Intelligence { get; set; } = false;
-        public bool Wisdom { get; set; } = false;
-        public bool Charisma { get; set; } = false;
+        public int Strength { get; set; } = 0;
+        public int Dexterity { get; set; } = 0;
+        public int Constitution { get; set; } = 0;
+        public int Intelligence { get; set; } = 0;
+        public int Wisdom { get; set; } = 0;
+        public int Charisma { get; set; } = 0;
     }
 }
