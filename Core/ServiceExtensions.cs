@@ -70,7 +70,7 @@ namespace dndhelper.Core
             services.AddScoped<IEquipmentRepository, EquipmentRepository>();
             services.AddScoped<IInventoryRepository, InventoryRepository>();
             services.AddScoped<IMonsterRepository, MonsterRepository>();
-            //services.AddScoped<ICampaignRepository, CampaignRepository>();
+            services.AddScoped<ICampaignRepository, CampaignRepository>();
 
             // Services
             services.AddScoped<IUserService, UserService>();
@@ -79,6 +79,7 @@ namespace dndhelper.Core
             services.AddScoped<IEquipmentService, EquipmentService>();
             services.AddScoped<IInventoryService, InventoryService>();
             services.AddScoped<IMonsterService, MonsterService>();
+            services.AddScoped<ICampaignService, CampaignService>();
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
             services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>

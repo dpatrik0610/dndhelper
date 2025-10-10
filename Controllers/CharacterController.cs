@@ -41,6 +41,8 @@ public class CharacterController : ControllerBase
     public async Task<IActionResult> Create(Character character)
     {
         var created = await _characterService.CreateAsync(character);
+        if (string.IsNullOrEmpty(created?.Id)) return StatusCode(500, "Server side error at character creation.");
+       
         return CreatedAtAction(nameof(GetById), "Character", new { id = created.Id }, created);
     }
 

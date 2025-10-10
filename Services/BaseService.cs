@@ -4,6 +4,7 @@ using dndhelper.Services.Interfaces;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 namespace dndhelper.Services
 {
@@ -26,6 +27,7 @@ namespace dndhelper.Services
         public virtual async Task<T?> CreateAsync(T entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
+            entity.CreatedAt = DateTime.UtcNow;
             _logger.Debug("Creating entity of type {EntityType}", typeof(T).Name);
             return await _repository.CreateAsync(entity);
         }
@@ -33,6 +35,7 @@ namespace dndhelper.Services
         public virtual async Task<List<T>> CreateManyAsync(List<T> entities)
         {
             if (entities == null) throw new ArgumentNullException(nameof(entities));
+            entities.ForEach(x => x.CreatedAt = DateTime.UtcNow);
             _logger.Debug("Creating {Count} entities of type {EntityType}", entities.Count, typeof(T).Name);
             return await _repository.CreateManyAsync(entities);
         }
@@ -73,6 +76,7 @@ namespace dndhelper.Services
         public virtual async Task<T?> UpdateAsync(T entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
+            entity.UpdatedAt = DateTime.UtcNow;
             return await _repository.UpdateAsync(entity);
         }
 

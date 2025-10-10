@@ -1,12 +1,13 @@
 ﻿using dndhelper.Database;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Driver;
+using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using Serilog;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace dndhelper.Repositories
 {
@@ -222,27 +223,73 @@ namespace dndhelper.Repositories
 
         public async Task<T?> UpdateAsync(T entity)
         {
+            if (entity.Id == null)
+            {
+                _logger.Warning("Attempted to update an entity without an ID in collection {Collection}", typeof(T).Name);
+                return null;
+            }
+
             try
             {
-                entity.UpdatedAt = DateTime.UtcNow;
-                var result = await _collection.ReplaceOneAsync(e => e.Id == entity.Id, entity);
+                var existing = await _collection.Find(e => e.Id == entity.Id && !e.IsDeleted).FirstOrDefaultAsync();
+                if (existing == null)
+                {
+                    _logger.Warning("No entity found with ID {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
+                    return null;
+                }
+
+                // Get all writable properties
+                var properties = typeof(T).GetProperties();
+                var updates = new List<UpdateDefinition<T>>();
+
+                foreach (var prop in properties)
+                {
+                    // Skip nulls and immutable fields
+                    if (prop.Name is nameof(IEntity.Id) or "CreatedAt" or "IsDeleted")
+                        continue;
+
+                    var newValue = prop.GetValue(entity);
+                    var oldValue = prop.GetValue(existing);
+
+                    // Only update changed values (handles both value and reference types)
+                    if (newValue != null && !Equals(newValue, oldValue))
+                    {
+                        updates.Add(Builders<T>.Update.Set(prop.Name, newValue));
+                    }
+                }
+
+                // Always refresh UpdatedAt
+                updates.Add(Builders<T>.Update.Set(nameof(IEntity.UpdatedAt), DateTime.UtcNow));
+
+                if (!updates.Any())
+                {
+                    _logger.Debug("No changes detected for entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
+                    return existing;
+                }
+
+                var combinedUpdate = Builders<T>.Update.Combine(updates);
+                var result = await _collection.UpdateOneAsync(e => e.Id == entity.Id, combinedUpdate);
 
                 if (result.ModifiedCount > 0)
                 {
-                    UpdateCache(entity);
-                    _logger.Information("Updated entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
-                    return entity;
+                    var updated = await GetByIdAsync(entity.Id);
+                    if (updated != null)
+                        UpdateCache(updated);
+
+                    _logger.Information("Partially updated entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
+                    return updated;
                 }
 
                 _logger.Warning("No entity updated for {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
-                return null;
+                return existing;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Failed to update entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
+                _logger.Error(ex, "Failed to partially update entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
                 return null;
             }
         }
+
 
         public async Task<long> CountAsync()
         {

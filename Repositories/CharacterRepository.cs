@@ -1,11 +1,12 @@
 ﻿using dndhelper.Database;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Driver;
+using Serilog;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Serilog;
-using Microsoft.Extensions.Caching.Memory;
+
 namespace dndhelper.Repositories
 {
     public class CharacterRepository : MongoRepository<Character>, ICharacterRepository
