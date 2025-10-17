@@ -2,6 +2,8 @@
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -14,7 +16,8 @@ namespace dndhelper.Services
     {
         private readonly IPublicDndApiClient _apiClient;  // Wrapper for Official DnD API calls.
 
-        public EquipmentService(IEquipmentRepository repository, IPublicDndApiClient apiClient, ILogger logger): base(repository, logger)
+        public EquipmentService(IEquipmentRepository repository, IPublicDndApiClient apiClient, ILogger logger, IAuthorizationService authorizationService,
+        IHttpContextAccessor httpContextAccessor) : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _apiClient = apiClient;
         }

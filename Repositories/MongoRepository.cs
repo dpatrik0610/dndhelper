@@ -272,7 +272,7 @@ namespace dndhelper.Repositories
 
                 if (result.ModifiedCount > 0)
                 {
-                    var updated = await GetByIdAsync(entity.Id);
+                    var updated = await _collection.Find(e => e.Id == entity.Id && !e.IsDeleted).FirstOrDefaultAsync();
                     if (updated != null)
                         UpdateCache(updated);
 

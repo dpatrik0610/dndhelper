@@ -1,5 +1,6 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
+using dndhelper.Authorization.Policies;
 using dndhelper.Database;
 using dndhelper.Repositories;
 using dndhelper.Repositories.Interfaces;
@@ -8,6 +9,7 @@ using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -63,6 +65,14 @@ namespace dndhelper.Core
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!))
                 };
             });
+
+            // Authorization
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("OwnershipPolicy", policy =>
+                    policy.Requirements.Add(new OwnershipRequirement()));
+            });
+            services.AddSingleton<IAuthorizationHandler, OwnershipHandler>();
 
             // Repos
             services.AddScoped<IUserRepository, UserRepository>();

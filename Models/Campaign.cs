@@ -1,11 +1,12 @@
-﻿using MongoDB.Bson;
+﻿using dndhelper.Authorization;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Campaign : IEntity
+    public class Campaign : IEntity, IOwnedResource
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
@@ -14,8 +15,8 @@ namespace dndhelper.Models
         // Ownership and participants
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public string DungeonMasterId { get; set; } = string.Empty;
         public List<string> PlayerIds { get; set; } = new();
+        public List<string>? OwnerIds { get; set; } = new List<string>();
 
         // Related entities
         public List<string> WorldIds { get; set; } = new();

@@ -12,7 +12,7 @@ namespace dndhelper.Services.Interfaces
         // Inventory Items
         Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId);
         Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId);
-        Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, InventoryItem item);
+        Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, string equipmentId, int incrementVal = 1);
         Task<InventoryItem> AddNewItemAsync(string inventoryId, Equipment equipment);
         Task UpdateItemAsync(string inventoryId, InventoryItem item);
         Task DeleteItemAsync(string inventoryId, string equipmentId);

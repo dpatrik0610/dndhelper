@@ -2,6 +2,8 @@
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -13,7 +15,8 @@ namespace dndhelper.Services
     public class InventoryService : BaseService<Inventory, IInventoryRepository>, IInventoryService
     {
         private readonly IEquipmentRepository _equipmentRepo;
-        public InventoryService(IInventoryRepository repo, ILogger logger, IEquipmentRepository equipmentRepo) : base(repo, logger) 
+        public InventoryService(IInventoryRepository repo, ILogger logger, IEquipmentRepository equipmentRepo, IAuthorizationService authorizationService,
+        IHttpContextAccessor httpContextAccessor) : base(repo, logger, authorizationService, httpContextAccessor) 
         {
             _equipmentRepo = equipmentRepo;
         }
@@ -93,41 +96,51 @@ namespace dndhelper.Services
             }
         }
 
-        public async Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, InventoryItem item)
+        public async Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, string equipmentId, int incrementVal = 1)
         {
             ValidateId(inventoryId, nameof(inventoryId));
-            if (item == null) throw new ArgumentNullException(nameof(item));
+            if (string.IsNullOrEmpty(equipmentId)) throw new ArgumentNullException(nameof(equipmentId));
 
-            if (!await _equipmentRepo.ExistsAsync(item.EquipmentId))
-                throw new KeyNotFoundException("Equipment not found globally. Use 'Add New Item' instead.");
+            var equipment = await _equipmentRepo.GetByIdAsync(equipmentId);
+            if (equipment is null)
+                throw new KeyNotFoundException("Equipment not found globally. Use 'Add New Item' option instead.");
 
             var inventory = await _repository.GetByIdAsync(inventoryId)
                 ?? throw new InvalidOperationException($"Inventory {inventoryId} does not exist.");
 
-            _logger.Information($"Adding item {item.EquipmentId} to inventory {inventoryId}");
+            _logger.Information($"Adding item {equipmentId} to inventory {inventoryId}");
 
             try
             {
-                var existing = inventory.Items?.Find(x => x.EquipmentId == item.EquipmentId);
+                // If inventory contains the item, increment quantity by amount.
+                var existing = inventory.Items?.Find(x => x.EquipmentId == equipmentId);
                 if (existing != null)
                 {
-                    existing.Quantity += item.Quantity;
+                    existing.Quantity += incrementVal;
                     await _repository.UpdateItemAsync(inventoryId, existing);
                     return existing;
                 }
 
-                var addedItem = await _repository.AddItemAsync(inventoryId, item)
-                    ?? throw new KeyNotFoundException($"Item {item.EquipmentId} could not be added to inventory {inventoryId}.");
+                // If inventory does not contain it yet:
+                var newInventoryItem = new InventoryItem()
+                {
+                    EquipmentId = equipment.Id,
+                    EquipmentName = equipment.Name,
+                    Quantity = incrementVal,
+                    Note = "",
+                };
+
+                var addedItem = await _repository.AddItemAsync(inventoryId, newInventoryItem!)
+                    ?? throw new KeyNotFoundException($"Unkown Error: Item {equipmentId} could not be added to inventory {inventoryId}.");
 
                 return addedItem;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error adding item {item.EquipmentId} to inventory {inventoryId}");
+                _logger.Error(ex, $"Error adding item {equipmentId} to inventory {inventoryId}");
                 throw;
             }
         }
-
 
         public async Task UpdateItemAsync(string inventoryId, InventoryItem item)
         {

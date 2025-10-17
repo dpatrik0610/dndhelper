@@ -1,3 +1,4 @@
+using dndhelper.Authorization;
 using dndhelper.Serialization;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -10,7 +11,7 @@ using System.Collections.Generic;
 namespace dndhelper.Models
 {
     [BsonIgnoreExtraElements]
-    public class Monster : IEntity
+    public class Monster : IEntity, IOwnedResource
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]

@@ -1,8 +1,9 @@
 ﻿using dndhelper.Models;
-using dndhelper.Repositories;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,9 @@ namespace dndhelper.Services
     public class CampaignService : BaseService<Campaign, ICampaignRepository>, ICampaignService
     {
         private readonly IUserRepository _userRepository;
-        public CampaignService(ICampaignRepository repository, ILogger logger, IUserRepository userRepository) : base(repository, logger)
+
+        public CampaignService(ICampaignRepository repository, ILogger logger, IUserRepository userRepository, IAuthorizationService authorizationService,
+        IHttpContextAccessor httpContextAccessor) : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _userRepository = userRepository;
         }
@@ -30,7 +33,10 @@ namespace dndhelper.Services
                 throw CustomExceptions.ThrowCustomException(_logger, $"User not found with ID: {userId}");
 
             campaign.CreatedAt = DateTime.UtcNow;
-            campaign.DungeonMasterId = userId;
+            if (campaign.OwnerIds.IsNullOrEmpty())
+                campaign.OwnerIds = new List<string>();
+
+            campaign.OwnerIds!.Add(userId);
 
             _logger.Debug("Creating entity of type {EntityType}", typeof(Campaign).Name);
 
@@ -62,7 +68,7 @@ namespace dndhelper.Services
             if (campaign == null)
                 throw CustomExceptions.ThrowCustomException(_logger, $"Campaign not found with ID: {campaignId}");
 
-            if (campaign.DungeonMasterId != userId)
+            if (!campaign.OwnerIds!.Contains(userId))
                 throw CustomExceptions.ThrowCustomException(_logger, "User is not authorized to delete this campaign.");
 
             // Logical delete

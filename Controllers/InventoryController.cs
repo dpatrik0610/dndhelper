@@ -1,6 +1,5 @@
 ﻿using dndhelper.Models;
 using dndhelper.Services.Interfaces;
-using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -132,12 +131,13 @@ namespace dndhelper.Controllers
             }
         }
 
+
         [HttpPost("{inventoryId}/additem")]
-        public async Task<IActionResult> AddItem(string inventoryId, InventoryItem item)
+        public async Task<IActionResult> AddItem(string inventoryId, [FromBody] ModifyItemAmountRequest request)
         {
             try
             {
-                var response = await _inventoryService.AddOrIncrementItemAsync(inventoryId, item);
+                var response = await _inventoryService.AddOrIncrementItemAsync(inventoryId, request.EquipmentId, request.Amount);
                 return Ok(response);
             }
             catch (Exception ex)
@@ -177,12 +177,12 @@ namespace dndhelper.Controllers
             }
         }
 
-        [HttpDelete("{inventoryId}/items/{equipmentIndex}")]
-        public async Task<IActionResult> DeleteItem(string inventoryId, string equipmentIndex)
+        [HttpDelete("{inventoryId}/items/{equipmentId}")]
+        public async Task<IActionResult> DeleteItem(string inventoryId, string equipmentId)
         {
             try
             {
-                await _inventoryService.DeleteItemAsync(inventoryId, equipmentIndex);
+                await _inventoryService.DeleteItemAsync(inventoryId, equipmentId);
                 return NoContent();
             }
             catch (Exception ex)
@@ -191,20 +191,22 @@ namespace dndhelper.Controllers
             }
         }
 
-        // PATCH: api/inventory/{inventoryId}/items/{equipmentId}/decrement?amount=1
-        [HttpPatch("{inventoryId}/items/{equipmentId}/decrement")]
-        public async Task<IActionResult> DecrementItemQuantity(string inventoryId, string equipmentId, [FromQuery] int amount = 1)
+
+
+        // PATCH: api/inventory/{inventoryId}/items/
+        [HttpPatch("{inventoryId}/items/")]
+        public async Task<IActionResult> DecrementItemQuantity(string inventoryId, [FromBody] ModifyItemAmountRequest request)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId) || string.IsNullOrWhiteSpace(equipmentId))
+            if (string.IsNullOrWhiteSpace(inventoryId) || string.IsNullOrWhiteSpace(request.EquipmentId))
                 return BadRequest("Invalid inventory or equipment ID.");
 
-            if (amount <= 0)
+            if (request.Amount <= 0)
                 return BadRequest("Decrement amount must be greater than zero.");
 
             try
             {
-                await _inventoryService.DecrementItemQuantityAsync(inventoryId, equipmentId, amount);
-                return Ok(new { message = $"Item {equipmentId} decremented by {amount} in inventory {inventoryId}." });
+                await _inventoryService.DecrementItemQuantityAsync(inventoryId, request.EquipmentId, request.Amount);
+                return Ok(new { message = $"Item {request.EquipmentId} decremented by {request.Amount} in inventory {inventoryId}." });
             }
             catch (KeyNotFoundException ex)
             {
@@ -219,6 +221,10 @@ namespace dndhelper.Controllers
                 return StatusCode(500, new { message = "An unexpected error occurred." });
             }
         }
-
+        public class ModifyItemAmountRequest
+        {
+            public string EquipmentId { get; set; } = null!;
+            public int Amount { get; set; } = 1;
+        }
     }
 }

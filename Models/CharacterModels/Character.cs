@@ -1,17 +1,19 @@
-﻿using MongoDB.Bson;
+﻿using dndhelper.Authorization;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
 
 namespace dndhelper.Models.CharacterModels
 {
-    public class Character : IEntity
+    public class Character : IEntity, IOwnedResource
     {
         #region METADATA
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
-        public string? OwnerId { get; set; }
+        [BsonRepresentation(BsonType.ObjectId)]
+        public List<string>? OwnerIds { get; set; } = new List<string>();
         public string? CampaignId { get; set; }
         public string? ImageUrl { get; set; } = string.Empty;
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
@@ -85,6 +87,18 @@ namespace dndhelper.Models.CharacterModels
         };
         public int? SpellSaveDc { get; set; } = 10;
         public int? SpellAttackBonus { get; set; } = 0;
+        public List<SpellSlot>? SpellSlots { get; set; } = new List<SpellSlot>()
+        {
+            new SpellSlot {Level = 1, Current = 0, Max = 0},
+            new SpellSlot {Level = 2, Current = 0, Max = 0},
+            new SpellSlot {Level = 3, Current = 0, Max = 0},
+            new SpellSlot {Level = 4, Current = 0, Max = 0},
+            new SpellSlot {Level = 5, Current = 0, Max = 0},
+            new SpellSlot {Level = 6, Current = 0, Max = 0},
+            new SpellSlot {Level = 7, Current = 0, Max = 0},
+            new SpellSlot {Level = 8, Current = 0, Max = 0},
+            new SpellSlot {Level = 9, Current = 0, Max = 0},
+        };
 
         public int? DeathSavesSuccesses { get; set; } = 0;
         public int? DeathSavesFailures { get; set; } = 0;

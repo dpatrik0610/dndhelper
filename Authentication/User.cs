@@ -38,6 +38,7 @@ namespace dndhelper.Authentication
         public string? ProfilePictureUrl { get; set; } = null;
         public DateTime DateCreated { get; set; } = DateTime.UtcNow;
         public DateTime? LastLogin { get; set; }
+        [BsonRepresentation(BsonType.ObjectId)]
         public List<string>? CharacterIds { get; set; } = new List<string>();
         public List<string>? CampaignIds { get; set; } = new List<string>();
         public UserStatus IsActive { get; set; } = UserStatus.Active;

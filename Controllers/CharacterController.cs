@@ -74,4 +74,29 @@ public class CharacterController : ControllerBase
         var characters = await _characterService.GetByIdsAsync(user.CharacterIds!);
         return Ok(characters);
     }
+
+
+    [HttpPost("{id}/spellslots/use/{level}")]
+    public async Task<IActionResult> UseSpellSlot(string id, int level)
+    {
+        var success = await _characterService.UseSpellSlotAsync(id, level);
+        if (!success) return BadRequest("Cannot use spell slot.");
+        return Ok();
+    }
+
+    [HttpPost("{id}/spellslots/recover/{level}")]
+    public async Task<IActionResult> RecoverSpellSlot(string id, int level, [FromQuery] int amount = 1)
+    {
+        var success = await _characterService.RecoverSpellSlotAsync(id, level, amount);
+        if (!success) return BadRequest("Cannot recover spell slot.");
+        return Ok();
+    }
+
+    [HttpPost("{id}/longrest")]
+    public async Task<IActionResult> LongRest(string id)
+    {
+        var success = await _characterService.LongRestAsync(id);
+        if (!success) return BadRequest("Cannot perform long rest.");
+        return Ok();
+    }
 }

@@ -1,6 +1,8 @@
 ﻿using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -10,7 +12,8 @@ namespace dndhelper.Services
 {
     public class MonsterService : BaseService<Monster, IMonsterRepository>, IMonsterService
     {
-        public MonsterService(IMonsterRepository repository, ILogger logger) : base(repository, logger)
+        public MonsterService(IMonsterRepository repository, ILogger logger, IAuthorizationService authorizationService,
+        IHttpContextAccessor httpContextAccessor) : base(repository, logger, authorizationService, httpContextAccessor)
         {
         }
 

@@ -2,6 +2,8 @@
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Serilog;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -10,7 +12,8 @@ namespace dndhelper.Services
 {
     public class UserService : BaseService<User, IUserRepository>, IUserService
     {
-        public UserService(IUserRepository repository, ILogger logger) : base(repository, logger)
+        public UserService(IUserRepository repository, ILogger logger, IAuthorizationService authorizationService,
+        IHttpContextAccessor httpContextAccessor) : base(repository, logger, authorizationService, httpContextAccessor)
         {
         }
 
