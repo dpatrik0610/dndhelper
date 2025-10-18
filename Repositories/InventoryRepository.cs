@@ -14,107 +14,109 @@ namespace dndhelper.Repositories
 {
     public class InventoryRepository : MongoRepository<Inventory>, IInventoryRepository
     {
-        public InventoryRepository(MongoDbContext context, ILogger logger, IMemoryCache cache) : base(logger, cache, context, "Inventories") { }
+        public InventoryRepository(MongoDbContext context, ILogger logger, IMemoryCache cache)
+            : base(logger, cache, context, "Inventories") { }
+
+        #region Helper Methods
+
+        private async Task<Inventory?> GetInventoryAsync(string inventoryId)
+        {
+            if (string.IsNullOrWhiteSpace(inventoryId))
+                throw new ArgumentException("Inventory ID cannot be null or empty", nameof(inventoryId));
+
+            // Use base cache helper
+            var cached = GetFromCache(inventoryId);
+            if (cached != null) return cached;
+
+            var inventory = await _collection.Find(i => i.Id == inventoryId).FirstOrDefaultAsync();
+            if (inventory != null)
+                AddToCache(inventory);
+
+            return inventory;
+        }
+
+        #endregion
+
+        #region Inventory CRUD
 
         public async Task<IEnumerable<Inventory>> GetByCharacterIdAsync(string characterId)
         {
             if (string.IsNullOrWhiteSpace(characterId))
-                throw new ArgumentException($"Character ID must not be empty. Provided value: '{characterId}'", nameof(characterId));
+                throw new ArgumentException("Character ID must not be empty", nameof(characterId));
 
             try
             {
-                return await _collection.Find(i => i.CharacterId == characterId).ToListAsync();
+                var inventories = await _collection.Find(i => i.CharacterId == characterId).ToListAsync();
+
+                // Cache all fetched inventories
+                foreach (var inv in inventories)
+                    AddToCache(inv);
+
+                return inventories;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in GetByCharacterIdAsync for CharacterId: {characterId}");
-                throw new ApplicationException($"Failed to get inventories by character ID: {characterId} | Exception: {ex.Message}", ex);
+                _logger.Error(ex, "Error in GetByCharacterIdAsync for CharacterId: {CharacterId}", characterId);
+                throw new ApplicationException($"Failed to get inventories by character ID: {characterId}", ex);
             }
         }
 
-        // InventoryItem CRUD
+        #endregion
+
+        #region InventoryItem CRUD
 
         public async Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
-
-            try
-            {
-                var inventory = await _collection.Find(i => i.Id == inventoryId).FirstOrDefaultAsync();
-                return inventory?.Items ?? Enumerable.Empty<InventoryItem>();
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in GetItemsAsync for InventoryId: {inventoryId}");
-                throw new ApplicationException($"Failed to get inventory items for InventoryId: {inventoryId} | Exception: {ex.Message}", ex);
-            }
+            var inventory = await GetInventoryAsync(inventoryId);
+            return inventory?.Items ?? Enumerable.Empty<InventoryItem>();
         }
 
         public async Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
             if (string.IsNullOrWhiteSpace(equipmentId))
-                throw new ArgumentException($"EquipmentId must not be empty. Provided value: '{equipmentId}'", nameof(equipmentId));
+                throw new ArgumentException("EquipmentId must not be empty", nameof(equipmentId));
 
-            try
-            {
-                var inventory = await _collection.Find(i => i.Id == inventoryId).FirstOrDefaultAsync();
-                return inventory?.Items?.FirstOrDefault(item => item.EquipmentId == equipmentId);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error in GetItemAsync for InventoryId: {inventoryId}, EquipmentId: {equipmentId}");
-                throw new ApplicationException($"Failed to get inventory item for InventoryId: {inventoryId}, EquipmentId: {equipmentId} | Exception: {ex.Message}", ex);
-            }
+            var inventory = await GetInventoryAsync(inventoryId);
+            return inventory?.Items?.FirstOrDefault(i => i.EquipmentId == equipmentId);
         }
 
         public async Task<InventoryItem?> AddItemAsync(string inventoryId, InventoryItem item)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
-            if (item == null)
-                throw new ArgumentNullException(nameof(item), $"InventoryItem object is null.");
+            if (item == null) throw new ArgumentNullException(nameof(item));
+
+            var inventory = await GetInventoryAsync(inventoryId);
+            if (inventory == null) return null;
 
             try
             {
-                if (!ObjectId.TryParse(inventoryId, out var objId))
-                    return null;
-
+                var objId = ObjectId.Parse(inventoryId);
                 var filter = Builders<Inventory>.Filter.Eq("_id", objId);
                 var update = Builders<Inventory>.Update.Push(i => i.Items, item);
 
                 var result = await _collection.UpdateOneAsync(filter, update);
-                if (result.ModifiedCount == 0)
-                    return null;
+                if (result.ModifiedCount == 0) return null;
 
-                // Update cache
-                if (_cache.TryGetValue(inventoryId, out Inventory? cachedInventory))
-                {
-                    cachedInventory.Items ??= new List<InventoryItem>();
-                    cachedInventory.Items.Add(item);
-                    _cache.Set(inventoryId, cachedInventory);
-                }
+                // Update cache via base class
+                inventory.Items ??= new List<InventoryItem>();
+                inventory.Items.Add(item);
+                UpdateCache(inventory);
 
-                var inventory = await _collection.Find(filter).FirstOrDefaultAsync();
-                return inventory?.Items?.Find(i => i.EquipmentId == item.EquipmentId);
+                return inventory.Items.FirstOrDefault(i => i.EquipmentId == item.EquipmentId);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in AddItemAsync for InventoryId: {inventoryId}, Item: {item}");
-                throw new ApplicationException($"Failed to add inventory item for InventoryId: {inventoryId}, Item: {item} | Exception: {ex.Message}", ex);
+                _logger.Error(ex, "Error in AddItemAsync for InventoryId: {InventoryId}, Item: {Item}", inventoryId, item);
+                throw new ApplicationException($"Failed to add inventory item for InventoryId: {inventoryId}", ex);
             }
         }
 
         public async Task UpdateItemAsync(string inventoryId, InventoryItem item)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
-            if (item == null)
-                throw new ArgumentNullException(nameof(item), $"InventoryItem object is null.");
-            if (string.IsNullOrWhiteSpace(item.EquipmentId))
-                throw new ArgumentException($"EquipmentId must not be empty. Provided value: '{item.EquipmentId}'", nameof(item.EquipmentId));
+            if (item == null || string.IsNullOrWhiteSpace(item.EquipmentId))
+                throw new ArgumentException("Item and EquipmentId must not be null");
+
+            var inventory = await GetInventoryAsync(inventoryId);
+            if (inventory == null) return;
 
             try
             {
@@ -122,52 +124,46 @@ namespace dndhelper.Repositories
                     Builders<Inventory>.Filter.Eq(i => i.Id, inventoryId),
                     Builders<Inventory>.Filter.ElemMatch(i => i.Items, x => x.EquipmentId == item.EquipmentId)
                 );
-
                 var update = Builders<Inventory>.Update.Set("Items.$.Quantity", item.Quantity);
 
                 await _collection.UpdateOneAsync(filter, update);
 
-                // Update cache
-                if (_cache.TryGetValue(inventoryId, out Inventory? cachedInventory))
-                {
-                    var existing = cachedInventory.Items?.FirstOrDefault(i => i.EquipmentId == item.EquipmentId);
-                    if (existing != null)
-                        existing.Quantity = item.Quantity;
-
-                    _cache.Set(inventoryId, cachedInventory);
-                }
+                // Update cache via base class
+                var existing = inventory.Items?.FirstOrDefault(i => i.EquipmentId == item.EquipmentId);
+                if (existing != null) existing.Quantity = item.Quantity;
+                UpdateCache(inventory);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in UpdateItemAsync for InventoryId: {inventoryId}, Item: {item}");
-                throw new ApplicationException($"Failed to update inventory item for InventoryId: {inventoryId}, Item: {item} | Exception: {ex.Message}", ex);
+                _logger.Error(ex, "Error in UpdateItemAsync for InventoryId: {InventoryId}, Item: {Item}", inventoryId, item);
+                throw new ApplicationException($"Failed to update inventory item for InventoryId: {inventoryId}", ex);
             }
         }
 
         public async Task DeleteItemAsync(string inventoryId, string equipmentId)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
             if (string.IsNullOrWhiteSpace(equipmentId))
-                throw new ArgumentException($"EquipmentId must not be empty. Provided value: '{equipmentId}'", nameof(equipmentId));
+                throw new ArgumentException("EquipmentId must not be empty", nameof(equipmentId));
+
+            var inventory = await GetInventoryAsync(inventoryId);
+            if (inventory == null) return;
 
             try
             {
                 var update = Builders<Inventory>.Update.PullFilter(i => i.Items, x => x.EquipmentId == equipmentId);
                 await _collection.UpdateOneAsync(i => i.Id == inventoryId, update);
 
-                // Update cache
-                if (_cache.TryGetValue(inventoryId, out Inventory? cachedInventory))
-                {
-                    cachedInventory.Items = cachedInventory.Items?.Where(i => i.EquipmentId != equipmentId).ToList();
-                    _cache.Set(inventoryId, cachedInventory);
-                }
+                // Update cache via base class
+                inventory.Items = inventory.Items?.Where(i => i.EquipmentId != equipmentId).ToList();
+                UpdateCache(inventory);
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error in DeleteItemAsync for InventoryId: {inventoryId}, EquipmentId: {equipmentId}");
-                throw new ApplicationException($"Failed to delete inventory item for InventoryId: {inventoryId}, EquipmentId: {equipmentId} | Exception: {ex.Message}", ex);
+                _logger.Error(ex, "Error in DeleteItemAsync for InventoryId: {InventoryId}, EquipmentId: {EquipmentId}", inventoryId, equipmentId);
+                throw new ApplicationException($"Failed to delete inventory item for InventoryId: {inventoryId}", ex);
             }
         }
+
+        #endregion
     }
 }

@@ -40,14 +40,28 @@ namespace dndhelper.Repositories
             if (_cache == null || entity.Id == null) return;
             var key = GetCacheKey(entity.Id);
             _cache.Set(key, entity, _cacheOptions);
-            _logger.Debug("Added {EntityId} to cache for {Collection}", entity.Id, typeof(T).Name);
+
+            _logger.Information("🟢 [CACHE ADD] {Collection} | ID: {EntityId} | Items: {Count}",
+                typeof(T).Name,
+                entity.Id,
+                GetItemCount(entity));
         }
 
         public T? GetFromCache(string id)
         {
             if (_cache == null) return null;
             var key = GetCacheKey(id);
-            return _cache.TryGetValue(key, out T cachedEntity) ? cachedEntity : null;
+            if (_cache.TryGetValue(key, out T cachedEntity))
+            {
+                _logger.Information("🟡 [CACHE HIT] {Collection} | ID: {EntityId} | Items: {Count}",
+                    typeof(T).Name,
+                    id,
+                    GetItemCount(cachedEntity));
+                return cachedEntity;
+            }
+
+            _logger.Information("⚪ [CACHE MISS] {Collection} | ID: {EntityId}", typeof(T).Name, id);
+            return null;
         }
 
         public void UpdateCache(T entity)
@@ -55,7 +69,11 @@ namespace dndhelper.Repositories
             if (_cache == null || entity.Id == null) return;
             var key = GetCacheKey(entity.Id);
             _cache.Set(key, entity, _cacheOptions);
-            _logger.Debug("Updated cache for entity {EntityId} in {Collection}", entity.Id, typeof(T).Name);
+
+            _logger.Information("🔵 [CACHE UPDATE] {Collection} | ID: {EntityId} | Items: {Count}",
+                typeof(T).Name,
+                entity.Id,
+                GetItemCount(entity));
         }
 
         public void RemoveFromCache(string id)
@@ -63,7 +81,21 @@ namespace dndhelper.Repositories
             if (_cache == null) return;
             var key = GetCacheKey(id);
             _cache.Remove(key);
-            _logger.Debug("Removed {EntityId} from cache in {Collection}", id, typeof(T).Name);
+
+            _logger.Information("🔴 [CACHE REMOVE] {Collection} | ID: {EntityId}", typeof(T).Name, id);
+        }
+
+        // ------------------------
+        // HELPER
+        // ------------------------
+        private int GetItemCount(T entity)
+        {
+            // If entity has Items (like Inventory), count them
+            var itemsProp = typeof(T).GetProperty("Items");
+            if (itemsProp != null && itemsProp.GetValue(entity) is IEnumerable<object> items)
+                return items.Count();
+
+            return 0;
         }
 
 
