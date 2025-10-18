@@ -169,4 +169,5 @@ namespace dndhelper.Repositories
                 throw new ApplicationException($"Failed to delete inventory item for InventoryId: {inventoryId}, EquipmentId: {equipmentId} | Exception: {ex.Message}", ex);
             }
         }
+    }
 }
