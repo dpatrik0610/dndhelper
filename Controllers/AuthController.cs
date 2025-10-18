@@ -23,12 +23,18 @@ namespace dndhelper.Controllers
             try
             {
                 await _authService.RegisterAsync(request.Username, request.Password);
+
+                var token = await _authService.AuthenticateAsync(request.Username, request.Password);
+
+                if (token == null)
+                    return Unauthorized();
+
+                return Ok(new { Token = token });
             }
             catch
             {
-                return BadRequest("User Already exists.");
+                return BadRequest( new {Message = "User Already Exists"} );
             }
-            return Created();
         }
 
         [HttpPost("login")]
