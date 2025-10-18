@@ -89,6 +89,14 @@ namespace dndhelper.Repositories
                 if (result.ModifiedCount == 0)
                     return null;
 
+                // Update cache
+                if (_cache.TryGetValue(inventoryId, out Inventory? cachedInventory))
+                {
+                    cachedInventory.Items ??= new List<InventoryItem>();
+                    cachedInventory.Items.Add(item);
+                    _cache.Set(inventoryId, cachedInventory);
+                }
+
                 var inventory = await _collection.Find(filter).FirstOrDefaultAsync();
                 return inventory?.Items?.Find(i => i.EquipmentId == item.EquipmentId);
             }
@@ -106,7 +114,7 @@ namespace dndhelper.Repositories
             if (item == null)
                 throw new ArgumentNullException(nameof(item), $"InventoryItem object is null.");
             if (string.IsNullOrWhiteSpace(item.EquipmentId))
-                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{item.EquipmentId}'", nameof(item.EquipmentId));
+                throw new ArgumentException($"EquipmentId must not be empty. Provided value: '{item.EquipmentId}'", nameof(item.EquipmentId));
 
             try
             {
@@ -115,10 +123,19 @@ namespace dndhelper.Repositories
                     Builders<Inventory>.Filter.ElemMatch(i => i.Items, x => x.EquipmentId == item.EquipmentId)
                 );
 
-                var update = Builders<Inventory>.Update
-                    .Set("Items.$.Quantity", item.Quantity);
+                var update = Builders<Inventory>.Update.Set("Items.$.Quantity", item.Quantity);
 
                 await _collection.UpdateOneAsync(filter, update);
+
+                // Update cache
+                if (_cache.TryGetValue(inventoryId, out Inventory? cachedInventory))
+                {
+                    var existing = cachedInventory.Items?.FirstOrDefault(i => i.EquipmentId == item.EquipmentId);
+                    if (existing != null)
+                        existing.Quantity = item.Quantity;
+
+                    _cache.Set(inventoryId, cachedInventory);
+                }
             }
             catch (Exception ex)
             {
@@ -132,12 +149,19 @@ namespace dndhelper.Repositories
             if (string.IsNullOrWhiteSpace(inventoryId))
                 throw new ArgumentException($"Inventory ID must not be empty. Provided value: '{inventoryId}'", nameof(inventoryId));
             if (string.IsNullOrWhiteSpace(equipmentId))
-                throw new ArgumentException($"Equipment Index must not be empty. Provided value: '{equipmentId}'", nameof(equipmentId));
+                throw new ArgumentException($"EquipmentId must not be empty. Provided value: '{equipmentId}'", nameof(equipmentId));
 
             try
             {
                 var update = Builders<Inventory>.Update.PullFilter(i => i.Items, x => x.EquipmentId == equipmentId);
                 await _collection.UpdateOneAsync(i => i.Id == inventoryId, update);
+
+                // Update cache
+                if (_cache.TryGetValue(inventoryId, out Inventory? cachedInventory))
+                {
+                    cachedInventory.Items = cachedInventory.Items?.Where(i => i.EquipmentId != equipmentId).ToList();
+                    _cache.Set(inventoryId, cachedInventory);
+                }
             }
             catch (Exception ex)
             {
@@ -145,5 +169,4 @@ namespace dndhelper.Repositories
                 throw new ApplicationException($"Failed to delete inventory item for InventoryId: {inventoryId}, EquipmentId: {equipmentId} | Exception: {ex.Message}", ex);
             }
         }
-    }
 }

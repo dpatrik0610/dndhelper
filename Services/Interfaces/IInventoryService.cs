@@ -18,5 +18,6 @@ namespace dndhelper.Services.Interfaces
         Task DeleteItemAsync(string inventoryId, string equipmentId);
         Task<bool> ItemExistsInInventoryAsync(string inventoryId, string equipmentId);
         Task DecrementItemQuantityAsync(string inventoryId, string equipmentId, int decrementBy = 1);
+        Task MoveItemAsync(string sourceInventoryId, string targetInventoryId, string equipmentId, int amount = 1);
     }
 }

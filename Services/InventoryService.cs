@@ -246,5 +246,31 @@ namespace dndhelper.Services
             return inventory.Items!.Any(x => x.EquipmentId == equipmentId);
             
         }
+
+        public async Task MoveItemAsync(string sourceInventoryId, string targetInventoryId, string equipmentId, int amount = 1)
+        {
+            ValidateId(sourceInventoryId, nameof(sourceInventoryId));
+            ValidateId(targetInventoryId, nameof(targetInventoryId));
+            ValidateId(equipmentId, nameof(equipmentId));
+
+            if (amount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(amount), "Move amount must be greater than zero.");
+
+            try
+            {
+                // Decrement from source inventory
+                await DecrementItemQuantityAsync(sourceInventoryId, equipmentId, amount);
+
+                // Add to target inventory (will increment if it already exists)
+                await AddOrIncrementItemAsync(targetInventoryId, equipmentId, amount);
+
+                _logger.Information($"Successfully moved {amount} of item {equipmentId} to {targetInventoryId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Failed to move item {equipmentId} from {sourceInventoryId} to {targetInventoryId}");
+                throw;
+            }
+        }
     }
 }

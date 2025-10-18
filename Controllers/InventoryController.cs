@@ -160,6 +160,27 @@ namespace dndhelper.Controllers
             }
         }
 
+        [HttpPost("{sourceInventoryId}/items/{equipmentId}/move")]
+        public async Task<IActionResult> MoveItem( string sourceInventoryId, string equipmentId, [FromBody] MoveItemRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(sourceInventoryId) || string.IsNullOrWhiteSpace(request.TargetInventoryId) || string.IsNullOrWhiteSpace(equipmentId))
+                return BadRequest("Invalid inventory or equipment ID.");
+
+            try
+            {
+                await _inventoryService.MoveItemAsync(sourceInventoryId, request.TargetInventoryId, equipmentId, request.Amount);
+                return Ok(new { message = $"Moved {equipmentId} from {sourceInventoryId} to {request.TargetInventoryId}." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         [HttpPut("{inventoryId}/items/{equipmentId}")]
         public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentIndex, InventoryItem item)
         {
@@ -224,6 +245,12 @@ namespace dndhelper.Controllers
         public class ModifyItemAmountRequest
         {
             public string EquipmentId { get; set; } = null!;
+            public int Amount { get; set; } = 1;
+        }
+
+        public class MoveItemRequest
+        {
+            public string TargetInventoryId { get; set; } = null!;
             public int Amount { get; set; } = 1;
         }
     }
