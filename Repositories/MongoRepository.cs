@@ -31,7 +31,7 @@ namespace dndhelper.Repositories
         }
 
         // ------------------------
-        // CACHE UTILITIES
+        // CACHE UTILITIES (VISUAL)
         // ------------------------
         protected string GetCacheKey(string id) => $"{typeof(T).Name}_{id}";
 

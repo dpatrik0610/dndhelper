@@ -67,6 +67,9 @@ namespace dndhelper.Services
                 character.Conditions!.Clear();
             }
 
+            character.DeathSavesFailures = 0;
+            character.DeathSavesSuccesses = 0;
+
             await _repository.UpdateAsync(character);
             return true;
         }

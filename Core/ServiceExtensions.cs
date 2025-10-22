@@ -81,6 +81,7 @@ namespace dndhelper.Core
             services.AddScoped<IInventoryRepository, InventoryRepository>();
             services.AddScoped<IMonsterRepository, MonsterRepository>();
             services.AddScoped<ICampaignRepository, CampaignRepository>();
+            services.AddScoped<ISpellRepository, SpellRepository>();
 
             // Services
             services.AddScoped<IUserService, UserService>();
@@ -90,6 +91,8 @@ namespace dndhelper.Core
             services.AddScoped<IInventoryService, InventoryService>();
             services.AddScoped<IMonsterService, MonsterService>();
             services.AddScoped<ICampaignService, CampaignService>();
+            services.AddScoped<ISpellService, SpellService>();
+            services.AddScoped<ICurrencyService, CurrencyService>();
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
             services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>

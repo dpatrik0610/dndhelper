@@ -62,29 +62,7 @@ namespace dndhelper.Models.CharacterModels
         public AbilityScores? AbilityScores { get; set; } = new AbilityScores();
         public SavingThrows? SavingThrows { get; set; } = new SavingThrows();
         public int? Inspiration { get; set; } = 0;
-        public Dictionary<string, int>? Skills { get; set; } = new Dictionary<string, int> // Maybe updatable with a class or enum later?
-        {
-            { "Acrobatics", 0 },
-            { "Animal Handling", 0 },
-            { "Arcana", 0 },
-            { "Athletics", 0 },
-            { "Deception", 0 },
-            { "History", 0 },
-            { "Insight", 0 },
-            { "Intimidation", 0 },
-            { "Investigation", 0 },
-            { "Medicine", 0 },
-            { "Nature", 0 },
-            { "Perception", 0 },
-            { "Performance", 0 },
-            { "Persuasion", 0 },
-            { "Religion", 0 },
-            { "Sleight of Hand", 0 },
-            { "Stealth", 0 },
-            { "Survival", 0 },
-            // Custom skills can be added later
-            { "Willpower", 0 }
-        };
+        public List<Skill>? Skills { get; set; }
         public int? SpellSaveDc { get; set; } = 10;
         public int? SpellAttackBonus { get; set; } = 0;
         public List<SpellSlot>? SpellSlots { get; set; } = new List<SpellSlot>()
