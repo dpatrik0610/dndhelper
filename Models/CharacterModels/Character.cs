@@ -34,6 +34,7 @@ namespace dndhelper.Models.CharacterModels
         public int? HitPoints { get; set; } = 10;
         public int? MaxHitPoints { get; set; } = 10;
         public int? TemporaryHitPoints { get; set; } = 0;
+        public string? HitDice { get; set; } = "";
 
         public int? Speed { get; set; } = 30;
         public int? Initiative { get; set; } = 0;
