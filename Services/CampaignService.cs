@@ -40,8 +40,6 @@ namespace dndhelper.Services
             if (campaign.OwnerIds.IsNullOrEmpty())
                 campaign.OwnerIds = new List<string>();
 
-            campaign.OwnerIds!.Add(userId);
-
             _logger.Debug("Creating entity of type {EntityType}", typeof(Campaign).Name);
 
             var createdCampaign = await _repository.CreateAsync(campaign);
