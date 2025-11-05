@@ -97,14 +97,14 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/players/{playerId}")]
         public async Task<IActionResult> AddPlayer(string id, string playerId)
         {
-            var result = await _campaignService.AddPlayerAsync(id, playerId);
+            var result = await _campaignService.AddCharacterAsync(id, playerId);
             return result == null ? NotFound() : Ok(result);
         }
 
         [HttpDelete("{id}/players/{playerId}")]
         public async Task<IActionResult> RemovePlayer(string id, string playerId)
         {
-            var result = await _campaignService.RemovePlayerAsync(id, playerId);
+            var result = await _campaignService.RemoveCharacterAsync(id, playerId);
             return result == null ? NotFound() : Ok(result);
         }
 

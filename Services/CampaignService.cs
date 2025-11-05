@@ -97,28 +97,28 @@ namespace dndhelper.Services
             List<Character> characters = new List<Character>();
             var campaign = await _repository.GetByIdAsync(campaignId);
 
-            if (campaign == null || campaign.PlayerIds.IsNullOrEmpty()) 
+            if (campaign == null || campaign.CharacterIds.IsNullOrEmpty()) 
                 return characters;
 
-            characters = await _characterRepository.GetByIdsAsync(campaign.PlayerIds);
+            characters = await _characterRepository.GetByIdsAsync(campaign.CharacterIds);
             return characters;
         }
 
-        public async Task<Campaign?> AddPlayerAsync(string campaignId, string playerId)
+        public async Task<Campaign?> AddCharacterAsync(string campaignId, string characterId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);
-            if (campaign == null || campaign.PlayerIds.Contains(playerId)) return campaign;
+            if (campaign == null || campaign.CharacterIds.Contains(characterId)) return campaign;
 
-            campaign.PlayerIds.Add(playerId);
+            campaign.CharacterIds.Add(characterId);
             return await _repository.UpdateAsync(campaign);
         }
 
-        public async Task<Campaign?> RemovePlayerAsync(string campaignId, string playerId)
+        public async Task<Campaign?> RemoveCharacterAsync(string campaignId, string characterId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);
             if (campaign == null) return null;
 
-            campaign.PlayerIds.Remove(playerId);
+            campaign.CharacterIds.Remove(characterId);
             return await _repository.UpdateAsync(campaign);
         }
 

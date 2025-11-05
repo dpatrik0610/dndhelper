@@ -11,8 +11,8 @@ namespace dndhelper.Services.Interfaces
         Task<bool> DeleteAsync(string id, string userId);
 
         Task<List<Character>> GetCharactersAsync(string campaignId);
-        Task<Campaign?> AddPlayerAsync(string campaignId, string playerId);
-        Task<Campaign?> RemovePlayerAsync(string campaignId, string playerId);
+        Task<Campaign?> AddCharacterAsync(string campaignId, string characterId);
+        Task<Campaign?> RemoveCharacterAsync(string campaignId, string characterId);
 
         Task<Campaign?> AddWorldAsync(string campaignId, string worldId);
         Task<Campaign?> RemoveWorldAsync(string campaignId, string worldId);
