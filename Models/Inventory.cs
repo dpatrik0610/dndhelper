@@ -15,6 +15,11 @@ namespace dndhelper.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? CharacterId { get; set; } = null;
 
+        [BsonRepresentation(BsonType.ObjectId)]
+        public List<string> OwnerIds { get; set; } = new List<string>();
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CampaignId = null;
 
         public string Name { get; set; } = "Unnamed";
         public List<InventoryItem>? Items { get; set; } = new();
@@ -22,8 +27,6 @@ namespace dndhelper.Models
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
 
-        [BsonRepresentation(BsonType.ObjectId)]
-        public List<string> OwnerIds { get; set; } = new List<string>();
         public List<Currency>? Currencies { get; set; } = new List<Currency>() {
             new Currency() {Type = "gp", Amount = 0, CurrencyCode = "gp"},
             new Currency() {Type = "sp", Amount = 0, CurrencyCode = "gp"},

@@ -1,11 +1,9 @@
-﻿using dndhelper.Authentication;
-using dndhelper.Authentication.Interfaces;
+﻿using dndhelper.Authentication.Interfaces;
 using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using dndhelper.Services.Interfaces;
-using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -88,6 +86,14 @@ namespace dndhelper.Controllers
         // ------------------------
         // PLAYER MANAGEMENT
         // ------------------------
+        [HttpGet("{id}/players")]
+        public async Task<IActionResult> GetCharacters(string id)
+        {
+            var result = await _campaignService.GetCharactersAsync(id);
+
+            return result == null ? NotFound() : Ok(result);
+        }
+
         [HttpPost("{id}/players/{playerId}")]
         public async Task<IActionResult> AddPlayer(string id, string playerId)
         {

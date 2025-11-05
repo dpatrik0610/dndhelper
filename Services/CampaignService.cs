@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
@@ -14,12 +15,15 @@ namespace dndhelper.Services
     public class CampaignService : BaseService<Campaign, ICampaignRepository>, ICampaignService
     {
         private readonly IUserRepository _userRepository;
+        private readonly ICharacterRepository _characterRepository;
 
         public CampaignService(ICampaignRepository repository, ILogger logger, IUserRepository userRepository, IAuthorizationService authorizationService,
-        IHttpContextAccessor httpContextAccessor) : base(repository, logger, authorizationService, httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor, ICharacterRepository characterRepository) : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _userRepository = userRepository;
+            _characterRepository = characterRepository;
         }
+
         public async Task<Campaign> CreateAsync(Campaign campaign, string userId)
         {
             if (campaign == null)
@@ -88,6 +92,18 @@ namespace dndhelper.Services
         // ------------------------
         // PLAYER MANAGEMENT
         // ------------------------
+        public async Task<List<Character>> GetCharactersAsync(string campaignId)
+        {
+            List<Character> characters = new List<Character>();
+            var campaign = await _repository.GetByIdAsync(campaignId);
+
+            if (campaign == null || campaign.PlayerIds.IsNullOrEmpty()) 
+                return characters;
+
+            characters = await _characterRepository.GetByIdsAsync(campaign.PlayerIds);
+            return characters;
+        }
+
         public async Task<Campaign?> AddPlayerAsync(string campaignId, string playerId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);
@@ -151,6 +167,17 @@ namespace dndhelper.Services
         // ------------------------
         // NOTE MANAGEMENT
         // ------------------------
+
+        //public async Task<List<string>> GetNotes(string campaignId)
+        //{
+        //    List<string> notes = new List<string>();
+        //    var campaign = await _repository.GetByIdAsync(campaignId);
+
+        //    if (campaign == null || campaign.NoteIds.IsNullOrEmpty()) return notes;
+
+        //    // TODO: Make notes in db.
+        //}
+
         public async Task<Campaign?> AddNoteAsync(string campaignId, string noteId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);

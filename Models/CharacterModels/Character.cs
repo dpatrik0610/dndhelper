@@ -66,6 +66,7 @@ namespace dndhelper.Models.CharacterModels
         public List<Skill>? Skills { get; set; }
         public int? SpellSaveDc { get; set; } = 10;
         public int? SpellAttackBonus { get; set; } = 0;
+        public string? SpellcastingAbility { get; set; } = "Unknown";
         public List<SpellSlot>? SpellSlots { get; set; } = new List<SpellSlot>()
         {
             new SpellSlot {Level = 1, Current = 0, Max = 0},

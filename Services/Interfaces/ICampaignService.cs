@@ -1,4 +1,6 @@
 ﻿using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services.Interfaces
@@ -8,6 +10,7 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign> CreateAsync(Campaign campaign, string userId);
         Task<bool> DeleteAsync(string id, string userId);
 
+        Task<List<Character>> GetCharactersAsync(string campaignId);
         Task<Campaign?> AddPlayerAsync(string campaignId, string playerId);
         Task<Campaign?> RemovePlayerAsync(string campaignId, string playerId);
 
@@ -17,6 +20,7 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign?> AddQuestAsync(string campaignId, string questId);
         Task<Campaign?> RemoveQuestAsync(string campaignId, string questId);
 
+        //Task<List<string>> GetNotesAsync(string campaignId);
         Task<Campaign?> AddNoteAsync(string campaignId, string noteId);
         Task<Campaign?> RemoveNoteAsync(string campaignId, string noteId);
 
