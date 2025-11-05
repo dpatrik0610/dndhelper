@@ -29,7 +29,7 @@ namespace dndhelper.Models
 
         public List<Currency>? Currencies { get; set; } = new List<Currency>() {
             new Currency() {Type = "gp", Amount = 0, CurrencyCode = "gp"},
-            new Currency() {Type = "sp", Amount = 0, CurrencyCode = "gp"},
+            new Currency() {Type = "sp", Amount = 0, CurrencyCode = "sp"},
         };
     }
 

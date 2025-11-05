@@ -53,8 +53,8 @@ namespace dndhelper.Models.CharacterModels
 
         public List<Currency>? Currencies { get; set; } = new List<Currency>
         {
-            new Currency { Type = "Silver", Amount = 0, CurrencyCode = "sp" },
-            new Currency { Type = "Gold", Amount = 0, CurrencyCode = "gp"},
+            new Currency { Type = "sp", Amount = 0, CurrencyCode = "sp" },
+            new Currency { Type = "gp", Amount = 0, CurrencyCode = "gp"},
         };
 
         #endregion
