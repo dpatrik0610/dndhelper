@@ -86,7 +86,7 @@ namespace dndhelper.Controllers
         // ------------------------
         // PLAYER MANAGEMENT
         // ------------------------
-        [HttpGet("{id}/players")]
+        [HttpGet("{id}/characters")]
         public async Task<IActionResult> GetCharacters(string id)
         {
             var result = await _campaignService.GetCharactersAsync(id);
@@ -94,17 +94,17 @@ namespace dndhelper.Controllers
             return result == null ? NotFound() : Ok(result);
         }
 
-        [HttpPost("{id}/players/{playerId}")]
-        public async Task<IActionResult> AddPlayer(string id, string playerId)
+        [HttpPost("{id}/characters/{characterId}")]
+        public async Task<IActionResult> AddPlayer(string id, string characterId)
         {
-            var result = await _campaignService.AddCharacterAsync(id, playerId);
+            var result = await _campaignService.AddCharacterAsync(id, characterId);
             return result == null ? NotFound() : Ok(result);
         }
 
-        [HttpDelete("{id}/players/{playerId}")]
-        public async Task<IActionResult> RemovePlayer(string id, string playerId)
+        [HttpDelete("{id}/characters/{characterId}")]
+        public async Task<IActionResult> RemovePlayer(string id, string characterId)
         {
-            var result = await _campaignService.RemoveCharacterAsync(id, playerId);
+            var result = await _campaignService.RemoveCharacterAsync(id, characterId);
             return result == null ? NotFound() : Ok(result);
         }
 
