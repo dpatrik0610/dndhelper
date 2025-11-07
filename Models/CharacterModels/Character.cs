@@ -14,6 +14,8 @@ namespace dndhelper.Models.CharacterModels
         public string? Id { get; set; }
         [BsonRepresentation(BsonType.ObjectId)]
         public List<string>? OwnerIds { get; set; } = new List<string>();
+
+        [BsonRepresentation(BsonType.ObjectId)]
         public string? CampaignId { get; set; }
         public string? ImageUrl { get; set; } = string.Empty;
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
@@ -47,7 +49,7 @@ namespace dndhelper.Models.CharacterModels
         public List<string>? Resistances { get; set; } = new List<string>(); // Later can be enum
         public List<string>? Immunities { get; set; } = new List<string>(); // Later can be enum
         public List<string>? Vulnerabilities { get; set; } = new List<string>(); // Later can be enum
-        public List<string>? Features { get; set; } = new List<string>();
+        public List<Feature>? Features { get; set; } = new List<Feature>();
         public List<string>? Actions { get; set; } = new List<string>();
         public List<string>? Spells { get; set; } = new List<string>(); // Later can be more complex Spell class
 
