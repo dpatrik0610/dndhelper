@@ -76,7 +76,7 @@ namespace dndhelper.Controllers
             try
             {
                 var created = await _service.CreateAsync(equipment);
-                return CreatedAtAction(nameof(GetByIndex), new { index = created!.Index }, created);
+                return CreatedAtAction(nameof(GetById), new { id = created!.Id }, created);
             }
             catch (Exception ex)
             {

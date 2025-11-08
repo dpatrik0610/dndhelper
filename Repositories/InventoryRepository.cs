@@ -46,9 +46,10 @@ namespace dndhelper.Repositories
 
             try
             {
-                var inventories = await _collection.Find(i => i.CharacterId == characterId).ToListAsync();
+                var inventories = await _collection
+                    .Find(i => i.CharacterIds.Contains(characterId))
+                    .ToListAsync();
 
-                // Cache all fetched inventories
                 foreach (var inv in inventories)
                     AddToCache(inv);
 
@@ -60,6 +61,7 @@ namespace dndhelper.Repositories
                 throw new ApplicationException($"Failed to get inventories by character ID: {characterId}", ex);
             }
         }
+
 
         #endregion
 

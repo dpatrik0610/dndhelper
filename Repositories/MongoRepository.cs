@@ -41,10 +41,9 @@ namespace dndhelper.Repositories
             var key = GetCacheKey(entity.Id);
             _cache.Set(key, entity, _cacheOptions);
 
-            _logger.Information("🟢 [CACHE ADD] {Collection} | ID: {EntityId} | Items: {Count}",
-                typeof(T).Name,
-                entity.Id,
-                GetItemCount(entity));
+            _logger.Information(
+                $"🟢 [CACHE ADD] {typeof(T).Name} | ID: {entity.Id} | CacheKey: {key} | Items: {GetItemCount(entity)}"
+            );
         }
 
         public T? GetFromCache(string id)
@@ -53,14 +52,15 @@ namespace dndhelper.Repositories
             var key = GetCacheKey(id);
             if (_cache.TryGetValue(key, out T cachedEntity))
             {
-                _logger.Information("🟡 [CACHE HIT] {Collection} | ID: {EntityId} | Items: {Count}",
-                    typeof(T).Name,
-                    id,
-                    GetItemCount(cachedEntity));
+                _logger.Information(
+                    $"🟡 [CACHE HIT] {typeof(T).Name} | ID: {id} | CacheKey: {key} | Items: {GetItemCount(cachedEntity)}"
+                );
                 return cachedEntity;
             }
 
-            _logger.Information("⚪ [CACHE MISS] {Collection} | ID: {EntityId}", typeof(T).Name, id);
+            _logger.Information(
+                $"⚪ [CACHE MISS] {typeof(T).Name} | ID: {id} | CacheKey: {key}"
+            );
             return null;
         }
 
@@ -70,10 +70,9 @@ namespace dndhelper.Repositories
             var key = GetCacheKey(entity.Id);
             _cache.Set(key, entity, _cacheOptions);
 
-            _logger.Information("🔵 [CACHE UPDATE] {Collection} | ID: {EntityId} | Items: {Count}",
-                typeof(T).Name,
-                entity.Id,
-                GetItemCount(entity));
+            _logger.Information(
+                $"🔵 [CACHE UPDATE] {typeof(T).Name} | ID: {entity.Id} | CacheKey: {key} | Items: {GetItemCount(entity)}"
+            );
         }
 
         public void RemoveFromCache(string id)
@@ -82,7 +81,39 @@ namespace dndhelper.Repositories
             var key = GetCacheKey(id);
             _cache.Remove(key);
 
-            _logger.Information("🔴 [CACHE REMOVE] {Collection} | ID: {EntityId}", typeof(T).Name, id);
+            _logger.Information(
+                $"🔴 [CACHE REMOVE] {typeof(T).Name} | ID: {id} | CacheKey: {key}"
+            );
+        }
+
+
+        public List<string> GetAllCachedIds()
+        {
+            if (_cache == null)
+                return new List<string>();
+
+            var cachedIds = new List<string>();
+            // IMemoryCache doesn't expose direct enumeration, so we use reflection:
+            var entriesField = typeof(MemoryCache).GetProperty("EntriesCollection",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (entriesField?.GetValue(_cache) is ICollection<object> entries)
+            {
+                foreach (var entry in entries)
+                {
+                    var keyProperty = entry.GetType().GetProperty("Key");
+                    var keyValue = keyProperty?.GetValue(entry)?.ToString();
+
+                    if (!string.IsNullOrEmpty(keyValue) && keyValue.StartsWith(typeof(T).Name))
+                    {
+                        var id = keyValue.Replace($"{typeof(T).Name}_", "");
+                        cachedIds.Add(id);
+                    }
+                }
+            }
+
+            _logger.Information("Cached IDs for {Collection}: {Ids}", typeof(T).Name, string.Join(", ", cachedIds));
+            return cachedIds;
         }
 
         // ------------------------

@@ -13,7 +13,7 @@ namespace dndhelper.Models
         public string? Id { get; set; } = null;
 
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? CharacterId { get; set; } = null;
+        public List<string>? CharacterIds { get; set; } = new List<string> ();
 
         [BsonRepresentation(BsonType.ObjectId)]
         public List<string> OwnerIds { get; set; } = new List<string>();

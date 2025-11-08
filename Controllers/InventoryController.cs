@@ -182,9 +182,9 @@ namespace dndhelper.Controllers
         }
 
         [HttpPut("{inventoryId}/items/{equipmentId}")]
-        public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentIndex, InventoryItem item)
+        public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentId, InventoryItem item)
         {
-            if (equipmentIndex != item.EquipmentId)
+            if (equipmentId != item.EquipmentId)
                 return BadRequest("Equipment index mismatch.");
 
             try

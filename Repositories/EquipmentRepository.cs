@@ -19,16 +19,16 @@ namespace dndhelper.Repositories
         public async Task<Equipment?> GetByIndexAsync(string index) =>
             await _collection.Find(e => e.Index == index).FirstOrDefaultAsync();
 
-        public new async Task<Equipment> UpdateAsync(Equipment equipment)
-        {
-            var filter = Builders<Equipment>.Filter.Eq(e => e.Index, equipment.Index);
-            var result = await _collection.ReplaceOneAsync(filter, equipment);
-            if (result.IsAcknowledged && result.ModifiedCount > 0)
-                return equipment;
+        //public new async Task<Equipment> UpdateAsync(Equipment equipment)
+        //{
+        //    var filter = Builders<Equipment>.Filter.Eq(e => e.Index, equipment.Index);
+        //    var result = await _collection.ReplaceOneAsync(filter, equipment);
+        //    if (result.IsAcknowledged && result.ModifiedCount > 0)
+        //        return equipment;
 
-            // Could throw or handle not found
-            throw new KeyNotFoundException($"Equipment with index '{equipment.Index}' not found.");
-        }
+        //    // Could throw or handle not found
+        //    throw new KeyNotFoundException($"Equipment with index '{equipment.Index}' not found.");
+        //}
 
         public async Task DeleteByIndex(string index)
         {
