@@ -32,15 +32,21 @@ namespace dndhelper.Services
             _user = httpContextAccessor?.HttpContext?.User ?? throw new ArgumentNullException(nameof(httpContextAccessor));
         }
 
+        // ----------------------------
+        // ADD TO INVENTORY (MERGED)
+        // ----------------------------
         public async Task AddCurrencyToInventory(string inventoryId, Currency currency)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId)) { throw new ArgumentNullException(nameof(inventoryId)); }
+            if (string.IsNullOrWhiteSpace(inventoryId))
+                throw new ArgumentNullException(nameof(inventoryId));
 
             var inventory = await _inventoryService.GetByIdAsync(inventoryId);
-            if (inventory == null) { CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found."); }
-            if (inventory!.Currencies == null) inventory.Currencies = new List<Currency>();
-            
-            UpdateCurrencyList(inventory.Currencies, currency, true);
+            if (inventory == null)
+                CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
+
+            inventory.Currencies ??= new List<Currency>();
+            inventory.Currencies = MergeCurrencies(inventory.Currencies, new[] { currency });
+
             await _inventoryService.UpdateAsync(inventory);
         }
 
@@ -52,12 +58,10 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(characterId))
                 return new List<Currency>();
 
-            var character = await _characterService.GetByIdAsync(characterId);
-            if (character == null)
-                throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
+            var character = await _characterService.GetByIdAsync(characterId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
 
             await EnsureCharacterOwnershipAsync(character);
-
             return character.Currencies ?? new List<Currency>();
         }
 
@@ -89,7 +93,7 @@ namespace dndhelper.Services
         }
 
         // ----------------------------
-        // TRANSFER CURRENCIES (TO ANOTHER CHARACTER)
+        // TRANSFER CURRENCIES
         // ----------------------------
         public async Task TransferManyToCharacter(string targetId, List<Currency> currencies)
         {
@@ -103,9 +107,7 @@ namespace dndhelper.Services
                 await EnsureCharacterOwnershipAsync(character);
 
                 character.Currencies ??= new List<Currency>();
-
-                foreach (var currency in currencies)
-                    UpdateCurrencyList(character.Currencies, currency, isAddition: true);
+                character.Currencies = MergeCurrencies(character.Currencies, currencies);
 
                 await _characterService.UpdateAsync(character);
             }
@@ -122,14 +124,11 @@ namespace dndhelper.Services
 
         private async Task EnsureCharacterOwnershipAsync(Character character)
         {
-            // Example: assume character.OwnerIds is a list of ObjectId strings
             var userId = _user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 throw CustomExceptions.ThrowUnauthorizedAccessException(_logger, "User not authenticated.");
 
             var isOwner = character.OwnerIds?.Any(o => o == userId) ?? false;
-
-            // Allow admin override if you have a role system
             var isAdmin = _user.IsInRole("Admin");
 
             if (!isOwner && !isAdmin)
@@ -172,6 +171,21 @@ namespace dndhelper.Services
                     existing.Amount -= currency.Amount;
                 }
             }
+        }
+
+        private static List<Currency> MergeCurrencies(IEnumerable<Currency> existing, IEnumerable<Currency> incoming)
+        {
+            return existing
+                .Concat(incoming)
+                .GroupBy(c => c.CurrencyCode)
+                .Select(g => new Currency
+                {
+                    Type = g.First().Type,
+                    CurrencyCode = g.First().CurrencyCode,
+                    Amount = g.Sum(c => c.Amount)
+                })
+                .Where(c => c.Amount > 0)
+                .ToList();
         }
     }
 }

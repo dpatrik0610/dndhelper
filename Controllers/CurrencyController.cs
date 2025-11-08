@@ -91,24 +91,25 @@ namespace dndhelper.Controllers
         // PUT: api/currency/inventory/{inventoryId}
         [Authorize(Roles = "Admin")]
         [HttpPut("inventory/{inventoryId}")]
-        public async Task<IActionResult> AddCurrencyToInventory(string inventoryId, [FromBody] Currency currency)
+        public async Task<IActionResult> AddCurrenciesToInventory(string inventoryId, [FromBody] List<Currency> currencies)
         {
             if (string.IsNullOrWhiteSpace(inventoryId))
                 return BadRequest("Inventory ID is required.");
 
-            if (currency == null)
-                return BadRequest("Currency data is required.");
+            if (currencies == null || currencies.Count == 0)
+                return BadRequest("Currency list is required.");
 
             try
             {
-                await _currencyService.AddCurrencyToInventory(inventoryId, currency);
-                return Ok(new { message = $"Added {currency.Amount} {currency.Type} to inventory {inventoryId}."});
-                
+                foreach (var currency in currencies)
+                    await _currencyService.AddCurrencyToInventory(inventoryId, currency);
+
+                return Ok(new { message = $"Added {currencies.Count} currencies to inventory {inventoryId}." });
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Error adding currency to inventory {InventoryId}", inventoryId);
-                return StatusCode(500, "An error occurred while adding currency to inventory.");
+                _logger.Error(ex, "Error adding currencies to inventory {InventoryId}", inventoryId);
+                return StatusCode(500, "An error occurred while adding currencies to inventory.");
             }
         }
     }
