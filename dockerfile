@@ -5,10 +5,13 @@ COPY . .
 RUN dotnet restore
 RUN dotnet publish -c Release -o /app
 
-# Stage 2: Run
+# Stage 2: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app .
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
+
+# Listen on port 80 inside the container
+ENV ASPNETCORE_URLS=http://+:80
+EXPOSE 80
+
 ENTRYPOINT ["dotnet", "dndhelper.dll"]

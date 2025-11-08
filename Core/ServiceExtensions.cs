@@ -33,14 +33,21 @@ namespace dndhelper.Core
             // Database setup
             services.AddSingleton(sp =>
             {
-                var connectionString = config.GetValue<string>("MongoDB:ConnectionString");
-                var databaseName = config.GetValue<string>("MongoDB:DatabaseName");
+                var connectionString = config["MongoDB:ConnectionString"];
+                var databaseName = config["MongoDB:DatabaseName"];
 
-                if (string.IsNullOrEmpty(databaseName))
-                    throw new ArgumentException($"'{nameof(databaseName)}' cannot be null or empty.", nameof(databaseName));
-                if (string.IsNullOrEmpty(connectionString))
-                    throw new ArgumentException($"'{nameof(connectionString)}' cannot be null or empty.", nameof(connectionString));
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    logger.Error("❌ MongoDB connection string is missing! Check your environment variables (MongoDB__ConnectionString).");
+                    throw new InvalidOperationException("MongoDB connection string not found.");
+                }
+                if (string.IsNullOrWhiteSpace(databaseName))
+                {
+                    logger.Error("❌ MongoDB database name is missing! Check your environment variables (MongoDB__DatabaseName).");
+                    throw new InvalidOperationException("MongoDB database name not found.");
+                }
 
+                logger.Information("✅ Connected to MongoDB database {DbName}", databaseName);
                 return new MongoDbContext(connectionString, databaseName, logger);
             });
 
