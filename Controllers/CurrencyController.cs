@@ -112,5 +112,26 @@ namespace dndhelper.Controllers
                 return StatusCode(500, "An error occurred while adding currencies to inventory.");
             }
         }
+
+        [HttpPut("transfer-between/{fromId}/{toId}")]
+        public async Task<IActionResult> TransferBetweenCharacters(string fromId, string toId, [FromBody] List<Currency> currencies)
+        {
+            if (string.IsNullOrWhiteSpace(fromId) || string.IsNullOrWhiteSpace(toId))
+                return BadRequest(new { message = "Source and target IDs are required." });
+
+            if (currencies == null || currencies.Count == 0)
+                return BadRequest(new { message = "No currencies provided." });
+
+            try
+            {
+                await _currencyService.TransferBetweenCharacters(fromId, toId, currencies);
+                return Ok(new { message = "Currencies transferred successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error transferring currencies from {FromId} to {ToId}", fromId, toId);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

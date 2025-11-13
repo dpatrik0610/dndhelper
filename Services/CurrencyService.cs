@@ -118,6 +118,60 @@ namespace dndhelper.Services
             }
         }
 
+        public async Task TransferBetweenCharacters(string fromId, string toId, List<Currency> currencies)
+        {
+            if (string.IsNullOrWhiteSpace(fromId) || string.IsNullOrWhiteSpace(toId))
+                throw new ArgumentNullException("Character IDs cannot be null.");
+
+            if (currencies == null || currencies.Count == 0)
+                throw new ArgumentException("No currencies provided.");
+
+            try
+            {
+                var source = await _characterService.GetByIdAsync(fromId)
+                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Source character not found.");
+
+                var target = await _characterService.GetByIdAsync(toId)
+                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Target character not found.");
+
+                await EnsureCharacterOwnershipAsync(source);
+
+                source.Currencies ??= new List<Currency>();
+                target.Currencies ??= new List<Currency>();
+
+                // Balance check
+                foreach (var currency in currencies)
+                {
+                    var existing = source.Currencies.FirstOrDefault(c => c.CurrencyCode == currency.CurrencyCode);
+
+                    if (existing == null)
+                        throw CustomExceptions.ThrowNotFoundException(
+                            _logger,
+                            $"Source character does not have currency type '{currency.Type}'.");
+
+                    if (existing.Amount < currency.Amount)
+                        throw CustomExceptions.ThrowInvalidOperationException(
+                            _logger,
+                            $"Not enough {currency.Type} to transfer {currency.Amount}. Available: {existing.Amount}.");
+                }
+
+                foreach (var currency in currencies)
+                    UpdateCurrencyList(source.Currencies, currency, isAddition: false);
+
+                source.Currencies.RemoveAll(c => c.Amount <= 0);
+                target.Currencies = MergeCurrencies(target.Currencies, currencies);
+
+                await _characterService.UpdateAsync(source);
+                await _characterService.UpdateAsync(target);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error transferring currencies from {FromId} to {ToId}", fromId, toId);
+                throw;
+            }
+        }
+
+
         // ----------------------------
         // PRIVATE HELPERS
         // ----------------------------
