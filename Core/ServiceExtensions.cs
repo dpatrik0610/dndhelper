@@ -90,6 +90,7 @@ namespace dndhelper.Core
             services.AddScoped<IMonsterRepository, MonsterRepository>();
             services.AddScoped<ICampaignRepository, CampaignRepository>();
             services.AddScoped<ISpellRepository, SpellRepository>();
+            services.AddScoped<INoteRepository, NoteRepository>();
 
             // Services
             services.AddScoped<IUserService, UserService>();
@@ -101,6 +102,7 @@ namespace dndhelper.Core
             services.AddScoped<ICampaignService, CampaignService>();
             services.AddScoped<ISpellService, SpellService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
+            services.AddScoped<INoteService, NoteService>();
 
             services.AddSingleton<IMemoryCache>(sp =>
             {

@@ -109,7 +109,6 @@ namespace dndhelper.Models.CharacterModels
         public string? Ideals { get; set; } = "Justice and honor.";
         public string? Bonds { get; set; } = "Family and friends.";
         public string? Flaws { get; set; } = "Impulsive and stubborn.";
-        public string? Notes { get; set; } = "No additional notes.";
         public string? Description { get; set; } = "A brave adventurer.";
         #endregion
 
@@ -117,6 +116,7 @@ namespace dndhelper.Models.CharacterModels
 
         public List<string>? FactionIds { get; set; } = new List<string>();
         public List<string>? InventoryIds { get; set; } = new List<string>();
+        public List<string>? NoteIds { get; set; } = new List<string>();
         public string EquipmentId { get; set; } = string.Empty;
         public bool IsDeleted { get; set; } = false;
 

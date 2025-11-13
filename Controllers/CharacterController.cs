@@ -25,7 +25,7 @@ public class CharacterController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var characters = await _characterService.GetAllAsync();
+       var characters = await _characterService.GetAllAsync();
         return Ok(characters);
     }
 
