@@ -84,6 +84,23 @@ namespace dndhelper.Controllers
             }
         }
 
+        [HttpPost("many")]
+        public async Task<ActionResult<IEnumerable<Equipment>>> CreateMany([FromBody] List<Equipment> equipments)
+        {
+            if (equipments == null || equipments.Count == 0)
+                return BadRequest("Equipment list cannot be empty.");
+
+            try
+            {
+                var createdItems = await _service.CreateManyAsync(equipments);
+                return Ok(createdItems);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         [HttpPut("{id}")]
         public async Task<ActionResult<Equipment>> Update(string id, Equipment equipment)
         {

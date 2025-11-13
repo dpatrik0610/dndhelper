@@ -13,7 +13,9 @@ namespace dndhelper.Models
         public string Index { get; set; } = null!;
         public string Name { get; set; } = null!;
         [JsonProperty("desc")]
-        public List<string>? Description { get; set; }
+        public List<string>? Description { get; set; } = new List<string>();
+        [JsonProperty("dmdesc")]
+        public List<string>? DmDescription { get; set; } = new List<string>();
         [JsonProperty("cost")]
         public Cost? Cost { get; set; }
         [JsonProperty("damage")]
@@ -26,6 +28,8 @@ namespace dndhelper.Models
         public DateTime? CreatedAt { get;set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
+        public List<string>? Tags { get; set; } = new List<string>();
+        public string? Tier { get; set; } = "Common";
     }
 
     public class Cost

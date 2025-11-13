@@ -16,7 +16,7 @@ namespace dndhelper.Models.CharacterModels
         public List<string>? OwnerIds { get; set; } = new List<string>();
 
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? CampaignId { get; set; }
+        public string? CampaignId { get; set; } = null;
         public string? ImageUrl { get; set; } = string.Empty;
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
