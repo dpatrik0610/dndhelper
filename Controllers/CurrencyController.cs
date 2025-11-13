@@ -112,7 +112,7 @@ namespace dndhelper.Controllers
                 return StatusCode(500, "An error occurred while adding currencies to inventory.");
             }
         }
-
+        [Authorize(Roles = "Admin, User")]
         [HttpPut("transfer-between/{fromId}/{toId}")]
         public async Task<IActionResult> TransferBetweenCharacters(string fromId, string toId, [FromBody] List<Currency> currencies)
         {
