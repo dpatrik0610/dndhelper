@@ -23,14 +23,24 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(MyAllowSpecificOrigins, policy =>
     {
-        policy
-            .WithOrigins(builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "*" })
-            .SetIsOriginAllowed(origin => true)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+        if (builder.Environment.IsDevelopment())
+        {
+            policy
+                .AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+        else
+        {
+            policy
+                .WithOrigins(builder.Configuration["AllowedOrigins"]!.Split(","))
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
     });
 });
+
 
 var app = builder.Build();
 

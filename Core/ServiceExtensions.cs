@@ -10,6 +10,7 @@ using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -100,6 +101,13 @@ namespace dndhelper.Core
             services.AddScoped<ICampaignService, CampaignService>();
             services.AddScoped<ISpellService, SpellService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
+
+            services.AddSingleton<IMemoryCache>(sp =>
+            {
+                var inner = new MemoryCache(new MemoryCacheOptions());
+                return new TrackingMemoryCache(inner);
+            });
+            services.AddScoped<ICacheService, CacheService>();
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
             services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>
