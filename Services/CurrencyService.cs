@@ -142,7 +142,7 @@ namespace dndhelper.Services
                 // Balance check
                 foreach (var currency in currencies)
                 {
-                    var existing = source.Currencies.FirstOrDefault(c => c.CurrencyCode == currency.CurrencyCode);
+                    var existing = source.Currencies.FirstOrDefault(c => c.Type == currency.Type);
 
                     if (existing == null)
                         throw CustomExceptions.ThrowNotFoundException(
