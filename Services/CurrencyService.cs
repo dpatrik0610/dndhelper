@@ -1,5 +1,6 @@
 ﻿using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
+using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
@@ -17,19 +18,26 @@ namespace dndhelper.Services
     {
         private readonly ICharacterService _characterService;
         private readonly IInventoryService _inventoryService;
+        private readonly ICharacterRepository _characterRepository;
         private readonly ILogger _logger;
         private readonly ClaimsPrincipal _user;
 
         public CurrencyService(
             ICharacterService characterService,
             IInventoryService inventoryService,
+            ICharacterRepository characterRepository,
             ILogger logger,
             IHttpContextAccessor httpContextAccessor)
         {
-            _characterService = characterService ?? throw new ArgumentNullException(nameof(characterService));
-            _inventoryService = inventoryService ?? throw new ArgumentNullException(nameof(inventoryService));
+            _characterService = characterService
+                ?? throw new ArgumentNullException(nameof(characterService));
+            _inventoryService = inventoryService
+                ?? throw new ArgumentNullException(nameof(inventoryService));
+            _characterRepository = characterRepository
+                ?? throw new ArgumentNullException(nameof(characterRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _user = httpContextAccessor?.HttpContext?.User ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _user = httpContextAccessor?.HttpContext?.User
+                ?? throw new ArgumentNullException(nameof(httpContextAccessor));
         }
 
         // ----------------------------
@@ -131,7 +139,7 @@ namespace dndhelper.Services
                 var source = await _characterService.GetByIdAsync(fromId)
                     ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Source character not found.");
 
-                var target = await _characterService.GetByIdAsync(toId)
+                var target = await _characterRepository.GetByIdAsync(toId)
                     ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Target character not found.");
 
                 await EnsureCharacterOwnershipAsync(source);
@@ -139,15 +147,13 @@ namespace dndhelper.Services
                 source.Currencies ??= new List<Currency>();
                 target.Currencies ??= new List<Currency>();
 
-                // Balance check
                 foreach (var currency in currencies)
                 {
                     var existing = source.Currencies.FirstOrDefault(c => c.Type == currency.Type);
 
                     if (existing == null)
                         throw CustomExceptions.ThrowNotFoundException(
-                            _logger,
-                            $"Source character does not have currency type '{currency.Type}'.");
+                            _logger, $"Source character does not have currency type '{currency.Type}'.");
 
                     if (existing.Amount < currency.Amount)
                         throw CustomExceptions.ThrowInvalidOperationException(
@@ -159,10 +165,11 @@ namespace dndhelper.Services
                     UpdateCurrencyList(source.Currencies, currency, isAddition: false);
 
                 source.Currencies.RemoveAll(c => c.Amount <= 0);
+
                 target.Currencies = MergeCurrencies(target.Currencies, currencies);
 
                 await _characterService.UpdateAsync(source);
-                await _characterService.UpdateAsync(target);
+                await _characterRepository.UpdateAsync(target);
             }
             catch (Exception ex)
             {
@@ -170,6 +177,7 @@ namespace dndhelper.Services
                 throw;
             }
         }
+
 
 
         // ----------------------------
