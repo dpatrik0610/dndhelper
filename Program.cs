@@ -33,7 +33,8 @@ builder.Services.AddCors(options =>
         else
         {
             policy
-                .WithOrigins(builder.Configuration["AllowedOrigins"]!.Split(","))
+                .WithOrigins(builder.Configuration["AllowedOrigins"]?.Split(",") ?? new[] { "*" })
+                .SetIsOriginAllowed(origin => true)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
