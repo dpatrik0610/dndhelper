@@ -133,5 +133,43 @@ namespace dndhelper.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        // PUT: api/currency/claim/{characterId}/{inventoryId}
+        [Authorize(Roles = "Admin, User")]
+        [HttpPut("claim/{characterId}/{inventoryId}")]
+        public async Task<IActionResult> ClaimFromInventory(
+            string characterId,
+            string inventoryId,
+            [FromBody] List<Currency> currencies)
+        {
+            if (string.IsNullOrWhiteSpace(characterId))
+                return BadRequest(new { message = "Character ID is required." });
+
+            if (string.IsNullOrWhiteSpace(inventoryId))
+                return BadRequest(new { message = "Inventory ID is required." });
+
+            if (currencies == null || currencies.Count == 0)
+                return BadRequest(new { message = "No currencies provided." });
+
+            try
+            {
+                await _currencyService.ClaimFromInventory(characterId, inventoryId, currencies);
+
+                return Ok(new
+                {
+                    message = $"Claimed {currencies.Count} currencies from inventory {inventoryId} to character {characterId}."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    ex,
+                    "Error claiming currencies from inventory {InventoryId} to character {CharacterId}",
+                    inventoryId,
+                    characterId);
+
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }

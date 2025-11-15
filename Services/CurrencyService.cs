@@ -19,6 +19,7 @@ namespace dndhelper.Services
         private readonly ICharacterService _characterService;
         private readonly IInventoryService _inventoryService;
         private readonly ICharacterRepository _characterRepository;
+        private readonly IInventoryRepository _inventoryRepository;
         private readonly ILogger _logger;
         private readonly ClaimsPrincipal _user;
 
@@ -26,6 +27,7 @@ namespace dndhelper.Services
             ICharacterService characterService,
             IInventoryService inventoryService,
             ICharacterRepository characterRepository,
+            IInventoryRepository inventoryRepository,
             ILogger logger,
             IHttpContextAccessor httpContextAccessor)
         {
@@ -35,6 +37,8 @@ namespace dndhelper.Services
                 ?? throw new ArgumentNullException(nameof(inventoryService));
             _characterRepository = characterRepository
                 ?? throw new ArgumentNullException(nameof(characterRepository));
+            _inventoryRepository = inventoryRepository
+                ?? throw new ArgumentNullException(nameof(inventoryRepository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _user = httpContextAccessor?.HttpContext?.User
                 ?? throw new ArgumentNullException(nameof(httpContextAccessor));
@@ -178,7 +182,67 @@ namespace dndhelper.Services
             }
         }
 
+        public async Task ClaimFromInventory(string characterId, string inventoryId, List<Currency> currencies)
+        {
+            if (string.IsNullOrWhiteSpace(characterId))
+                throw new ArgumentNullException(nameof(characterId));
 
+            if (string.IsNullOrWhiteSpace(inventoryId))
+                throw new ArgumentNullException(nameof(inventoryId));
+
+            if (currencies == null || currencies.Count == 0)
+                throw new ArgumentException("No currencies provided.");
+
+            try
+            {
+                var character = await _characterService.GetByIdAsync(characterId)
+                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
+
+                await EnsureCharacterOwnershipAsync(character);
+
+                // Load inventory directly through repository (NO ownership check)
+                var inventory = await _inventoryRepository.GetByIdAsync(inventoryId)
+                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
+
+                inventory.Currencies ??= new List<Currency>();
+                character.Currencies ??= new List<Currency>();
+
+                foreach (var currency in currencies)
+                {
+                    var invCur = inventory.Currencies.FirstOrDefault(c => c.Type == currency.Type);
+
+                    if (invCur == null)
+                        throw CustomExceptions.ThrowNotFoundException(
+                            _logger,
+                            $"Inventory does not contain currency '{currency.Type}'.");
+
+                    if (invCur.Amount < currency.Amount)
+                        throw CustomExceptions.ThrowInvalidOperationException(
+                            _logger,
+                            $"Cannot claim {currency.Amount} {currency.Type}. Inventory has only {invCur.Amount}.");
+                }
+
+                // 4) Remove currency from inventory
+                foreach (var currency in currencies)
+                    UpdateCurrencyList(inventory.Currencies, currency, isAddition: false);
+
+                inventory.Currencies.RemoveAll(c => c.Amount <= 0);
+
+                // 5) Add to character
+                character.Currencies = MergeCurrencies(character.Currencies, currencies);
+
+                // 6) Save everything
+                await _inventoryRepository.UpdateAsync(inventory);
+                await _characterService.UpdateAsync(character);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex,
+                    "Error claiming currencies from inventory {InventoryId} to character {CharacterId}",
+                    inventoryId, characterId);
+                throw;
+            }
+        }
 
         // ----------------------------
         // PRIVATE HELPERS

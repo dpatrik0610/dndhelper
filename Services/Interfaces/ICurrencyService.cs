@@ -12,5 +12,6 @@ namespace dndhelper.Services.Interfaces
         Task RemoveCurrencyFromCharacter(string characterId, List<Currency> currencies);
         Task AddCurrencyToInventory(string inventoryId, Currency currency);
         Task TransferBetweenCharacters(string fromId, string toId, List<Currency> currencies);
+        Task ClaimFromInventory(string characterId, string inventoryId, List<Currency> currencies);
     }
 }
