@@ -7,7 +7,6 @@ namespace dndhelper.Models
 {
     public class Note : IEntity
     {
-        // Metadata
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
@@ -17,5 +16,6 @@ namespace dndhelper.Models
 
         public string? Title { get; set; }  = "No Title";
         public List<string>? Lines { get; set; } = new List<string>();
+        public bool isFavorite { get; set; } = false;
     }
 }
