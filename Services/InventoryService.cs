@@ -1,5 +1,7 @@
-﻿using dndhelper.Models;
+﻿using dndhelper.Authorization;
+using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
+using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
@@ -15,18 +17,49 @@ namespace dndhelper.Services
     public class InventoryService : BaseService<Inventory, IInventoryRepository>, IInventoryService
     {
         private readonly IEquipmentRepository _equipmentRepo;
-        public InventoryService(IInventoryRepository repo, ILogger logger, IEquipmentRepository equipmentRepo, IAuthorizationService authorizationService,
-        IHttpContextAccessor httpContextAccessor) : base(repo, logger, authorizationService, httpContextAccessor) 
+        private readonly ICharacterService _characterService;
+
+        public InventoryService(
+            IInventoryRepository repo, 
+            ILogger logger, 
+            IEquipmentRepository equipmentRepo,
+            IAuthorizationService authorizationService,
+            IHttpContextAccessor httpContextAccessor,
+            ICharacterService characterService
+            ) : base(repo, logger, authorizationService, httpContextAccessor) 
         {
             _equipmentRepo = equipmentRepo;
+            _characterService = characterService;
         }
 
 
-        // Helper for argument validation
+        // Helpers
         private void ValidateId(string id, string paramName)
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException($"{paramName} cannot be null or empty");
+        }
+
+        private async Task<List<string>> ResolveOwnerIdsFromCharacterIdsAsync(IEnumerable<string>? characterIds)
+        {
+            if (characterIds == null)
+                return new List<string>();
+
+            var ids = characterIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+                return new List<string>();
+
+            var characters = await _characterService.GetByIdsAsync(ids);
+
+            return characters
+                .Where(c => c.OwnerIds != null)
+                .SelectMany(c => c.OwnerIds!)
+                .Distinct()
+                .ToList();
         }
 
         // Inventories
@@ -50,6 +83,51 @@ namespace dndhelper.Services
                 _logger.Error(ex, $"Error fetching inventories for character {characterId}");
                 throw;
             }
+        }
+
+        public override async Task<Inventory?> CreateAsync(Inventory entity)
+        {
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+            // 1) derive owners from CharacterIds
+            var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
+
+            entity.OwnerIds ??= new List<string>();
+
+            foreach (var ownerId in characterOwners)
+            {
+                if (!entity.OwnerIds.Contains(ownerId))
+                    entity.OwnerIds.Add(ownerId);
+            }
+
+            // 2) delegate to base:
+            //    - sets CreatedAt
+            //    - attaches current user (admin) as owner if needed
+            return await base.CreateAsync(entity);
+        }
+
+        public override async Task<Inventory?> UpdateAsync(Inventory entity)
+        {
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+            // First, normal ownership check still applies
+            if (entity is IOwnedResource owned)
+                await EnsureOwnershipAccess(owned);
+
+            // Rebuild ownerIds from CharacterIds
+            var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
+
+            entity.OwnerIds ??= new List<string>();
+
+            // Option A: union current + derived
+            entity.OwnerIds = entity.OwnerIds
+                .Concat(characterOwners)
+                .Distinct()
+                .ToList();
+
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            return await _repository.UpdateAsync(entity);
         }
 
         // Inventory Items
