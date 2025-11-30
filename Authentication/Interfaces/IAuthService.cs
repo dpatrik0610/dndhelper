@@ -8,5 +8,8 @@ namespace dndhelper.Authentication.Interfaces
         Task RegisterAsync(string username, string password);
         string GetUserIdFromToken();
         Task<User> GetUserFromTokenAsync();
+
+        Task ChangePasswordAsync(string currentPassword, string newPassword);
+        Task ResetPasswordAsync(string username, string newPassword);
     }
 }

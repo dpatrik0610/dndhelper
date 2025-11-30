@@ -1,7 +1,7 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Net;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -18,49 +18,77 @@ namespace dndhelper.Controllers
             _authService = authService;
         }
 
+        // --------------------------
+        // Register
+        // --------------------------
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            try
-            {
-                await _authService.RegisterAsync(request.Username, request.Password);
+            await _authService.RegisterAsync(request.Username, request.Password);
 
-                var token = await _authService.AuthenticateAsync(request.Username, request.Password);
-
-                if (token == null)
-                    return Unauthorized();
-
-                return Ok(new { Token = token });
-            }
-            catch
-            {
-                return BadRequest( new {Message = "User Already Exists"} );
-            }
+            var token = await _authService.AuthenticateAsync(request.Username, request.Password);
+            return Ok(new { Token = token });
         }
 
+        // --------------------------
+        // Login
+        // --------------------------
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var token = await _authService.AuthenticateAsync(request.Username, request.Password);
-
-            if (token == null)
-                return Unauthorized();
-
             return Ok(new { Token = token });
         }
 
+        // --------------------------
+        // Get Self
+        // --------------------------
         [HttpGet("me")]
+        [Authorize]
         public IActionResult GetMyUserId()
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var userName = User.Identity?.Name;
-
             return Ok(new
             {
-                UserId = userId,
-                UserName = userName,
+                UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                UserName = User.Identity?.Name,
                 IsAuthenticated = User.Identity?.IsAuthenticated ?? false
             });
         }
+
+        // --------------------------
+        // Change own password
+        // --------------------------
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            await _authService.ChangePasswordAsync(request.CurrentPassword, request.NewPassword);
+            return Ok(new { Message = "Password changed successfully." });
+        }
+
+        // --------------------------
+        // Reset another user's password (Admin only)
+        // --------------------------
+        [HttpPost("reset-password")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            await _authService.ResetPasswordAsync(request.Username, request.NewPassword);
+            return Ok(new { Message = "Password reset successfully." });
+        }
+    }
+
+    // ----------- Request Models -----------
+
+    public class ChangePasswordRequest
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

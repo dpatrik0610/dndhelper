@@ -113,6 +113,68 @@ namespace dndhelper.Authentication
             return user;
         }
 
+        /// <summary>
+        /// Changes the current user's password (requires valid current password).
+        /// </summary>
+        public async Task ChangePasswordAsync(string currentPassword, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(currentPassword))
+                CustomExceptions.ThrowArgumentException(_logger, nameof(currentPassword));
+            if (string.IsNullOrWhiteSpace(newPassword))
+                CustomExceptions.ThrowArgumentException(_logger, nameof(newPassword));
+
+            var user = await GetUserFromTokenAsync();
+
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+            {
+                _logger.Warning("Invalid current password for user {Username}", user.Username);
+                CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(currentPassword));
+            }
+
+            if (BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash))
+            {
+                _logger.Warning("New password is the same as the current one for user {Username}", user.Username);
+                CustomExceptions.ThrowArgumentException(_logger, nameof(newPassword));
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+            await _userService.UpdateAsync(user);
+
+            _logger.Information("Password changed successfully for user {Username}", user.Username);
+        }
+
+        /// <summary>
+        /// Resets the specified user's password without requiring the old password.
+        /// Intended for admin / forgot-password flows.
+        /// </summary>
+        public async Task ResetPasswordAsync(string username, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+                CustomExceptions.ThrowArgumentException(_logger, nameof(username));
+            if (string.IsNullOrWhiteSpace(newPassword))
+                CustomExceptions.ThrowArgumentException(_logger, nameof(newPassword));
+
+            var user = await _userService.GetByUsernameAsync(username);
+            if (user == null)
+            {
+                _logger.Warning("Attempted password reset for non-existent user: {Username}", username);
+                CustomExceptions.ThrowNotFoundException(_logger, nameof(username));
+            }
+
+            if (BCrypt.Net.BCrypt.Verify(newPassword, user.PasswordHash))
+            {
+                _logger.Warning("Reset password is the same as existing password for user {Username}", user.Username);
+                CustomExceptions.ThrowArgumentException(_logger, nameof(newPassword));
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+            await _userService.UpdateAsync(user);
+
+            _logger.Information("Password reset successfully for user {Username}", user.Username);
+        }
+
         // --- Private Helpers ---
 
         private void ValidateCredentials(string username, string password)
