@@ -260,5 +260,21 @@ namespace dndhelper.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        [HttpGet("count")]
+        [Authorize(Roles = "User,Admin,DungeonMaster")]
+        public async Task<IActionResult> GetCount()
+        {
+            try
+            {
+                var count = await _monsterService.GetCountAsync();
+                return Ok(new { Count = count });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
     }
 }

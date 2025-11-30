@@ -125,6 +125,9 @@ namespace dndhelper.Services
 
             return monsters;
         }
-
+        public Task<long> GetCountAsync()
+        {
+            return _repository.GetCountAsync();
+        }
     }
 }

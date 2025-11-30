@@ -22,7 +22,8 @@ namespace dndhelper.Repositories
             if (string.IsNullOrWhiteSpace(namePhrase))
                 throw new ArgumentException("Monster name phrase is null or empty.");
 
-            var filter = Builders<Monster>.Filter.Regex(m => m.Name,
+            var filter = Builders<Monster>.Filter.Regex(
+                m => m.Name,
                 new BsonRegularExpression(namePhrase, "i"));
 
             return await _collection.Find(filter).ToListAsync();
@@ -30,15 +31,36 @@ namespace dndhelper.Repositories
 
         public async Task<List<Monster>> GetPagedAsync(int page, int pageSize)
         {
-            return await _collection.Find(m => !m.IsDeleted)
+            if (page <= 0 || pageSize <= 0)
+                throw new ArgumentException("Page and page size must be greater than zero.");
+
+            var f = Builders<Monster>.Filter;
+            // not deleted: IsDeleted != true (includes missing field)
+            var filter = f.Ne(m => m.IsDeleted, true);
+
+            return await _collection.Find(filter)
                 .Skip((page - 1) * pageSize)
                 .Limit(pageSize)
                 .ToListAsync();
         }
 
+        public Task<long> GetCountAsync()
+        {
+            // if you want only non-deleted, change to Ne(m => m.IsDeleted, true)
+            return _collection.CountDocumentsAsync(_ => true);
+        }
+
         public async Task<List<Monster>> SearchAsync(string query, int page, int pageSize)
         {
-            var filter = Builders<Monster>.Filter.Regex(m => m.Name, new BsonRegularExpression(query, "i"));
+            if (string.IsNullOrWhiteSpace(query))
+                throw new ArgumentException("Search query cannot be null or empty.");
+            if (page <= 0 || pageSize <= 0)
+                throw new ArgumentException("Page and page size must be greater than zero.");
+
+            var filter = Builders<Monster>.Filter.Regex(
+                m => m.Name,
+                new BsonRegularExpression(query, "i"));
+
             return await _collection.Find(filter)
                 .Skip((page - 1) * pageSize)
                 .Limit(pageSize)
@@ -56,46 +78,79 @@ namespace dndhelper.Repositories
 
         public async Task<List<Monster>> SearchAsync(MonsterSearchCriteria criteria)
         {
-            var filterBuilder = Builders<Monster>.Filter;
-            var filter = filterBuilder.Eq(m => m.IsDeleted, false);
+            if (criteria == null) throw new ArgumentNullException(nameof(criteria));
 
             _logger.Information("Starting monster search with criteria {@Criteria}", criteria);
 
-            if (!string.IsNullOrWhiteSpace(criteria.Name))
-                filter &= filterBuilder.Regex(m => m.Name, new BsonRegularExpression(criteria.Name, "i"));
+            var filter = BuildSearchFilter(criteria);
+            var sort = BuildSearchSort(criteria);
 
-            if (!string.IsNullOrWhiteSpace(criteria.Type))
-            {
-                var typeFilters = new List<FilterDefinition<Monster>>
-                {
-                    filterBuilder.Regex("Type", new BsonRegularExpression(criteria.Type, "i")),
-                    filterBuilder.Regex("Type.Type", new BsonRegularExpression(criteria.Type, "i"))
-                };
-                filter &= filterBuilder.Or(typeFilters);
-            }
-
-            if (criteria.Tags?.Any() == true)
-                filter &= filterBuilder.AnyIn(m => m.Type!.Tags, criteria.Tags);
-
-            if (criteria.MinCR.HasValue)
-                filter &= filterBuilder.Gte(m => m.CR, criteria.MinCR.Value);
-
-            if (criteria.MaxCR.HasValue)
-                filter &= filterBuilder.Lte(m => m.CR, criteria.MaxCR.Value);
-
-            var sort = criteria.SortDescending
-                ? Builders<Monster>.Sort.Descending(criteria.SortBy)
-                : Builders<Monster>.Sort.Ascending(criteria.SortBy);
+            var page = criteria.Page <= 0 ? 1 : criteria.Page;
+            var pageSize = criteria.PageSize <= 0 ? 10 : criteria.PageSize;
 
             var monsters = await _collection
                 .Find(filter)
                 .Sort(sort)
-                .Skip((criteria.Page - 1) * criteria.PageSize)
-                .Limit(criteria.PageSize)
+                .Skip((page - 1) * pageSize)
+                .Limit(pageSize)
                 .ToListAsync();
 
             _logger.Information("Completed monster search, returning {Count} results", monsters.Count);
             return monsters;
+        }
+
+        // ----------------- Private helpers -----------------
+
+        private FilterDefinition<Monster> BuildSearchFilter(MonsterSearchCriteria criteria)
+        {
+            var f = Builders<Monster>.Filter;
+
+            // include docs where IsDeleted is not true (false or missing)
+            var filter = f.Ne(m => m.IsDeleted, true);
+
+            if (!string.IsNullOrWhiteSpace(criteria.Name))
+            {
+                filter &= f.Regex(
+                    m => m.Name,
+                    new BsonRegularExpression(criteria.Name, "i"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(criteria.Type))
+            {
+                var typeRegex = new BsonRegularExpression(criteria.Type, "i");
+                filter &= f.Or(
+                    f.Regex("Type", typeRegex),
+                    f.Regex("Type.Type", typeRegex)
+                );
+            }
+
+            if (criteria.Tags?.Any() == true)
+            {
+                filter &= f.AnyIn(m => m.Type!.Tags, criteria.Tags);
+            }
+
+            if (criteria.MinCR.HasValue)
+            {
+                filter &= f.Gte(m => m.CR, criteria.MinCR.Value);
+            }
+
+            if (criteria.MaxCR.HasValue)
+            {
+                filter &= f.Lte(m => m.CR, criteria.MaxCR.Value);
+            }
+
+            return filter;
+        }
+
+        private SortDefinition<Monster> BuildSearchSort(MonsterSearchCriteria criteria)
+        {
+            var sortField = string.IsNullOrWhiteSpace(criteria.SortBy)
+                ? nameof(Monster.Name)
+                : criteria.SortBy;
+
+            return criteria.SortDescending
+                ? Builders<Monster>.Sort.Descending(sortField)
+                : Builders<Monster>.Sort.Ascending(sortField);
         }
     }
 }

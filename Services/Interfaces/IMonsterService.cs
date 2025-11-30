@@ -10,6 +10,7 @@ namespace dndhelper.Services.Interfaces
         Task<List<Monster>> GetMonstersByNameAsync(string name);
         Task<List<Monster>> GetPagedMonstersAsync(int page, int pageSize);
         Task<List<Monster>> SearchMonstersAsync(string query, int page, int pageSize);
+        Task<long> GetCountAsync();
 
         // Ownership and Management
         Task<bool> AddMonsterOwnerAsync(string monsterId, string newOwnerId, string requesterUserId);
