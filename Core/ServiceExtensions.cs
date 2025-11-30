@@ -7,6 +7,7 @@ using dndhelper.Repositories.Interfaces;
 using dndhelper.Services;
 using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Services.SignalR;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -93,6 +94,7 @@ namespace dndhelper.Core
             services.AddScoped<INoteRepository, NoteRepository>();
 
             // Services
+            services.AddScoped<IEntitySyncService, EntitySyncService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IDiceRollService, DiceRollService>();
             services.AddScoped<ICharacterService, CharacterService>();

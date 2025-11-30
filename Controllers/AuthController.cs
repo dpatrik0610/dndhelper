@@ -2,6 +2,7 @@
 using dndhelper.Authentication.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -46,6 +47,20 @@ namespace dndhelper.Controllers
                 return Unauthorized();
 
             return Ok(new { Token = token });
+        }
+
+        [HttpGet("me")]
+        public IActionResult GetMyUserId()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userName = User.Identity?.Name;
+
+            return Ok(new
+            {
+                UserId = userId,
+                UserName = userName,
+                IsAuthenticated = User.Identity?.IsAuthenticated ?? false
+            });
         }
     }
 }

@@ -18,6 +18,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSignalR();
+
 // 🔹 CORS (allow from env or allow all for testing)
 builder.Services.AddCors(options =>
 {
@@ -26,9 +28,14 @@ builder.Services.AddCors(options =>
         if (builder.Environment.IsDevelopment())
         {
             policy
-                .AllowAnyOrigin()
+                .SetIsOriginAllowed(origin =>
+                {
+                    var uri = new Uri(origin);
+                    return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                })
                 .AllowAnyHeader()
-                .AllowAnyMethod();
+                .AllowAnyMethod()
+                .AllowCredentials();
         }
         else
         {
@@ -65,6 +72,8 @@ if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DOTN
 
 app.UseSerilogRequestLogging();
 app.UseCors(MyAllowSpecificOrigins);
+
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

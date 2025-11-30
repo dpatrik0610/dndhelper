@@ -1,257 +1,304 @@
-﻿using dndhelper.Models;
+﻿using dndhelper.Authentication.Interfaces;
+using dndhelper.Models;
+using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Services.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
-namespace dndhelper.Controllers
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public class InventoryController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    [Authorize]
-    public class InventoryController : ControllerBase
+    private readonly IInventoryService _inventoryService;
+    private readonly IEntitySyncService _entitySyncService;
+    private readonly IAuthService _authService;
+    private readonly ICampaignService _campaignService;
+    private readonly ICharacterService _characterService;
+
+    public InventoryController(
+        IInventoryService inventoryService,
+        IEntitySyncService entitySyncService,
+        IAuthService authService,
+        ICampaignService campaignService,
+        ICharacterService characterService)
     {
-        private readonly IInventoryService _inventoryService;
+        _inventoryService = inventoryService;
+        _entitySyncService = entitySyncService;
+        _authService = authService;
+        _campaignService = campaignService;
+        _characterService = characterService;
+    }
 
-        public InventoryController(IInventoryService inventoryService)
+    // -------------------
+    // Inventory Endpoints
+    // -------------------
+
+    [HttpGet("character/{characterId}")]
+    public async Task<IActionResult> GetInventoriesByCharacter(string characterId)
+    {
+        var inventories = await _inventoryService.GetByCharacterAsync(characterId);
+        return Ok(inventories);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetInventory(string id)
+    {
+        var inventory = await _inventoryService.GetByIdAsync(id);
+        if (inventory == null) return NotFound();
+        return Ok(inventory);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateInventory(Inventory inventory)
+    {
+        var created = await _inventoryService.CreateAsync(inventory);
+        if (string.IsNullOrEmpty(created?.Id))
+            return StatusCode(500, "Server side error at inventory creation.");
+
+        await BroadcastInventoryChangeAsync(created, "created", created);
+
+        return CreatedAtAction(nameof(GetInventory), "Inventory", new { id = created.Id }, created);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateInventory(string id, Inventory inventory)
+    {
+        if (id != inventory.Id)
+            return BadRequest("ID mismatch.");
+
+        var updated = await _inventoryService.UpdateAsync(inventory);
+        if (updated == null)
+            return NotFound();
+
+        await BroadcastInventoryChangeAsync(updated, "updated", updated);
+
+        return Ok(updated);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteInventory(string id)
+    {
+        var existing = await _inventoryService.GetByIdAsync(id);
+        if (existing == null)
+            return NotFound();
+
+        var deleted = await _inventoryService.DeleteAsync(id);
+        if (!deleted)
+            return StatusCode(500, "Error deleting inventory.");
+
+        await BroadcastInventoryChangeAsync(existing, "deleted", data: null);
+
+        return NoContent();
+    }
+
+    // ----------------------
+    // Inventory Item Endpoints
+    // ----------------------
+
+    [HttpGet("{inventoryId}/items")]
+    public async Task<IActionResult> GetItems(string inventoryId)
+    {
+        var items = await _inventoryService.GetItemsAsync(inventoryId);
+        return Ok(items);
+    }
+
+    [HttpGet("{inventoryId}/items/{equipmentId}")]
+    public async Task<IActionResult> GetItem(string inventoryId, string equipmentId)
+    {
+        var item = await _inventoryService.GetItemAsync(inventoryId, equipmentId);
+        if (item == null) return NotFound();
+        return Ok(item);
+    }
+
+    [HttpPost("{inventoryId}/additem")]
+    public async Task<IActionResult> AddItem(string inventoryId, [FromBody] ModifyItemAmountRequest request)
+    {
+        var response = await _inventoryService.AddOrIncrementItemAsync(
+            inventoryId,
+            request.EquipmentId,
+            request.Amount
+        );
+
+        var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+        if (inventory != null)
+            await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
+
+        return Ok(response);
+    }
+
+    [HttpPost("{inventoryId}/additem/new")]
+    public async Task<IActionResult> AddNewItem(string inventoryId, Equipment equipment)
+    {
+        var item = await _inventoryService.AddNewItemAsync(inventoryId, equipment);
+
+        var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+        if (inventory != null)
+            await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
+
+        return Ok(item);
+    }
+
+    [HttpPost("{sourceInventoryId}/items/{equipmentId}/move")]
+    public async Task<IActionResult> MoveItem(
+        string sourceInventoryId,
+        string equipmentId,
+        [FromBody] MoveItemRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(sourceInventoryId) ||
+            string.IsNullOrWhiteSpace(request.TargetInventoryId) ||
+            string.IsNullOrWhiteSpace(equipmentId))
+            return BadRequest("Invalid inventory or equipment ID.");
+
+        await _inventoryService.MoveItemAsync(
+            sourceInventoryId,
+            request.TargetInventoryId,
+            equipmentId,
+            request.Amount
+        );
+
+        var source = await _inventoryService.GetByIdAsync(sourceInventoryId);
+        var target = await _inventoryService.GetByIdAsync(request.TargetInventoryId);
+
+        if (source != null)
+            await BroadcastInventoryChangeAsync(source, "updated", source);
+
+        if (target != null)
+            await BroadcastInventoryChangeAsync(target, "updated", target);
+
+        return Ok(new
         {
-            _inventoryService = inventoryService;
+            message = $"Moved {equipmentId} from {sourceInventoryId} to {request.TargetInventoryId}."
+        });
+    }
+
+    [HttpPut("{inventoryId}/items/{equipmentId}")]
+    public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentId, InventoryItem item)
+    {
+        if (equipmentId != item.EquipmentId)
+            return BadRequest("Equipment index mismatch.");
+
+        await _inventoryService.UpdateItemAsync(inventoryId, item);
+
+        var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+        if (inventory != null)
+            await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{inventoryId}/items/{equipmentId}")]
+    public async Task<IActionResult> DeleteItem(string inventoryId, string equipmentId)
+    {
+        await _inventoryService.DeleteItemAsync(inventoryId, equipmentId);
+
+        var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+        if (inventory != null)
+            await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
+
+        return NoContent();
+    }
+
+    [HttpPatch("{inventoryId}/items/")]
+    public async Task<IActionResult> DecrementItemQuantity(
+        string inventoryId,
+        [FromBody] ModifyItemAmountRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(inventoryId) ||
+            string.IsNullOrWhiteSpace(request.EquipmentId))
+            return BadRequest("Invalid inventory or equipment ID.");
+
+        if (request.Amount <= 0)
+            return BadRequest("Decrement amount must be greater than zero.");
+
+        await _inventoryService.DecrementItemQuantityAsync(
+            inventoryId,
+            request.EquipmentId,
+            request.Amount
+        );
+
+        var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+        if (inventory != null)
+            await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
+
+        return Ok(new
+        {
+            message = $"Item {request.EquipmentId} decremented by {request.Amount} in inventory {inventoryId}."
+        });
+    }
+
+    public class ModifyItemAmountRequest
+    {
+        public string EquipmentId { get; set; } = null!;
+        public int Amount { get; set; } = 1;
+    }
+
+    public class MoveItemRequest
+    {
+        public string TargetInventoryId { get; set; } = null!;
+        public int Amount { get; set; } = 1;
+    }
+
+    // =====================
+    // SignalR Sync Helper
+    // =====================
+    private async Task BroadcastInventoryChangeAsync(Inventory inventory, string action, object? data)
+    {
+        if (inventory.OwnerIds == null || !inventory.OwnerIds.Any())
+            return;
+
+        var user = await _authService.GetUserFromTokenAsync();
+        var recipients = new HashSet<string>(inventory.OwnerIds);
+
+        // 1) If inventory explicitly has CampaignId → add that campaign's DMs
+        if (!string.IsNullOrEmpty(inventory.CampaignId))
+        {
+            var dmIds = await _campaignService.GetCampaignDMIdsAsync(inventory.CampaignId);
+            if (dmIds != null)
+            {
+                foreach (var dmId in dmIds)
+                    recipients.Add(dmId);
+            }
+        }
+        else if (inventory.CharacterIds != null && inventory.CharacterIds.Any())
+        {
+            // 2) Otherwise derive campaigns from attached characters
+            //    (e.g., shared inventory between party members)
+            var characters = await _characterService.GetByIdsAsync(inventory.CharacterIds);
+            var campaignIds = characters
+                .Where(c => !string.IsNullOrEmpty(c.CampaignId))
+                .Select(c => c.CampaignId!)
+                .Distinct()
+                .ToList();
+
+            foreach (var campaignId in campaignIds)
+            {
+                var dmIds = await _campaignService.GetCampaignDMIdsAsync(campaignId);
+                if (dmIds == null) continue;
+
+                foreach (var dmId in dmIds)
+                    recipients.Add(dmId);
+            }
         }
 
-        // -------------------
-        // Inventory Endpoints
-        // -------------------
-
-        [HttpGet("character/{characterId}")]
-        public async Task<ActionResult<IEnumerable<Inventory>>> GetInventoriesByCharacter(string characterId)
-        {
-            try
+        await _entitySyncService.BroadcastToUsers(
+            "EntityChanged",
+            new
             {
-                var inventories = await _inventoryService.GetByCharacterAsync(characterId);
-                return Ok(inventories);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Inventory>> GetInventory(string id)
-        {
-            try
-            {
-                var inventory = await _inventoryService.GetByIdAsync(id);
-                if (inventory == null) return NotFound();
-                return Ok(inventory);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<Inventory>> CreateInventory(Inventory inventory)
-        {
-            try
-            {
-                var created = await _inventoryService.CreateAsync(inventory);
-                return CreatedAtAction(nameof(GetInventory), new { id = created!.Id }, created);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpPut("{id}")]
-        public async Task<ActionResult<Inventory>> UpdateInventory(string id, Inventory inventory)
-        {
-            if (id != inventory.Id)
-                return BadRequest("ID mismatch.");
-
-            try
-            {
-                var updated = await _inventoryService.UpdateAsync(inventory);
-                return Ok(updated);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteInventory(string id)
-        {
-            try
-            {
-                await _inventoryService.DeleteAsync(id);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        // ----------------------
-        // Inventory Item Endpoints
-        // ----------------------
-
-        [HttpGet("{inventoryId}/items")]
-        public async Task<ActionResult<IEnumerable<InventoryItem>>> GetItems(string inventoryId)
-        {
-            try
-            {
-                var items = await _inventoryService.GetItemsAsync(inventoryId);
-                return Ok(items);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpGet("{inventoryId}/items/{equipmentIndex}")]
-        public async Task<ActionResult<InventoryItem>> GetItem(string inventoryId, string equipmentIndex)
-        {
-            try
-            {
-                var item = await _inventoryService.GetItemAsync(inventoryId, equipmentIndex);
-                if (item == null) return NotFound();
-                return Ok(item);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-
-        [HttpPost("{inventoryId}/additem")]
-        public async Task<IActionResult> AddItem(string inventoryId, [FromBody] ModifyItemAmountRequest request)
-        {
-            try
-            {
-                var response = await _inventoryService.AddOrIncrementItemAsync(inventoryId, request.EquipmentId, request.Amount);
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpPost("{inventoryId}/additem/new")]
-        public async Task<IActionResult> AddNewItem(string inventoryId, Equipment equipment)
-        {
-            try
-            {
-                var item = await _inventoryService.AddNewItemAsync(inventoryId, equipment);
-                return Ok(item);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpPost("{sourceInventoryId}/items/{equipmentId}/move")]
-        public async Task<IActionResult> MoveItem( string sourceInventoryId, string equipmentId, [FromBody] MoveItemRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(sourceInventoryId) || string.IsNullOrWhiteSpace(request.TargetInventoryId) || string.IsNullOrWhiteSpace(equipmentId))
-                return BadRequest("Invalid inventory or equipment ID.");
-
-            try
-            {
-                await _inventoryService.MoveItemAsync(sourceInventoryId, request.TargetInventoryId, equipmentId, request.Amount);
-                return Ok(new { message = $"Moved {equipmentId} from {sourceInventoryId} to {request.TargetInventoryId}." });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = ex.Message });
-            }
-        }
-
-        [HttpPut("{inventoryId}/items/{equipmentId}")]
-        public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentId, InventoryItem item)
-        {
-            if (equipmentId != item.EquipmentId)
-                return BadRequest("Equipment index mismatch.");
-
-            try
-            {
-                await _inventoryService.UpdateItemAsync(inventoryId, item);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-        [HttpDelete("{inventoryId}/items/{equipmentId}")]
-        public async Task<IActionResult> DeleteItem(string inventoryId, string equipmentId)
-        {
-            try
-            {
-                await _inventoryService.DeleteItemAsync(inventoryId, equipmentId);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
-        }
-
-
-
-        // PATCH: api/inventory/{inventoryId}/items/
-        [HttpPatch("{inventoryId}/items/")]
-        public async Task<IActionResult> DecrementItemQuantity(string inventoryId, [FromBody] ModifyItemAmountRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(inventoryId) || string.IsNullOrWhiteSpace(request.EquipmentId))
-                return BadRequest("Invalid inventory or equipment ID.");
-
-            if (request.Amount <= 0)
-                return BadRequest("Decrement amount must be greater than zero.");
-
-            try
-            {
-                await _inventoryService.DecrementItemQuantityAsync(inventoryId, request.EquipmentId, request.Amount);
-                return Ok(new { message = $"Item {request.EquipmentId} decremented by {request.Amount} in inventory {inventoryId}." });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "An unexpected error occurred." });
-            }
-        }
-        public class ModifyItemAmountRequest
-        {
-            public string EquipmentId { get; set; } = null!;
-            public int Amount { get; set; } = 1;
-        }
-
-        public class MoveItemRequest
-        {
-            public string TargetInventoryId { get; set; } = null!;
-            public int Amount { get; set; } = 1;
-        }
+                entityType = "Inventory",
+                entityId = inventory.Id,
+                action,
+                data,
+                changedBy = user.Username,
+                timestamp = DateTime.UtcNow,
+            },
+            recipients.ToList(),
+            excludeUserId: user.Id
+        );
     }
 }

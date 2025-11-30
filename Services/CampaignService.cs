@@ -1,4 +1,5 @@
-﻿using dndhelper.Models;
+﻿using dndhelper.Authentication;
+using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services
@@ -17,7 +19,11 @@ namespace dndhelper.Services
         private readonly IUserRepository _userRepository;
         private readonly ICharacterRepository _characterRepository;
 
-        public CampaignService(ICampaignRepository repository, ILogger logger, IUserRepository userRepository, IAuthorizationService authorizationService,
+        public CampaignService(
+            ICampaignRepository repository, 
+            ILogger logger, 
+            IUserRepository userRepository, 
+            IAuthorizationService authorizationService,
         IHttpContextAccessor httpContextAccessor, ICharacterRepository characterRepository) : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _userRepository = userRepository;
@@ -85,6 +91,19 @@ namespace dndhelper.Services
             _logger.Information("User {UserId} deleted campaign {CampaignId}", userId, campaignId);
 
             return true;
+        }
+
+        public async Task<List<string>> GetCampaignDMIdsAsync(string campaignId)
+        {
+            List<User> users = new List<User>();
+            var campaign = await _repository.GetByIdAsync(campaignId);
+
+            if (campaign == null || campaign.OwnerIds.IsNullOrEmpty())
+                return new List<string> { };
+
+            users = await _userRepository.GetByIdsAsync(campaign.OwnerIds!);
+
+            return users.Select(x => x.Id).ToList();
         }
 
         // ------------------------
