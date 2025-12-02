@@ -1,9 +1,9 @@
 ﻿using dndhelper.Authentication.Interfaces;
 using dndhelper.Models;
-using dndhelper.Models.CharacterModels;
 using dndhelper.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -15,11 +15,13 @@ namespace dndhelper.Controllers
     {
         private readonly ICampaignService _campaignService;
         private readonly IAuthService _authService;
+        private readonly ILogger _logger;
 
-        public CampaignController(ICampaignService service, IAuthService authService)
+        public CampaignController(ICampaignService service, IAuthService authService, ILogger logger)
         {
             _campaignService = service;
             _authService = authService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -90,7 +92,6 @@ namespace dndhelper.Controllers
         public async Task<IActionResult> GetCharacters(string id)
         {
             var result = await _campaignService.GetCharactersAsync(id);
-
             return result == null ? NotFound() : Ok(result);
         }
 
