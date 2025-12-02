@@ -76,9 +76,6 @@ namespace dndhelper.Services
             if (campaign == null)
                 throw CustomExceptions.ThrowCustomException(_logger, $"Campaign not found with ID: {campaignId}");
 
-            if (!campaign.OwnerIds!.Contains(userId))
-                throw CustomExceptions.ThrowCustomException(_logger, "User is not authorized to delete this campaign.");
-
             // Logical delete
             var deleted = await _repository.LogicDeleteAsync(campaignId);
             if (!deleted)
@@ -114,7 +111,7 @@ namespace dndhelper.Services
             List<Character> characters = new List<Character>();
             var campaign = await _repository.GetByIdAsync(campaignId);
 
-            if (campaign == null || campaign.CharacterIds.IsNullOrEmpty()) 
+            if (campaign == null || campaign.CharacterIds.IsNullOrEmpty())
                 return characters;
 
             characters = await _characterRepository.GetByIdsAsync(campaign.CharacterIds);
