@@ -31,23 +31,21 @@ namespace dndhelper.Services
         }
         public async Task<List<Equipment>> SearchByName(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("Search term cannot be empty.", nameof(name));
-
+            Guard.That(!string.IsNullOrWhiteSpace(name), "Search term cannot be empty.", nameof(name));
             _logger.Information($"Searching equipments by name: {name}");
 
             try
             {
-                // Get all non-deleted equipments from repository
                 var allItems = await _repository.GetAllAsync();
-                if (EnumerableExtensions.IsNullOrEmpty(allItems))
+
+                if (allItems == null || !allItems.Any())
                 {
                     _logger.Information("No equipment found in the database.");
                     return new List<Equipment>();
                 }
 
-                // Filter in-memory by name (case-insensitive)
                 var lowerName = name.Trim().ToLowerInvariant();
+
                 var filtered = allItems
                     .Where(e => !e.IsDeleted && e.Name.ToLowerInvariant().Contains(lowerName))
                     .ToList();
@@ -66,6 +64,7 @@ namespace dndhelper.Services
                 throw;
             }
         }
+
 
         public async Task DeleteByIndexAsync(string index)
         {

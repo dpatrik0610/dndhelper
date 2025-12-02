@@ -306,12 +306,17 @@ namespace dndhelper.Services
 
         public async Task<bool> ItemExistsInInventoryAsync(string inventoryId, string equipmentId)
         {
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
+
             var inventory = await _repository.GetByIdAsync(inventoryId);
-            if (inventory is null) return false;
-            if (!EnumerableExtensions.IsNullOrEmpty(inventory.Items)) return false;
+            if (inventory is null)
+                return false;
+
+            if (inventory.Items.IsNullOrEmpty())
+                return false;
 
             return inventory.Items!.Any(x => x.EquipmentId == equipmentId);
-            
         }
 
         public async Task MoveItemAsync(string sourceInventoryId, string targetInventoryId, string equipmentId, int amount = 1)
