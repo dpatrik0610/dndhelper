@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Services.Interfaces
 {
-    public interface IInventoryService : IBaseService<Inventory>
+    public interface IInventoryService : IBaseService<Inventory>, IInternalBaseService<Inventory>
     {
         // Inventories
         Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId);

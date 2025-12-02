@@ -1,11 +1,10 @@
-﻿using dndhelper.Authentication;
-using dndhelper.Models;
+﻿using dndhelper.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services.Interfaces
 {
-    public interface IMonsterService : IBaseService<Monster>
+    public interface IMonsterService : IBaseService<Monster>, IInternalBaseService<Monster>
     {
         Task<List<Monster>> GetMonstersByNameAsync(string name);
         Task<List<Monster>> GetPagedMonstersAsync(int page, int pageSize);

@@ -1,10 +1,10 @@
+using dndhelper.Authentication;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using dndhelper.Authentication;
 
 namespace dndhelper.Services.Interfaces
 {
-    public interface IUserService : IBaseService<User>
+    public interface IUserService : IBaseService<User>, IInternalBaseService<User>
     {
 
         // Read

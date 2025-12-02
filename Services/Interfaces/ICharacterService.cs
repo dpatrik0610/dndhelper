@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Services.CharacterServices.Interfaces
 {
-    public interface ICharacterService : IBaseService<Character>
+    public interface ICharacterService : IBaseService<Character>, IInternalBaseService<Character>
     {
         Task<IEnumerable<Character>> GetByOwnerIdAsync(string ownerId);
         Task<bool> UseSpellSlotAsync(string characterId, int level);

@@ -1,11 +1,10 @@
-﻿using dndhelper.Authentication;
-using dndhelper.Models;
+﻿using dndhelper.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services.Interfaces
 {
-    public interface IEquipmentService : IBaseService<Equipment>
+    public interface IEquipmentService : IBaseService<Equipment>, IInternalBaseService<Equipment>
     {
         Task DeleteByIndexAsync(string index);
         Task<Equipment?> GetEquipmentByIndexAsync(string index);

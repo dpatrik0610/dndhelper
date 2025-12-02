@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Services.Interfaces
 {
-    public interface ICampaignService : IBaseService<Campaign>
+    public interface ICampaignService : IBaseService<Campaign>, IInternalBaseService<Campaign>
     {
         Task<Campaign> CreateAsync(Campaign campaign, string userId);
         Task<bool> DeleteAsync(string id, string userId);
