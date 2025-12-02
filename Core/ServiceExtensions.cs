@@ -2,6 +2,8 @@
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Authorization.Policies;
 using dndhelper.Database;
+using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services;
@@ -25,14 +27,20 @@ namespace dndhelper.Core
     {
         public static IServiceCollection InjectServices(this IServiceCollection services, IConfiguration config)
         {
-            // Caching
-            services.AddMemoryCache();
-
-            // Logger
             services.AddSingleton(CustomLogger.CreateLogger());
             var logger = services.BuildServiceProvider().GetRequiredService<ILogger>();
 
-            // Database setup
+            #region Caching
+            services.AddMemoryCache();
+            services.AddSingleton<IMemoryCache>(sp =>
+            {
+                var inner = new MemoryCache(new MemoryCacheOptions());
+                return new TrackingMemoryCache(inner);
+            });
+            services.AddScoped<ICacheService, CacheService>();
+            #endregion
+
+            #region Database
             services.AddSingleton(sp =>
             {
                 var connectionString = config["MongoDB:ConnectionString"];
@@ -52,7 +60,9 @@ namespace dndhelper.Core
                 logger.Information("✅ Connected to MongoDB database {DbName}", databaseName);
                 return new MongoDbContext(connectionString, databaseName, logger);
             });
+            #endregion
 
+            #region Auth
             // Authentication
             services.AddHttpContextAccessor();
             services.AddScoped<IUserRepository, UserRepository>();
@@ -82,8 +92,9 @@ namespace dndhelper.Core
                     policy.Requirements.Add(new OwnershipRequirement()));
             });
             services.AddSingleton<IAuthorizationHandler, OwnershipHandler>();
+            #endregion
 
-            // Repos
+            #region Repos
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<ICharacterRepository, CharacterRepository>();
             services.AddScoped<IEquipmentRepository, EquipmentRepository>();
@@ -92,8 +103,9 @@ namespace dndhelper.Core
             services.AddScoped<ICampaignRepository, CampaignRepository>();
             services.AddScoped<ISpellRepository, SpellRepository>();
             services.AddScoped<INoteRepository, NoteRepository>();
+            #endregion
 
-            // Services
+            #region Services
             services.AddScoped<IEntitySyncService, EntitySyncService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IDiceRollService, DiceRollService>();
@@ -106,12 +118,10 @@ namespace dndhelper.Core
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<INoteService, NoteService>();
 
-            services.AddSingleton<IMemoryCache>(sp =>
-            {
-                var inner = new MemoryCache(new MemoryCacheOptions());
-                return new TrackingMemoryCache(inner);
-            });
-            services.AddScoped<ICacheService, CacheService>();
+            // Internal services
+            services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
+            services.AddScoped<IInternalBaseService<Character>, CharacterService>();
+            #endregion
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
             services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>
@@ -120,7 +130,6 @@ namespace dndhelper.Core
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
 
-            // Utils
             return services;
         }
     }
