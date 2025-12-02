@@ -210,6 +210,15 @@ namespace dndhelper.Services
             return await ExecuteInternalAsync(() => _repository.GetAllAsync(), "GetAll");
         }
 
+        public virtual async Task<T?> UpdateInternalAsync(T entity)
+        {
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            entity.UpdatedAt = DateTime.UtcNow;
+            return await ExecuteInternalAsync(() => _repository.UpdateAsync(entity), "Update");
+        }
+
         public virtual async Task<long> CountInternalAsync()
         {
             return await ExecuteInternalAsync(() => _repository.CountAsync(), "Count");

@@ -9,6 +9,7 @@ namespace dndhelper.Services.Interfaces
         Task<T?> GetByIdInternalAsync(string id);
         Task<List<T>> GetByIdsInternalAsync(IEnumerable<string> ids);
         Task<IEnumerable<T>> GetAllInternalAsync();
+        Task<T?> UpdateInternalAsync(T entity);
         Task<long> CountInternalAsync();
         Task<bool> ExistsInternalAsync(string id);
     }
