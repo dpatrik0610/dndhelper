@@ -27,9 +27,6 @@ namespace dndhelper.Services
             var local = await _repository.GetByIndexAsync(index);
             if (local != null) return local;
 
-            //var official = await _apiClient.GetEquipmentByIndexAsync(index);
-            //if (official == null) return official;
-
             return null;
         }
         public async Task<List<Equipment>> SearchByName(string name)
@@ -41,15 +38,15 @@ namespace dndhelper.Services
 
             try
             {
-                // 1️⃣ Get all non-deleted equipments from repository
-                var allItems = await _repository.GetAllAsync(); // assume this exists
+                // Get all non-deleted equipments from repository
+                var allItems = await _repository.GetAllAsync();
                 if (EnumerableExtensions.IsNullOrEmpty(allItems))
                 {
                     _logger.Information("No equipment found in the database.");
                     return new List<Equipment>();
                 }
 
-                // 2️⃣ Filter in-memory by name (case-insensitive)
+                // Filter in-memory by name (case-insensitive)
                 var lowerName = name.Trim().ToLowerInvariant();
                 var filtered = allItems
                     .Where(e => !e.IsDeleted && e.Name.ToLowerInvariant().Contains(lowerName))

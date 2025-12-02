@@ -17,7 +17,6 @@ namespace dndhelper.Services
         }
         public async Task<List<SpellNameResponse>> GetAllNamesAsync()
         {
-            // Here you could add any extra logic, filtering, caching, etc.
             return await _repository.GetAllNamesAsync();
         }
     }
