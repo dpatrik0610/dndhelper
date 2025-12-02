@@ -51,7 +51,6 @@ namespace dndhelper.Services
             var monster = await _repository.GetByIdAsync(monsterId);
             if (monster == null) return false;
 
-            // Only allow delete if user owns the monster
             if (monster.CreatedByUserId != userId)
                 throw new UnauthorizedAccessException("User does not own this monster.");
 
@@ -64,7 +63,6 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(ownerId))
                 throw new ArgumentException("Owner ID cannot be null or empty.");
 
-            // Assuming repository supports filtering by owner
             var monsters = await _repository.FindByOwnerIdAsync(ownerId);
             return monsters;
         }
@@ -81,7 +79,6 @@ namespace dndhelper.Services
             var monster = await _repository.GetByIdAsync(monsterId);
             if (monster == null) return false;
 
-            // Check if requester is allowed (e.g., is current owner or admin)
             if (monster.CreatedByUserId != requesterUserId)
                 throw new UnauthorizedAccessException("User is not allowed to switch ownership.");
 
@@ -102,11 +99,9 @@ namespace dndhelper.Services
             var monster = await _repository.GetByIdAsync(monsterId);
             if (monster == null) return false;
 
-            // Check if requester is allowed (e.g., is current owner or admin)
             if (monster.CreatedByUserId != requesterUserId)
                 throw new UnauthorizedAccessException("User is not allowed to add owners.");
 
-            // Add new owner
             if (!monster.OwnerIds!.Contains(newOwnerId))
             {
                 monster.OwnerIds.Add(newOwnerId);
@@ -120,7 +115,6 @@ namespace dndhelper.Services
             if (criteria == null)
                 throw new ArgumentNullException(nameof(criteria));
 
-            // Call repository to do the filtering
             var monsters = await _repository.SearchAsync(criteria);
 
             return monsters;

@@ -4,7 +4,6 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 
@@ -49,29 +48,6 @@ namespace dndhelper.Models
         #region Armor Class
         [BsonIgnore]
         public List<int> ArmorClass { get; set; } = new List<int>();
-
-        [BsonElement("ac")]
-        [JsonProperty("ac")]
-        private List<object> AcRaw
-        {
-            set
-            {
-                ArmorClass.Clear();
-                if (value == null) return;
-
-                foreach (var item in value)
-                {
-                    if (item is long l)
-                        ArmorClass.Add((int)l);
-                    else if (item is int i)
-                        ArmorClass.Add(i);
-                    else if (item is Newtonsoft.Json.Linq.JValue jval && jval.Type == Newtonsoft.Json.Linq.JTokenType.Integer)
-                        ArmorClass.Add(jval.Value<int>());
-                    // ignore objects
-                }
-            }
-        }
-
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         #endregion

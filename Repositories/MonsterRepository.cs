@@ -35,7 +35,6 @@ namespace dndhelper.Repositories
                 throw new ArgumentException("Page and page size must be greater than zero.");
 
             var f = Builders<Monster>.Filter;
-            // not deleted: IsDeleted != true (includes missing field)
             var filter = f.Ne(m => m.IsDeleted, true);
 
             return await _collection.Find(filter)
@@ -46,7 +45,6 @@ namespace dndhelper.Repositories
 
         public Task<long> GetCountAsync()
         {
-            // if you want only non-deleted, change to Ne(m => m.IsDeleted, true)
             return _collection.CountDocumentsAsync(_ => true);
         }
 
@@ -99,13 +97,10 @@ namespace dndhelper.Repositories
             return monsters;
         }
 
-        // ----------------- Private helpers -----------------
-
         private FilterDefinition<Monster> BuildSearchFilter(MonsterSearchCriteria criteria)
         {
             var f = Builders<Monster>.Filter;
 
-            // include docs where IsDeleted is not true (false or missing)
             var filter = f.Ne(m => m.IsDeleted, true);
 
             if (!string.IsNullOrWhiteSpace(criteria.Name))

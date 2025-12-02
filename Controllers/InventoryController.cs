@@ -35,9 +35,6 @@ public class InventoryController : ControllerBase
         _characterService = characterService;
     }
 
-    // -------------------
-    // Inventory Endpoints
-    // -------------------
 
     [HttpGet("character/{characterId}")]
     public async Task<IActionResult> GetInventoriesByCharacter(string characterId)

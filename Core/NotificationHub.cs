@@ -16,13 +16,11 @@ namespace dndhelper.Core
 
         public override async Task OnConnectedAsync()
         {
-            // Get userId from query string (passed from frontend)
             var httpContext = Context.GetHttpContext();
             var userId = httpContext?.Request.Query["userId"].ToString();
 
             if (!string.IsNullOrEmpty(userId))
             {
-                // Add this connection to a group named after the userId
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
                 _logger.Information("✅ User ID: {UserId} connected with ConnectionId: {ConnectionId}", userId, Context.ConnectionId);
             }

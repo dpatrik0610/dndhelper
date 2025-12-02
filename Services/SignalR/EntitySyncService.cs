@@ -193,7 +193,7 @@ namespace dndhelper.Services.SignalR
                 return Task.CompletedTask;
 
             var distinctUsers = userIds
-                .Where(id => id != excludeUserId)  // 🔥 EXCLUDE HERE
+                .Where(id => id != excludeUserId)
                 .Distinct()
                 .ToList();
 

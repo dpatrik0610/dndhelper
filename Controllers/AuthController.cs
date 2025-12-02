@@ -18,9 +18,6 @@ namespace dndhelper.Controllers
             _authService = authService;
         }
 
-        // --------------------------
-        // Register
-        // --------------------------
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -30,9 +27,6 @@ namespace dndhelper.Controllers
             return Ok(new { Token = token });
         }
 
-        // --------------------------
-        // Login
-        // --------------------------
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -40,9 +34,6 @@ namespace dndhelper.Controllers
             return Ok(new { Token = token });
         }
 
-        // --------------------------
-        // Get Self
-        // --------------------------
         [HttpGet("me")]
         [Authorize]
         public IActionResult GetMyUserId()
@@ -55,9 +46,6 @@ namespace dndhelper.Controllers
             });
         }
 
-        // --------------------------
-        // Change own password
-        // --------------------------
         [HttpPost("change-password")]
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
@@ -66,9 +54,6 @@ namespace dndhelper.Controllers
             return Ok(new { Message = "Password changed successfully." });
         }
 
-        // --------------------------
-        // Reset another user's password (Admin only)
-        // --------------------------
         [HttpPost("reset-password")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
@@ -77,8 +62,6 @@ namespace dndhelper.Controllers
             return Ok(new { Message = "Password reset successfully." });
         }
     }
-
-    // ----------- Request Models -----------
 
     public class ChangePasswordRequest
     {

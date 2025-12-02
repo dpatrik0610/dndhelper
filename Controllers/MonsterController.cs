@@ -24,8 +24,6 @@ namespace dndhelper.Controllers
             _logger = logger;
         }
 
-        // --- READ endpoints: accessible by User and Admin ---
-
         [HttpGet("{id}")]
         [Authorize(Roles = "User,Admin")]
         public async Task<IActionResult> GetById(string id)
@@ -128,12 +126,10 @@ namespace dndhelper.Controllers
         {
             try
             {
-                // Extract user ID from claims
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized("User ID claim missing.");
 
-                // Optionally assign creator ID to monster or log it.
                 monster.CreatedByUserId = userId;
                 monster.OwnerIds!.Add(userId);
 

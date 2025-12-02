@@ -32,8 +32,6 @@ namespace dndhelper.Services
             _characterService = characterService;
         }
 
-
-        // Helpers
         private void ValidateId(string id, string paramName)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -62,7 +60,6 @@ namespace dndhelper.Services
                 .ToList();
         }
 
-        // Inventories
         public async Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId)
         {
             ValidateId(characterId, nameof(characterId));
@@ -89,7 +86,6 @@ namespace dndhelper.Services
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            // 1) derive owners from CharacterIds
             var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
 
             entity.OwnerIds ??= new List<string>();
@@ -100,9 +96,6 @@ namespace dndhelper.Services
                     entity.OwnerIds.Add(ownerId);
             }
 
-            // 2) delegate to base:
-            //    - sets CreatedAt
-            //    - attaches current user (admin) as owner if needed
             return await base.CreateAsync(entity);
         }
 
@@ -110,16 +103,13 @@ namespace dndhelper.Services
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            // First, normal ownership check still applies
             if (entity is IOwnedResource owned)
                 await EnsureOwnershipAccess(owned);
 
-            // Rebuild ownerIds from CharacterIds
             var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
 
             entity.OwnerIds ??= new List<string>();
 
-            // Option A: union current + derived
             entity.OwnerIds = entity.OwnerIds
                 .Concat(characterOwners)
                 .Distinct()
@@ -131,7 +121,6 @@ namespace dndhelper.Services
         }
 
         // Inventory Items
-
         public async Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId)
         {
             ValidateId(inventoryId, nameof(inventoryId));

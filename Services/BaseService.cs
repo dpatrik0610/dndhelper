@@ -34,9 +34,6 @@ namespace dndhelper.Services
             _user = httpContextAccessor?.HttpContext?.User ?? throw new ArgumentNullException(nameof(httpContextAccessor));
         }
 
-        // ------------------------
-        // CREATE
-        // ------------------------
         public virtual async Task<T?> CreateAsync(T entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
@@ -44,7 +41,6 @@ namespace dndhelper.Services
             entity.CreatedAt = DateTime.UtcNow;
             _logger.Debug("Creating entity of type {EntityType}", typeof(T).Name);
 
-            // If the entity supports ownership, attach current user as an owner
             if (entity is IOwnedResource owned && _user.Identity?.IsAuthenticated == true)
             {
                 var userId = _user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -82,9 +78,6 @@ namespace dndhelper.Services
             _logger.Debug("Creating {Count} entities of type {EntityType}", entities.Count, typeof(T).Name);
             return await _repository.CreateManyAsync(entities);
         }
-        // ------------------------
-        // READ
-        // ------------------------
         public virtual async Task<T?> GetByIdAsync(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -115,8 +108,6 @@ namespace dndhelper.Services
 
         public virtual async Task<long> CountAsync()
         {
-            // For owned resources we need to count only those the user can access.
-            // That means fetching and filtering. It's accurate but potentially heavier.
             var all = await _repository.GetAllAsync();
 
             if (typeof(IOwnedResource).IsAssignableFrom(typeof(T)))
@@ -125,7 +116,6 @@ namespace dndhelper.Services
                 return filtered.LongCount();
             }
 
-            // For non-owned resources, delegate to repository for potentially cheaper DB-side count
             return await _repository.CountAsync();
         }
 
@@ -145,9 +135,6 @@ namespace dndhelper.Services
             return true;
         }
 
-        // ------------------------
-        // UPDATE
-        // ------------------------
         public virtual async Task<T?> UpdateAsync(T entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
@@ -159,9 +146,6 @@ namespace dndhelper.Services
             return await _repository.UpdateAsync(entity);
         }
 
-        // ------------------------
-        // DELETE
-        // ------------------------
         public virtual async Task<bool> DeleteAsync(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -186,9 +170,6 @@ namespace dndhelper.Services
             return await _repository.LogicDeleteAsync(id);
         }
 
-        // ------------------------
-        // HELPERS
-        // ------------------------
         protected async Task EnsureOwnershipAccess(IOwnedResource owned)
         {
             var result = await _authorizationService.AuthorizeAsync(_user, owned, "OwnershipPolicy");
