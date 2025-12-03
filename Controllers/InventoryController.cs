@@ -1,5 +1,6 @@
 ﻿using dndhelper.Authentication.Interfaces;
 using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Services.SignalR;
@@ -89,6 +90,18 @@ public class InventoryController : ControllerBase
     public async Task<IActionResult> AddInventoryToCharacter(string characterId, string inventoryId)
     {
         var inventories = await _inventoryService.AddInventoryToCharacter(characterId, inventoryId);
+
+        // Broadcast character change (inventories list updated)
+        var character = await _characterService.GetByIdAsync(characterId);
+        if (character != null)
+        {
+            await BroadcastCharacterChangeAsync(character, "updated", new
+            {
+                characterId = character.Id,
+                inventoryIds = character.InventoryIds
+            });
+        }
+
         return Ok(inventories);
     }
 
@@ -312,4 +325,39 @@ public class InventoryController : ControllerBase
             excludeUserId: user.Id
         );
     }
+
+    private async Task BroadcastCharacterChangeAsync(Character character, string action, object? data)
+    {
+        if (character.OwnerIds == null || !character.OwnerIds.Any())
+            return;
+
+        var user = await _authService.GetUserFromTokenAsync();
+        var recipients = new HashSet<string>(character.OwnerIds);
+
+        if (!string.IsNullOrEmpty(character.CampaignId))
+        {
+            var dmIds = await _campaignService.GetCampaignDMIdsAsync(character.CampaignId);
+            if (dmIds != null)
+            {
+                foreach (var dmId in dmIds)
+                    recipients.Add(dmId);
+            }
+        }
+
+        await _entitySyncService.BroadcastToUsers(
+            "EntityChanged",
+            new
+            {
+                entityType = "Character",
+                entityId = character.Id,
+                action,
+                data,
+                changedBy = user.Username,
+                timestamp = DateTime.UtcNow,
+            },
+            recipients.ToList(),
+            excludeUserId: user.Id
+        );
+    }
+
 }
