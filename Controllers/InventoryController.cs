@@ -6,6 +6,7 @@ using dndhelper.Services.Interfaces;
 using dndhelper.Services.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,19 +22,22 @@ public class InventoryController : ControllerBase
     private readonly IAuthService _authService;
     private readonly ICampaignService _campaignService;
     private readonly ICharacterService _characterService;
+    private readonly ILogger _logger;
 
     public InventoryController(
         IInventoryService inventoryService,
         IEntitySyncService entitySyncService,
         IAuthService authService,
         ICampaignService campaignService,
-        ICharacterService characterService)
+        ICharacterService characterService,
+        ILogger logger)
     {
         _inventoryService = inventoryService;
         _entitySyncService = entitySyncService;
         _authService = authService;
         _campaignService = campaignService;
         _characterService = characterService;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     [HttpGet("all")]
@@ -169,10 +173,7 @@ public class InventoryController : ControllerBase
     }
 
     [HttpPost("{sourceInventoryId}/items/{equipmentId}/move")]
-    public async Task<IActionResult> MoveItem(
-        string sourceInventoryId,
-        string equipmentId,
-        [FromBody] MoveItemRequest request)
+    public async Task<IActionResult> MoveItem(string sourceInventoryId, string equipmentId, [FromBody] MoveItemRequest request)
     {
         if (string.IsNullOrWhiteSpace(sourceInventoryId) ||
             string.IsNullOrWhiteSpace(request.TargetInventoryId) ||
@@ -186,8 +187,8 @@ public class InventoryController : ControllerBase
             request.Amount
         );
 
-        var source = await _inventoryService.GetByIdAsync(sourceInventoryId);
-        var target = await _inventoryService.GetByIdAsync(request.TargetInventoryId);
+        var source = await _inventoryService.GetByIdInternalAsync(sourceInventoryId);
+        var target = await _inventoryService.GetByIdInternalAsync(request.TargetInventoryId);
 
         if (source != null)
             await BroadcastInventoryChangeAsync(source, "updated", source);
