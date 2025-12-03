@@ -35,11 +35,18 @@ public class InventoryController : ControllerBase
         _characterService = characterService;
     }
 
+    [HttpGet("all")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAll()
+    {
+        var inventories = await _inventoryService.GetAllAsync();
+        return Ok(inventories ?? []);
+    }
 
     [HttpGet("character/{characterId}")]
     public async Task<IActionResult> GetInventoriesByCharacter(string characterId)
     {
-        var inventories = await _inventoryService.GetByCharacterAsync(characterId);
+        var inventories = await _inventoryService.GetFromCharacterInventoryIdsAsync(characterId);
         return Ok(inventories);
     }
 
@@ -76,6 +83,13 @@ public class InventoryController : ControllerBase
         await BroadcastInventoryChangeAsync(updated, "updated", updated);
 
         return Ok(updated);
+    }
+
+    [HttpPatch("{inventoryId}/assign-to/{characterId}")]
+    public async Task<IActionResult> AddInventoryToCharacter(string characterId, string inventoryId)
+    {
+        var inventories = await _inventoryService.AddInventoryToCharacter(characterId, inventoryId);
+        return Ok(inventories);
     }
 
     [HttpDelete("{id}")]

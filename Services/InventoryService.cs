@@ -32,12 +32,6 @@ namespace dndhelper.Services
             _characterService = characterService;
         }
 
-        private void ValidateId(string id, string paramName)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new ArgumentException($"{paramName} cannot be null or empty");
-        }
-
         private async Task<List<string>> ResolveOwnerIdsFromCharacterIdsAsync(IEnumerable<string>? characterIds)
         {
             if (characterIds == null)
@@ -62,7 +56,7 @@ namespace dndhelper.Services
 
         public async Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId)
         {
-            ValidateId(characterId, nameof(characterId));
+            Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
             _logger.Information($"Fetching inventories for character {characterId}");
 
             try
@@ -78,6 +72,59 @@ namespace dndhelper.Services
             catch (Exception ex)
             {
                 _logger.Error(ex, $"Error fetching inventories for character {characterId}");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<Inventory>> GetFromCharacterInventoryIdsAsync(string characterId)
+        {
+            Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
+            _logger.Information($"Fetching inventories for character {characterId}");
+
+            try
+            {
+                var character = await _characterService.GetByIdAsync(characterId);
+
+                Guard.NotNull(character, nameof(character));
+                Guard.NotNullOrEmpty(character!.InventoryIds, nameof(character.InventoryIds));
+
+                List<Inventory> response = [];
+                foreach(var inventoryId in character.InventoryIds!.ToHashSet())
+                {
+                    var inventory = await _repository.GetByIdAsync(inventoryId);
+                    if (inventory != null)
+                    {
+                        response.Add(inventory);
+                    }
+                }
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error fetching inventories for character {characterId}");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<Inventory>> AddInventoryToCharacter(string characterId, string inventoryId)
+        {
+            Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+
+            try
+            {
+                var character = await _characterService.GetByIdAsync(characterId);
+                Guard.NotNull(character, nameof(character));
+
+                if (character!.InventoryIds == null) character.InventoryIds = [];
+                if (!character.InventoryIds.Contains(inventoryId)) character.InventoryIds.Add(inventoryId);
+
+                await _characterService.UpdateInternalAsync(character);
+                return await GetFromCharacterInventoryIdsAsync(characterId);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Error adding inventory {inventoryId} for character {characterId}");
                 throw;
             }
         }
@@ -123,7 +170,7 @@ namespace dndhelper.Services
         // Inventory Items
         public async Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId)
         {
-            ValidateId(inventoryId, nameof(inventoryId));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
             _logger.Information($"Fetching items for inventory {inventoryId}");
 
             try
@@ -145,8 +192,8 @@ namespace dndhelper.Services
 
         public async Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId)
         {
-            ValidateId(inventoryId, nameof(inventoryId));
-            ValidateId(equipmentId, nameof(equipmentId));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
             _logger.Information($"Fetching item {equipmentId} in inventory {inventoryId}");
 
             try
@@ -165,8 +212,8 @@ namespace dndhelper.Services
 
         public async Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, string equipmentId, int incrementVal = 1)
         {
-            ValidateId(inventoryId, nameof(inventoryId));
-            if (string.IsNullOrEmpty(equipmentId)) throw new ArgumentNullException(nameof(equipmentId));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
 
             var equipment = await _equipmentRepo.GetByIdAsync(equipmentId);
             if (equipment is null)
@@ -211,8 +258,9 @@ namespace dndhelper.Services
 
         public async Task UpdateItemAsync(string inventoryId, InventoryItem item)
         {
-            ValidateId(inventoryId, nameof(inventoryId));
-            if (item == null) throw new ArgumentNullException(nameof(item));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.NotNull(item, nameof(item));
+
             _logger.Information($"Updating item {item.EquipmentId} in inventory {inventoryId}");
 
             try
@@ -228,8 +276,8 @@ namespace dndhelper.Services
 
         public async Task DeleteItemAsync(string inventoryId, string equipmentId)
         {
-            ValidateId(inventoryId, nameof(inventoryId));
-            ValidateId(equipmentId, nameof(equipmentId));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
             _logger.Information($"Deleting item {equipmentId} from inventory {inventoryId}");
 
             try
@@ -250,8 +298,8 @@ namespace dndhelper.Services
 
         public async Task<InventoryItem?> AddNewItemAsync(string inventoryId, Equipment equipment)
         {
-            if (equipment == null) throw new ArgumentNullException(nameof(equipment));
-            if (inventoryId == null) throw new ArgumentNullException(nameof(inventoryId));
+            Guard.NotNull(equipment, nameof(equipment));
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
 
             var newItem = await _equipmentRepo.CreateAsync(equipment);
             _logger.Information("Creating new item from " + newItem.Id);
@@ -262,11 +310,9 @@ namespace dndhelper.Services
 
         public async Task DecrementItemQuantityAsync(string inventoryId, string equipmentId, int decrementBy = 1)
         {
-            ValidateId(inventoryId, nameof(inventoryId));
-            ValidateId(equipmentId, nameof(equipmentId));
-
-            if (decrementBy <= 0)
-                throw new ArgumentOutOfRangeException(nameof(decrementBy), "Decrement value must be greater than zero.");
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
+            Guard.GreaterThanZero(decrementBy, nameof(decrementBy));
 
             _logger.Information($"Decrementing item {equipmentId} by {decrementBy} in inventory {inventoryId}");
 
@@ -321,12 +367,10 @@ namespace dndhelper.Services
 
         public async Task MoveItemAsync(string sourceInventoryId, string targetInventoryId, string equipmentId, int amount = 1)
         {
-            ValidateId(sourceInventoryId, nameof(sourceInventoryId));
-            ValidateId(targetInventoryId, nameof(targetInventoryId));
-            ValidateId(equipmentId, nameof(equipmentId));
-
-            if (amount <= 0)
-                throw new ArgumentOutOfRangeException(nameof(amount), "Move amount must be greater than zero.");
+            Guard.NotNullOrWhiteSpace(sourceInventoryId, nameof(sourceInventoryId));
+            Guard.NotNullOrWhiteSpace(targetInventoryId, nameof(targetInventoryId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
+            Guard.GreaterThanZero(amount, nameof(amount));
 
             try
             {

@@ -8,6 +8,8 @@ namespace dndhelper.Services.Interfaces
     {
         // Inventories
         Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId);
+        Task<IEnumerable<Inventory>> GetFromCharacterInventoryIdsAsync(string characterId);
+        Task<IEnumerable<Inventory>> AddInventoryToCharacter(string characterId, string inventoryId);
 
         // Inventory Items
         Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId);
