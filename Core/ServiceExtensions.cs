@@ -105,6 +105,7 @@ namespace dndhelper.Core
             services.AddScoped<ICampaignRepository, CampaignRepository>();
             services.AddScoped<ISpellRepository, SpellRepository>();
             services.AddScoped<INoteRepository, NoteRepository>();
+            services.AddScoped<ISessionRepository, SessionRepository>();
             #endregion
 
             #region Services
@@ -119,10 +120,12 @@ namespace dndhelper.Core
             services.AddScoped<ISpellService, SpellService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<INoteService, NoteService>();
+            services.AddScoped<ISessionService, SessionService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
+            services.AddScoped<IInternalBaseService<Session>, SessionService>();
             #endregion
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
