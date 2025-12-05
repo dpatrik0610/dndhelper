@@ -1,7 +1,9 @@
-﻿using dndhelper.Models;
+using dndhelper.Authentication.Interfaces;
+using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Services.SignalR;
 using dndhelper.Utils;
 using Serilog;
 using System;
@@ -17,6 +19,9 @@ namespace dndhelper.Services
         private readonly IInventoryService _inventoryService;
         private readonly IInternalBaseService<Character> _characterInternalService;
         private readonly IInternalBaseService<Inventory> _inventoryInternalService;
+        private readonly IEntitySyncService _entitySyncService;
+        private readonly IAuthService _authService;
+        private readonly ICampaignService _campaignService;
         private readonly ILogger _logger;
 
         public CurrencyService(
@@ -24,12 +29,18 @@ namespace dndhelper.Services
             IInventoryService inventoryService,
             IInternalBaseService<Character> characterInternalService,
             IInternalBaseService<Inventory> inventoryInternalService,
+            IEntitySyncService entitySyncService,
+            IAuthService authService,
+            ICampaignService campaignService,
             ILogger logger)
         {
             _characterService = Guard.NotNull(characterService, nameof(characterService));
             _inventoryService = Guard.NotNull(inventoryService, nameof(inventoryService));
             _characterInternalService = Guard.NotNull(characterInternalService, nameof(characterInternalService));
             _inventoryInternalService = Guard.NotNull(inventoryInternalService, nameof(inventoryInternalService));
+            _entitySyncService = Guard.NotNull(entitySyncService, nameof(entitySyncService));
+            _authService = Guard.NotNull(authService, nameof(authService));
+            _campaignService = Guard.NotNull(campaignService, nameof(campaignService));
             _logger = Guard.NotNull(logger, nameof(logger));
         }
 
@@ -78,6 +89,17 @@ namespace dndhelper.Services
             }
         }
 
+        public async Task RemoveCurrencyFromCharacterAndNotifyAsync(string characterId, List<Currency> currencies)
+        {
+            await RemoveCurrencyFromCharacter(characterId, currencies);
+
+            var character = await _characterService.GetByIdAsync(characterId);
+            if (character != null)
+            {
+                await BroadcastCharacterChangeAsync(character, "updated", character);
+            }
+        }
+
         public async Task TransferManyToCharacter(string targetId, List<Currency> currencies)
         {
             Guard.NotNullOrWhiteSpace(targetId, nameof(targetId));
@@ -103,6 +125,17 @@ namespace dndhelper.Services
                     "Error transferring currencies to character {CharacterId}. Requested: {Currencies}",
                     targetId, BuildCurrencySummary(currencies));
                 throw;
+            }
+        }
+
+        public async Task TransferManyToCharacterAndNotifyAsync(string targetId, List<Currency> currencies)
+        {
+            await TransferManyToCharacter(targetId, currencies);
+
+            var target = await _characterService.GetByIdAsync(targetId);
+            if (target != null)
+            {
+                await BroadcastCharacterChangeAsync(target, "updated", target);
             }
         }
 
@@ -148,6 +181,20 @@ namespace dndhelper.Services
             }
         }
 
+        public async Task TransferBetweenCharactersAndNotifyAsync(string fromId, string toId, List<Currency> currencies)
+        {
+            await TransferBetweenCharacters(fromId, toId, currencies);
+
+            var fromCharacter = await _characterService.GetByIdAsync(fromId);
+            var toCharacter = await _characterService.GetByIdAsync(toId);
+
+            if (fromCharacter != null)
+                await BroadcastCharacterChangeAsync(fromCharacter, "updated", fromCharacter);
+
+            if (toCharacter != null)
+                await BroadcastCharacterChangeAsync(toCharacter, "updated", toCharacter);
+        }
+
         #endregion
 
         #region Inventory Methods
@@ -171,6 +218,23 @@ namespace dndhelper.Services
                     "Error adding currency to inventory {InventoryId}. Currency: {CurrencyType}, Amount: {Amount}",
                     inventoryId, currency?.Type, currency?.Amount);
                 throw;
+            }
+        }
+
+        public async Task AddCurrenciesToInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies)
+        {
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            Guard.That(currencies != null && currencies.Count > 0, "No currencies provided.", nameof(currencies));
+
+            foreach (var currency in currencies)
+            {
+                await AddCurrencyToInventory(inventoryId, currency);
+            }
+
+            var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+            if (inventory != null)
+            {
+                await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
             }
         }
 
@@ -215,6 +279,20 @@ namespace dndhelper.Services
             }
         }
 
+        public async Task ClaimFromInventoryAndNotifyAsync(string characterId, string inventoryId, List<Currency> currencies)
+        {
+            await ClaimFromInventory(characterId, inventoryId, currencies);
+
+            var character = await _characterService.GetByIdAsync(characterId);
+            var inventory = await _inventoryService.GetByIdAsync(inventoryId);
+
+            if (character != null)
+                await BroadcastCharacterChangeAsync(character, "updated", character);
+
+            if (inventory != null)
+                await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
+        }
+
         #endregion
 
         #region Validation
@@ -252,6 +330,93 @@ namespace dndhelper.Services
             }
         }
 
+        #endregion
+
+        #region Notifications
+        private async Task BroadcastCharacterChangeAsync(Character character, string action, object data)
+        {
+            if (character.OwnerIds == null || !character.OwnerIds.Any())
+                return;
+
+            var user = await _authService.GetUserFromTokenAsync();
+            var recipients = new HashSet<string>(character.OwnerIds);
+
+            if (!string.IsNullOrEmpty(character.CampaignId))
+            {
+                var dmIds = await _campaignService.GetCampaignDMIdsAsync(character.CampaignId);
+                if (dmIds != null)
+                {
+                    foreach (var dmId in dmIds)
+                        recipients.Add(dmId);
+                }
+            }
+
+            await _entitySyncService.BroadcastToUsers(
+                "EntityChanged",
+                new
+                {
+                    entityType = "Character",
+                    entityId = character.Id,
+                    action,
+                    data,
+                    changedBy = user.Username,
+                    timestamp = DateTime.UtcNow,
+                },
+                recipients.ToList()
+            );
+        }
+
+        private async Task BroadcastInventoryChangeAsync(Inventory inventory, string action, object data)
+        {
+            if (inventory.OwnerIds == null || !inventory.OwnerIds.Any())
+                return;
+
+            var user = await _authService.GetUserFromTokenAsync();
+            var recipients = new HashSet<string>(inventory.OwnerIds);
+
+            if (!string.IsNullOrEmpty(inventory.CampaignId))
+            {
+                var dmIds = await _campaignService.GetCampaignDMIdsAsync(inventory.CampaignId);
+                if (dmIds != null)
+                {
+                    foreach (var dmId in dmIds)
+                        recipients.Add(dmId);
+                }
+            }
+            else if (inventory.CharacterIds != null && inventory.CharacterIds.Any())
+            {
+                var characters = await _characterService.GetByIdsAsync(inventory.CharacterIds);
+                var campaignIds = characters
+                    .Where(c => !string.IsNullOrEmpty(c.CampaignId))
+                    .Select(c => c.CampaignId!)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var campaignId in campaignIds)
+                {
+                    var dmIds = await _campaignService.GetCampaignDMIdsAsync(campaignId);
+                    if (dmIds == null) continue;
+
+                    foreach (var dmId in dmIds)
+                        recipients.Add(dmId);
+                }
+            }
+
+            await _entitySyncService.BroadcastToUsers(
+                "EntityChanged",
+                new
+                {
+                    entityType = "Inventory",
+                    entityId = inventory.Id,
+                    action,
+                    data,
+                    changedBy = user.Username,
+                    timestamp = DateTime.UtcNow,
+                },
+                recipients.ToList(),
+                excludeUserId: user.Id
+            );
+        }
         #endregion
 
         #region Mutation
