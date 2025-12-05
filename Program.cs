@@ -76,6 +76,7 @@ app.UseCors(MyAllowSpecificOrigins);
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();

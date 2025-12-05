@@ -1,65 +1,57 @@
-﻿using MongoDB.Driver;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Serilog;
 using System;
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace dndhelper.Database
 {
-    public class MongoDbContext : IDisposable
+    public class MongoDbContext
     {
         private readonly IMongoClient _client;
-        private readonly IMongoDatabase? _database;
+        private readonly IMongoDatabase _database;
         private readonly ILogger _logger;
-        public bool IsConnected { get; private set; } = false;
+        private readonly string _databaseName;
 
         public MongoDbContext(string connectionString, string databaseName, ILogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _databaseName = databaseName ?? throw new ArgumentNullException(nameof(databaseName));
 
             try
             {
                 _client = new MongoClient(connectionString ?? throw new ArgumentNullException(nameof(connectionString)));
-                _database = _client.GetDatabase(databaseName ?? throw new ArgumentNullException(nameof(databaseName)));
-
-                var collections = new List<string>();
-                try
-                {
-                    collections = _database.ListCollectionNames()
-                                           .ToList();
-                    IsConnected = true;
-                    _logger.Information("Connected to Database successfully! ✨");
-                    _logger.Information($"Collections: {string.Join(", ", collections)}");
-                }
-                catch (TimeoutException tex)
-                {
-                    IsConnected = false;
-                    _logger.Warning(tex, "Timeout while listing collections — MongoDB might be unreachable.");
-                }
-                catch (Exception ex)
-                {
-                    IsConnected = false;
-                    _logger.Warning(ex, "Unexpected error while testing MongoDB connection.");
-                }
+                _database = _client.GetDatabase(_databaseName);
+                _logger.Information("MongoDB client initialized for database {DbName}", _databaseName);
             }
             catch (Exception ex)
             {
-                IsConnected = false;
-                _logger.Warning(ex, "🔥 Couldn't establish communication with the database.");
+                _logger.Warning(ex, "?? Couldn't initialize MongoDB client/database.");
+                throw;
             }
         }
 
         public IMongoCollection<T> GetCollection<T>(string collectionName)
         {
-            if (!IsConnected || _database == null)
-                throw new InvalidOperationException("Database connection is not established.");
+            if (string.IsNullOrWhiteSpace(collectionName))
+                throw new ArgumentNullException(nameof(collectionName));
 
             return _database.GetCollection<T>(collectionName);
         }
 
-        public void Dispose()
+        public async Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default)
         {
-            _logger.Information("Closing Database Connection 💀");
-            GC.SuppressFinalize(this);
+            try
+            {
+                await _database.RunCommandAsync((Command<BsonDocument>)"{ ping: 1 }", cancellationToken: cancellationToken);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "MongoDB ping failed for database {DbName}", _databaseName);
+                return false;
+            }
         }
     }
 }

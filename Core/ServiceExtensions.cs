@@ -1,4 +1,4 @@
-﻿using dndhelper.Authentication;
+using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Authorization.Policies;
 using dndhelper.Database;
@@ -48,18 +48,20 @@ namespace dndhelper.Core
 
                 if (string.IsNullOrWhiteSpace(connectionString))
                 {
-                    logger.Error("❌ MongoDB connection string is missing! Check your environment variables (MongoDB__ConnectionString).");
+                    logger.Error("MongoDB connection string is missing! Check your environment variables (MongoDB__ConnectionString).");
                     throw new InvalidOperationException("MongoDB connection string not found.");
                 }
                 if (string.IsNullOrWhiteSpace(databaseName))
                 {
-                    logger.Error("❌ MongoDB database name is missing! Check your environment variables (MongoDB__DatabaseName).");
+                    logger.Error("MongoDB database name is missing! Check your environment variables (MongoDB__DatabaseName).");
                     throw new InvalidOperationException("MongoDB database name not found.");
                 }
 
-                logger.Information("✅ Connected to MongoDB database {DbName}", databaseName);
+                logger.Information("MongoDB configured for database {DbName}", databaseName);
                 return new MongoDbContext(connectionString, databaseName, logger);
             });
+            services.AddHealthChecks()
+                    .AddCheck<MongoHealthCheck>("mongodb");
             #endregion
 
             #region Auth
