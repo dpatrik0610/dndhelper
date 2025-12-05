@@ -59,6 +59,11 @@ namespace dndhelper.Services
                     // Attach to campaign session list
                     await _campaignService.AddSessionAsync(created.CampaignId, created.Id);
 
+                    if (created.IsLive)
+                    {
+                        await _campaignService.SetCurrentSessionAsync(created.CampaignId, created.Id);
+                    }
+
                     await BroadcastSessionChangeAsync(created, "created", created);
                 }
 
@@ -79,6 +84,11 @@ namespace dndhelper.Services
                 var updated = await UpdateAsync(session);
                 if (updated != null)
                 {
+                    if (updated.IsLive)
+                    {
+                        await _campaignService.SetCurrentSessionAsync(updated.CampaignId, updated.Id);
+                    }
+
                     await BroadcastSessionChangeAsync(updated, "updated", updated);
                 }
 

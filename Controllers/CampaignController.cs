@@ -39,6 +39,28 @@ namespace dndhelper.Controllers
             return Ok(campaign);
         }
 
+        [HttpGet("{id}/basic")]
+        public async Task<IActionResult> GetBasic(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return BadRequest(new { message = "Campaign ID is required." });
+
+            var campaign = await _campaignService.GetByIdInternalAsync(id);
+            if (campaign == null)
+                return NotFound(new { message = "Campaign not found." });
+
+            return Ok(new
+            {
+                campaign.Id,
+                campaign.Name,
+                campaign.Description,
+                campaign.IsActive,
+                campaign.CurrentSessionId,
+                campaign.SessionIds,
+                campaign.OwnerIds
+            });
+        }
+
         [HttpPost("create")]
         public async Task<IActionResult> Create([FromBody] Campaign campaign)
         {
