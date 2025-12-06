@@ -121,6 +121,7 @@ namespace dndhelper.Core
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<INoteService, NoteService>();
             services.AddScoped<ISessionService, SessionService>();
+            services.AddScoped<IBackupService, BackupService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();

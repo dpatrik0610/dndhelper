@@ -13,15 +13,20 @@ namespace dndhelper.Database
         private readonly IMongoDatabase _database;
         private readonly ILogger _logger;
         private readonly string _databaseName;
+        private readonly string _connectionString;
+
+        public string DatabaseName => _databaseName;
+        public string ConnectionString => _connectionString;
 
         public MongoDbContext(string connectionString, string databaseName, ILogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _databaseName = databaseName ?? throw new ArgumentNullException(nameof(databaseName));
+            _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
 
             try
             {
-                _client = new MongoClient(connectionString ?? throw new ArgumentNullException(nameof(connectionString)));
+                _client = new MongoClient(_connectionString);
                 _database = _client.GetDatabase(_databaseName);
                 _logger.Information("MongoDB client initialized for database {DbName}", _databaseName);
             }
