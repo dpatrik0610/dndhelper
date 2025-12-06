@@ -40,7 +40,7 @@ namespace dndhelper.Services
                 throw new ArgumentNullException(nameof(campaignId));
 
             var sessions = await _repository.GetByCampaignIdAsync(campaignId);
-            return await FilterOwnedResourcesAsync(sessions);
+            return sessions;
         }
 
         public async Task<Session?> CreateAndNotifyAsync(Session session)
