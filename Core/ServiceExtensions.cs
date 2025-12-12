@@ -106,6 +106,7 @@ namespace dndhelper.Core
             services.AddScoped<ISpellRepository, SpellRepository>();
             services.AddScoped<INoteRepository, NoteRepository>();
             services.AddScoped<ISessionRepository, SessionRepository>();
+            services.AddScoped<IRuleRepository, RuleRepository>();
             #endregion
 
             #region Services
@@ -122,6 +123,7 @@ namespace dndhelper.Core
             services.AddScoped<INoteService, NoteService>();
             services.AddScoped<ISessionService, SessionService>();
             services.AddScoped<IBackupService, BackupService>();
+            services.AddScoped<IRuleService, RuleService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
