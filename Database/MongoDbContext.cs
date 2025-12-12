@@ -2,6 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -57,6 +58,12 @@ namespace dndhelper.Database
                 _logger.Warning(ex, "MongoDB ping failed for database {DbName}", _databaseName);
                 return false;
             }
+        }
+
+        public async Task<List<string>> ListCollectionsAsync(CancellationToken cancellationToken = default)
+        {
+            var cursor = await _database.ListCollectionNamesAsync(cancellationToken: cancellationToken);
+            return await cursor.ToListAsync(cancellationToken);
         }
     }
 }

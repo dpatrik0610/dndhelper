@@ -2,8 +2,10 @@ using dndhelper.Database;
 using dndhelper.Services.Interfaces;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,13 +14,15 @@ namespace dndhelper.Services
     public class BackupService : IBackupService
     {
         private readonly MongoDbContext _dbContext;
+        private readonly ICacheService _cacheService;
         private readonly ILogger _logger;
         private readonly string _mongodumpPath;
         private readonly string _mongorestorePath;
 
-        public BackupService(MongoDbContext dbContext, ILogger logger)
+        public BackupService(MongoDbContext dbContext, ICacheService cacheService, ILogger logger)
         {
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+            _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _mongodumpPath = ResolveMongoToolPath("MONGODUMP_PATH", "mongodump");
             _mongorestorePath = ResolveMongoToolPath("MONGORESTORE_PATH", "mongorestore", _mongodumpPath);
@@ -94,6 +98,33 @@ namespace dndhelper.Services
             if (archiveStream == null || !archiveStream.CanRead)
                 throw new ArgumentException("Archive stream is not readable.", nameof(archiveStream));
 
+            var workingStream = archiveStream;
+            if (!archiveStream.CanSeek)
+            {
+                var buffered = new MemoryStream();
+                await archiveStream.CopyToAsync(buffered, cancellationToken);
+                buffered.Position = 0;
+                workingStream = buffered;
+            }
+            else
+            {
+                workingStream.Position = 0;
+            }
+
+            var namespaces = await ExtractNamespacesAsync(workingStream, cancellationToken);
+            if (namespaces.Count == 0)
+                throw new InvalidOperationException("Archive does not contain any collections.");
+
+            var matchesRequested = namespaces.Exists(ns => ns.Equals(collectionName, StringComparison.OrdinalIgnoreCase));
+            if (!matchesRequested)
+            {
+                var list = string.Join(", ", namespaces);
+                throw new InvalidOperationException($"Archive contains collections [{list}] but restore was requested for '{collectionName}'.");
+            }
+
+            if (workingStream.CanSeek)
+                workingStream.Position = 0;
+
             var psi = new ProcessStartInfo
             {
                 FileName = _mongorestorePath,
@@ -133,7 +164,7 @@ namespace dndhelper.Services
 
             try
             {
-                await archiveStream.CopyToAsync(process.StandardInput.BaseStream, cancellationToken);
+                await workingStream.CopyToAsync(process.StandardInput.BaseStream, cancellationToken);
                 await process.StandardInput.FlushAsync();
                 process.StandardInput.Close();
             }
@@ -154,6 +185,114 @@ namespace dndhelper.Services
             }
 
             _logger.Information("mongorestore completed for collection {Collection}", collectionName);
+
+            var cachePrefix = GetCachePrefix(collectionName);
+            _cacheService.ClearByPrefix(cachePrefix);
+            _logger.Information("Cache cleared after restoring collection {Collection} using prefix {Prefix}", collectionName, cachePrefix);
+        }
+
+        private async Task<List<string>> ExtractNamespacesAsync(Stream archiveStream, CancellationToken cancellationToken)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = _mongorestorePath,
+                RedirectStandardInput = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
+
+            psi.ArgumentList.Add("--dryRun");
+            psi.ArgumentList.Add("--verbose");
+            psi.ArgumentList.Add("--archive");
+            psi.ArgumentList.Add("--gzip");
+
+            using var process = new Process { StartInfo = psi };
+
+            try
+            {
+                _logger.Information("Inspecting archive namespaces via mongorestore --dryRun");
+                process.Start();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex,
+                    "Failed to start mongorestore --dryRun. FileName={FileName}, PATH={Path}",
+                    _mongorestorePath, Environment.GetEnvironmentVariable("PATH"));
+                throw new InvalidOperationException("mongorestore is not available on the host. Install MongoDB Database Tools or set MONGORESTORE_PATH.", ex);
+            }
+
+            await using var _ = cancellationToken.Register(() =>
+            {
+                if (!process.HasExited)
+                    process.Kill();
+            });
+
+            var stdErrTask = process.StandardError.ReadToEndAsync();
+            var stdOutTask = process.StandardOutput.ReadToEndAsync();
+
+            try
+            {
+                await archiveStream.CopyToAsync(process.StandardInput.BaseStream, cancellationToken);
+                await process.StandardInput.FlushAsync();
+                process.StandardInput.Close();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error writing archive stream to mongorestore --dryRun stdin");
+                throw;
+            }
+
+            await process.WaitForExitAsync(cancellationToken);
+            var stdErr = await stdErrTask;
+            var stdOut = await stdOutTask;
+
+            if (process.ExitCode != 0)
+            {
+                _logger.Error("mongorestore --dryRun failed. ExitCode: {ExitCode}. Error: {Error}", process.ExitCode, stdErr);
+                var detail = string.IsNullOrWhiteSpace(stdErr) ? "mongorestore --dryRun failed to read archive." : stdErr.Trim();
+                throw new InvalidOperationException(detail);
+            }
+
+            var namespaces = ParseNamespaces(stdOut + Environment.NewLine + stdErr);
+            _logger.Information("Archive namespaces detected: {Namespaces}", string.Join(", ", namespaces));
+            return namespaces;
+        }
+
+        private static List<string> ParseNamespaces(string output)
+        {
+            var regex = new Regex(@"(?<!\S)([A-Za-z0-9_.-]+)\.([A-Za-z0-9_.-]+)(?!\S)", RegexOptions.Compiled);
+            var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            using var reader = new StringReader(output);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                var match = regex.Match(line);
+                while (match.Success)
+                {
+                    var collection = match.Groups[2].Value;
+                    if (!string.IsNullOrWhiteSpace(collection))
+                        found.Add(collection);
+
+                    match = match.NextMatch();
+                }
+            }
+
+            return new List<string>(found);
+        }
+
+        private static string GetCachePrefix(string collectionName)
+        {
+            var prefix = collectionName.Trim();
+
+            if (prefix.EndsWith("ies", StringComparison.OrdinalIgnoreCase))
+                return prefix[..^3] + "y";
+
+            if (prefix.EndsWith("s", StringComparison.OrdinalIgnoreCase))
+                return prefix[..^1];
+
+            return prefix;
         }
 
         private static string ResolveMongoToolPath(string envVarName, string toolName, string? siblingToolPath = null)

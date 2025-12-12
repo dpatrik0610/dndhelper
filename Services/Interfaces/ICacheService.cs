@@ -9,5 +9,6 @@ namespace dndhelper.Services.Interfaces
         List<string> GetAllKeys();
         void ClearAllTracked();
         void ClearAllFromCache();
+        void ClearByPrefix(string prefix);
     }
 }

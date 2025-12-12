@@ -1,6 +1,7 @@
-﻿using dndhelper.Services.Interfaces;
+using dndhelper.Services.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Serilog;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -36,13 +37,33 @@ namespace dndhelper.Services
         {
             CacheKeyStore.Clear();
         }
+
         public void ClearAllFromCache()
         {
             foreach (var key in CacheKeyStore.Keys)
             {
                 _cache.Remove(key);
-                _logger.Information("🔴 [CACHE REMOVE] {Key}", key);
+                _logger.Information("?? [CACHE REMOVE] {Key}", key);
             }
+        }
+
+        public void ClearByPrefix(string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(prefix))
+                return;
+
+            var keysToRemove = CacheKeyStore.Keys
+                .Where(key => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var key in keysToRemove)
+            {
+                _cache.Remove(key);
+                _logger.Information("?? [CACHE REMOVE] {Key}", key);
+            }
+
+            if (keysToRemove.Count > 0)
+                _logger.Information("Cleared {Count} cache entries with prefix {Prefix}", keysToRemove.Count, prefix);
         }
     }
 }
