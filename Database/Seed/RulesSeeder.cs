@@ -27,7 +27,7 @@ namespace dndhelper.Database.Seed
                 {
                     Slug = "sample-action-economy",
                     Title = "Action Economy",
-                    Category = RuleCategory.Core.ToString(),
+                    Category = "core",
                     Summary = "Placeholder rule explaining how actions, bonus actions, and movement work.",
                     Tags = new List<string> { "actions", "turns" },
                     Body = new List<string>

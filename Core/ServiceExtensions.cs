@@ -2,6 +2,7 @@ using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Authorization.Policies;
 using dndhelper.Database;
+using dndhelper.Database.Seed;
 using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories;
@@ -58,7 +59,20 @@ namespace dndhelper.Core
                 }
 
                 logger.Information("MongoDB configured for database {DbName}", databaseName);
-                return new MongoDbContext(connectionString, databaseName, logger);
+                var context = new MongoDbContext(connectionString, databaseName, logger);
+
+                // Seed default rule categories if empty
+                try
+                {
+                    RuleCategoriesSeeder.SeedDefaultCategoriesAsync(context, logger).GetAwaiter().GetResult();
+                    RulesSeeder.SeedSampleRulesAsync(context, logger).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    logger.Warning(ex, "Failed to seed default data into MongoDB.");
+                }
+
+                return context;
             });
             services.AddHealthChecks()
                     .AddCheck<MongoHealthCheck>("mongodb");
@@ -107,6 +121,7 @@ namespace dndhelper.Core
             services.AddScoped<INoteRepository, NoteRepository>();
             services.AddScoped<ISessionRepository, SessionRepository>();
             services.AddScoped<IRuleRepository, RuleRepository>();
+            services.AddScoped<IRuleCategoryRepository, RuleCategoryRepository>();
             #endregion
 
             #region Services
@@ -124,6 +139,7 @@ namespace dndhelper.Core
             services.AddScoped<ISessionService, SessionService>();
             services.AddScoped<IBackupService, BackupService>();
             services.AddScoped<IRuleService, RuleService>();
+            services.AddScoped<IRuleCategoryService, RuleCategoryService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();

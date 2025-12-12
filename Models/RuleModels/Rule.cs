@@ -6,18 +6,6 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models.RuleModels
 {
-    public enum RuleCategory
-    {
-        Core,
-        Combat,
-        Magic,
-        Status,
-        Equipment,
-        Exploration,
-        Downtime,
-        Homebrew
-    }
-
     public class Rule : IEntity
     {
         [BsonId]

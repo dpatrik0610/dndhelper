@@ -13,9 +13,12 @@ namespace dndhelper.Services
 {
     public class RuleService : BaseService<Rule, IRuleRepository>, IRuleService
     {
-        public RuleService(IRuleRepository repository, ILogger logger, IAuthorizationService authorizationService, IHttpContextAccessor httpContextAccessor)
+        private readonly IRuleCategoryRepository _categoryRepository;
+
+        public RuleService(IRuleRepository repository, IRuleCategoryRepository categoryRepository, ILogger logger, IAuthorizationService authorizationService, IHttpContextAccessor httpContextAccessor)
             : base(repository, logger, authorizationService, httpContextAccessor)
         {
+            _categoryRepository = categoryRepository ?? throw new ArgumentNullException(nameof(categoryRepository));
         }
 
         public async Task<RuleListResponse> GetListAsync(RuleQueryOptions options)
@@ -59,6 +62,7 @@ namespace dndhelper.Services
 
             var entity = MapToEntity(dto);
             ValidateRule(entity);
+            await EnsureCategoryExistsAsync(entity.Category);
             await EnsureUniqueSlugAsync(entity.Slug, null);
 
             entity.CreatedAt = DateTime.UtcNow;
@@ -81,6 +85,7 @@ namespace dndhelper.Services
 
             ApplyDtoToEntity(dto, existing);
             ValidateRule(existing);
+            await EnsureCategoryExistsAsync(existing.Category);
             await EnsureUniqueSlugAsync(existing.Slug, existing.Id);
 
             existing.UpdatedAt = DateTime.UtcNow;
@@ -92,6 +97,7 @@ namespace dndhelper.Services
         public override async Task<Rule?> CreateAsync(Rule entity)
         {
             ValidateRule(entity);
+            await EnsureCategoryExistsAsync(entity.Category);
             await EnsureUniqueSlugAsync(entity.Slug, null);
 
             entity.CreatedAt = DateTime.UtcNow;
@@ -104,6 +110,7 @@ namespace dndhelper.Services
         public override async Task<Rule?> UpdateAsync(Rule entity)
         {
             ValidateRule(entity);
+            await EnsureCategoryExistsAsync(entity.Category);
             await EnsureUniqueSlugAsync(entity.Slug, entity.Id);
 
             entity.UpdatedAt = DateTime.UtcNow;
@@ -113,7 +120,7 @@ namespace dndhelper.Services
         private static RuleQueryOptions NormalizeOptions(RuleQueryOptions options)
         {
             options.Limit = options.Limit <= 0 ? 20 : Math.Min(options.Limit, 100);
-            options.Category = options.Category?.Trim();
+            options.Category = options.Category?.Trim().ToLowerInvariant();
             options.Tag = options.Tag?.Trim();
             options.Source = options.Source?.Trim();
             options.Search = options.Search?.Trim();
@@ -128,7 +135,7 @@ namespace dndhelper.Services
                 Id = dto.Id,
                 Slug = dto.Slug,
                 Title = dto.Title,
-                Category = dto.Category,
+                Category = dto.Category?.Trim().ToLowerInvariant() ?? string.Empty,
                 Summary = dto.Summary,
                 Tags = dto.Tags ?? new List<string>(),
                 UpdatedAt = DateTime.UtcNow,
@@ -145,7 +152,7 @@ namespace dndhelper.Services
         {
             entity.Slug = dto.Slug;
             entity.Title = dto.Title;
-            entity.Category = dto.Category;
+            entity.Category = dto.Category?.Trim().ToLowerInvariant() ?? string.Empty;
             entity.Summary = dto.Summary;
             entity.Tags = dto.Tags ?? new List<string>();
             entity.Body = dto.Body ?? new List<string>();
@@ -206,6 +213,20 @@ namespace dndhelper.Services
                 throw new ArgumentException("Summary is required.");
             if (rule.Tags == null || !rule.Tags.Any())
                 throw new ArgumentException("At least one tag is required.");
+        }
+
+        private async Task EnsureCategoryExistsAsync(string category)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+                throw new ArgumentException("Category is required.");
+
+            var existingCategories = await _categoryRepository.GetAllAsync();
+            var match = existingCategories.FirstOrDefault(c =>
+                c.Slug.Equals(category, StringComparison.OrdinalIgnoreCase) ||
+                c.Name.Equals(category, StringComparison.OrdinalIgnoreCase));
+
+            if (match == null)
+                throw new ArgumentException($"Category '{category}' does not exist. Create it first.");
         }
 
         private async Task EnsureUniqueSlugAsync(string slug, string? excludeId)
