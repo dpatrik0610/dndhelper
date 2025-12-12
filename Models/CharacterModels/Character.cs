@@ -51,7 +51,7 @@ namespace dndhelper.Models.CharacterModels
         public List<string>? Vulnerabilities { get; set; } = new List<string>(); // Later can be enum
         public List<Feature>? Features { get; set; } = new List<Feature>();
         public List<string>? Actions { get; set; } = new List<string>();
-        public List<string>? Spells { get; set; } = new List<string>(); // Later can be more complex Spell class
+        public List<CharacterSpell>? Spells { get; set; } = new List<CharacterSpell>();
 
         public List<Currency>? Currencies { get; set; } = new List<Currency>
         {
