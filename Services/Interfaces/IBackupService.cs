@@ -10,5 +10,6 @@ namespace dndhelper.Services.Interfaces
     {
         Task<BackupResult> ExportCollectionAsync(string collectionName, CancellationToken cancellationToken = default);
         Task RestoreCollectionAsync(string collectionName, Stream archiveStream, CancellationToken cancellationToken = default);
+        Task<BackupResult> ExportAllCollectionsAsync(CancellationToken cancellationToken = default);
     }
 }

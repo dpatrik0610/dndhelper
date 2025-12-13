@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,6 +89,32 @@ namespace dndhelper.Services
             _logger.Information("mongodump completed for collection {Collection} ({Bytes} bytes)", collectionName, archiveStream.Length);
 
             return new BackupResult(archiveStream, fileName, "application/gzip");
+        }
+
+        public async Task<BackupResult> ExportAllCollectionsAsync(CancellationToken cancellationToken = default)
+        {
+            var collections = await _dbContext.ListCollectionsAsync(cancellationToken);
+            if (collections.Count == 0)
+                throw new InvalidOperationException("No collections found to back up.");
+
+            var zipStream = new MemoryStream();
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var collection in collections)
+                {
+                    var result = await ExportCollectionAsync(collection, cancellationToken);
+                    var entry = archive.CreateEntry($"{collection}.gz", CompressionLevel.Optimal);
+                    await using var entryStream = entry.Open();
+                    await result.Stream.CopyToAsync(entryStream, cancellationToken);
+                    result.Stream.Position = 0;
+                }
+            }
+
+            zipStream.Position = 0;
+            var fileName = $"backup {DateTime.UtcNow:yyyy.MM.dd}.zip";
+            _logger.Information("Created zip backup for all collections: {FileName}, {Bytes} bytes", fileName, zipStream.Length);
+
+            return new BackupResult(zipStream, fileName, "application/zip");
         }
 
         public async Task RestoreCollectionAsync(string collectionName, Stream archiveStream, CancellationToken cancellationToken = default)

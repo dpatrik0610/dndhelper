@@ -47,6 +47,22 @@ namespace dndhelper.Controllers
             }
         }
 
+        [HttpGet("all")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ExportAllCollections(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var result = await _backupService.ExportAllCollectionsAsync(cancellationToken);
+                return File(result.Stream, result.ContentType, result.FileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error exporting all collections");
+                return StatusCode(500, new { message = "Failed to export all collections." });
+            }
+        }
+
         [HttpPost("{collectionName}/restore")]
         public async Task<IActionResult> RestoreCollection(string collectionName, IFormFile? file, CancellationToken cancellationToken)
         {

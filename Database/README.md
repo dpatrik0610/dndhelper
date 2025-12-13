@@ -9,5 +9,6 @@
 
 ## API backup/restore
 - Authenticated GET `api/backup/{collectionName}` returns a gzipped mongodump archive (ready for `mongorestore --archive --gzip`).
+- Authenticated GET `api/backup/all` returns a zip file containing every collection as individual `.gz` entries.
 - Authenticated POST `api/backup/{collectionName}/restore` with a multipart file field (gzip archive) restores that collection (drops existing first).
 - Both endpoints respect `MONGODUMP_PATH` / `MONGORESTORE_PATH` if set; otherwise tools must be on PATH (Render image installs them via Dockerfile).
