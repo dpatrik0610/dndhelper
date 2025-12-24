@@ -186,7 +186,7 @@ namespace dndhelper.Services
             await TransferBetweenCharacters(fromId, toId, currencies);
 
             var fromCharacter = await _characterService.GetByIdAsync(fromId);
-            var toCharacter = await _characterService.GetByIdAsync(toId);
+            var toCharacter = await _characterService.GetByIdInternalAsync(toId);
 
             if (fromCharacter != null)
                 await BroadcastCharacterChangeAsync(fromCharacter, "updated", fromCharacter);
