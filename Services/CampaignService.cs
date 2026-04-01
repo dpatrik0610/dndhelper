@@ -1,4 +1,5 @@
 using dndhelper.Authentication;
+using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Models.CampaignModels;
 using dndhelper.Models.CharacterModels;
