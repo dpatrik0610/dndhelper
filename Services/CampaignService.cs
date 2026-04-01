@@ -1,5 +1,6 @@
-﻿using dndhelper.Authentication;
+using dndhelper.Authentication;
 using dndhelper.Models;
+using dndhelper.Models.CampaignModels;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
@@ -241,6 +242,51 @@ namespace dndhelper.Services
 
             campaign.CurrentSessionId = sessionId;
             return await _repository.UpdateAsync(campaign);
+        }
+
+        public async Task<CampaignOverviewDto?> GetOverviewForCharacterAsync(string characterId)
+        {
+            Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
+
+            var character = await _characterRepository.GetByIdAsync(characterId);
+            if (character == null)
+                return null;
+
+            if (character is IOwnedResource owned)
+                await EnsureOwnershipAccess(owned);
+
+            if (string.IsNullOrWhiteSpace(character.CampaignId))
+                return null;
+
+            var campaign = await _repository.GetByIdAsync(character.CampaignId);
+            if (campaign == null)
+                return null;
+
+            var campaignCharacters = campaign.CharacterIds.IsNullOrEmpty()
+                ? new List<Character>()
+                : await _characterRepository.GetByIdsAsync(campaign.CharacterIds);
+
+            return MapToOverviewDto(campaign, campaignCharacters);
+        }
+
+        private static CampaignOverviewDto MapToOverviewDto(Campaign campaign, List<Character> characters)
+        {
+            return new CampaignOverviewDto
+            {
+                Id = campaign.Id,
+                Name = campaign.Name,
+                Description = campaign.Description,
+                OwnerIds = campaign.OwnerIds ?? new List<string>(),
+                CurrentSessionId = campaign.CurrentSessionId,
+                QuestIds = campaign.QuestIds ?? new List<string>(),
+                Characters = characters.Select(character => new CampaignCharacterDto
+                {
+                    Id = character.Id,
+                    Name = character.Name,
+                    IsDead = character.IsDead,
+                    IsNPC = character.IsNPC
+                }).ToList()
+            };
         }
     }
 }

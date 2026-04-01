@@ -1,4 +1,5 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
+using dndhelper.Models.CampaignModels;
 using dndhelper.Models.CharacterModels;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -29,5 +30,6 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign?> AddSessionAsync(string campaignId, string sessionId);
         Task<Campaign?> RemoveSessionAsync(string campaignId, string sessionId);
         Task<Campaign?> SetCurrentSessionAsync(string campaignId, string sessionId);
+        Task<CampaignOverviewDto?> GetOverviewForCharacterAsync(string characterId);
     }
 }

@@ -1,6 +1,7 @@
-﻿using dndhelper.Authentication.Interfaces;
+using dndhelper.Authentication.Interfaces;
 using dndhelper.Models;
 using dndhelper.Services.Interfaces;
+using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
@@ -59,6 +60,34 @@ namespace dndhelper.Controllers
                 campaign.SessionIds,
                 campaign.OwnerIds
             });
+        }
+
+        [HttpGet("character/{characterId}/overview")]
+        public async Task<IActionResult> GetOverviewForCharacter(string characterId)
+        {
+            try
+            {
+                Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
+
+                var overview = await _campaignService.GetOverviewForCharacterAsync(characterId);
+                if (overview == null)
+                    return NotFound();
+
+                return Ok(overview);
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ex.Message);
+            }
+            catch (System.Exception ex)
+            {
+                _logger.Error(ex, "Error getting campaign overview for character {CharacterId}", characterId);
+                return StatusCode(500, ex.Message);
+            }
         }
 
         [HttpPost("create")]
