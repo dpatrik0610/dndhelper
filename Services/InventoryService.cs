@@ -372,19 +372,41 @@ namespace dndhelper.Services
             Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
             Guard.GreaterThanZero(amount, nameof(amount));
 
+            InventoryItem? sourceSnapshot = null;
+
             try
             {
-                // Decrement from source inventory
-                await DecrementItemQuantityAsync(sourceInventoryId, equipmentId, amount);
+                var sourceItem = await _repository.GetItemAsync(sourceInventoryId, equipmentId);
+                if (sourceItem == null)
+                    throw new KeyNotFoundException($"Item {equipmentId} not found in inventory {sourceInventoryId}.");
 
-                // Add to target inventory (will increment if it already exists)
+                sourceSnapshot = new InventoryItem
+                {
+                    EquipmentId = sourceItem.EquipmentId,
+                    EquipmentName = sourceItem.EquipmentName,
+                    Quantity = sourceItem.Quantity,
+                    Note = sourceItem.Note
+                };
+
+                await DecrementItemQuantityAsync(sourceInventoryId, equipmentId, amount);
                 await AddOrIncrementItemAsync(targetInventoryId, equipmentId, amount);
 
                 _logger.Information($"Successfully moved {amount} of item {equipmentId} to {targetInventoryId}");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Failed to move item {equipmentId} from {sourceInventoryId} to {targetInventoryId}");
+                _logger.Error(ex, "Failed to move item {EquipmentId} from {SourceInventoryId} to {TargetInventoryId}. Error: {ErrorMessage}",
+                    equipmentId, sourceInventoryId, targetInventoryId, ex.Message);
+
+                if (sourceSnapshot != null)
+                {
+                    _logger.Information("Attempting rollback for inventory {InventoryId} and item {EquipmentId}",
+                        sourceInventoryId, sourceSnapshot.EquipmentId);
+                    await RollbackSourceItemAsync(sourceInventoryId, sourceSnapshot);
+                    _logger.Information("Rollback completed for inventory {InventoryId} and item {EquipmentId}",
+                        sourceInventoryId, sourceSnapshot.EquipmentId);
+                }
+
                 throw;
             }
         }
@@ -396,18 +418,68 @@ namespace dndhelper.Services
             Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
             Guard.GreaterThanZero(amount, nameof(amount));
 
-            var character = await _characterService.GetByIdAsync(characterId);
+            var character = await _characterService.GetByIdInternalAsync(characterId);
             if (character == null)
                 throw new KeyNotFoundException($"Character {characterId} not found.");
 
             if (character.InventoryIds == null || character.InventoryIds.Count == 0)
                 throw new InvalidOperationException("Target character has no inventories.");
 
-            var targetInventoryId = character.InventoryIds[0];
+            var candidateIds = character.InventoryIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToList();
+
+            if (candidateIds.Count == 0)
+                throw new InvalidOperationException("Target character has no valid inventory IDs.");
+
+            string? targetInventoryId = null;
+            foreach (var inventoryId in candidateIds)
+            {
+                var inventory = await _repository.GetByIdAsync(inventoryId);
+                if (inventory != null)
+                {
+                    targetInventoryId = inventoryId;
+                    break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(targetInventoryId))
+                throw new InvalidOperationException($"No valid inventories found for character {characterId}. Inventory IDs: {string.Join(", ", candidateIds)}");
 
             await MoveItemAsync(sourceInventoryId, targetInventoryId, equipmentId, amount);
 
             return targetInventoryId;
+        }
+
+        private async Task RollbackSourceItemAsync(string inventoryId, InventoryItem snapshot)
+        {
+            try
+            {
+                var existing = await _repository.GetItemAsync(inventoryId, snapshot.EquipmentId);
+                if (existing != null)
+                {
+                    existing.Quantity = snapshot.Quantity;
+                    existing.EquipmentName = snapshot.EquipmentName;
+                    existing.Note = snapshot.Note;
+                    await _repository.UpdateItemAsync(inventoryId, existing);
+                }
+                else
+                {
+                    await _repository.AddItemAsync(inventoryId, new InventoryItem
+                    {
+                        EquipmentId = snapshot.EquipmentId,
+                        EquipmentName = snapshot.EquipmentName,
+                        Quantity = snapshot.Quantity,
+                        Note = snapshot.Note
+                    });
+                }
+            }
+            catch (Exception rollbackEx)
+            {
+                _logger.Error(rollbackEx, "Rollback failed for inventory {InventoryId} and item {EquipmentId}. Error: {ErrorMessage}",
+                    inventoryId, snapshot.EquipmentId, rollbackEx.Message);
+            }
         }
 
     }
