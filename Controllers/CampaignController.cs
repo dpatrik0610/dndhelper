@@ -5,6 +5,7 @@ using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using System;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
