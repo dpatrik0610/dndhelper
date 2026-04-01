@@ -1,11 +1,9 @@
-﻿using dndhelper.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using dndhelper.Models.RollModels;
 
 namespace dndhelper.Services.Interfaces
 {
     public interface IDiceRollService
     {
-        Task<(List<Die> Rolls, int Total)> RollDiceAsync(int numberOfDice, int sides);
+        DiceRollResult RollDice(int numberOfDice, int sides, int modifier = 0, string? expression = null);
     }
 }

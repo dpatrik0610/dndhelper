@@ -62,4 +62,9 @@ namespace dndhelper.Utils
     {
         public AlreadyExistsException(string message) : base(message) { }
     }
+
+    public class RateLimitException : Exception
+    {
+        public RateLimitException(string message) : base(message) { }
+    }
 }

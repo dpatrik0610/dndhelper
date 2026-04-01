@@ -5,6 +5,7 @@ using dndhelper.Database;
 using dndhelper.Database.Seed;
 using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
+using dndhelper.Models.RollModels;
 using dndhelper.Repositories;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services;
@@ -122,12 +123,15 @@ namespace dndhelper.Core
             services.AddScoped<ISessionRepository, SessionRepository>();
             services.AddScoped<IRuleRepository, RuleRepository>();
             services.AddScoped<IRuleCategoryRepository, RuleCategoryRepository>();
+            services.AddScoped<IRollRepository, RollRepository>();
             #endregion
 
             #region Services
             services.AddScoped<IEntitySyncService, EntitySyncService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IDiceRollService, DiceRollService>();
+            services.AddScoped<ISubtleRollService, SubtleRollService>();
+            services.AddScoped<IRollHistoryService, RollHistoryService>();
             services.AddScoped<ICharacterService, CharacterService>();
             services.AddScoped<IEquipmentService, EquipmentService>();
             services.AddScoped<IInventoryService, InventoryService>();
@@ -146,6 +150,8 @@ namespace dndhelper.Core
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
             services.AddScoped<IInternalBaseService<Session>, SessionService>();
             #endregion
+
+            services.Configure<DiceRollOptions>(config.GetSection("DiceRoll"));
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
             services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>

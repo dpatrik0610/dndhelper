@@ -1,43 +1,80 @@
-﻿using dndhelper.Models;
+using dndhelper.Models.RollModels;
 using dndhelper.Services.Interfaces;
+using dndhelper.Utils;
+using Microsoft.Extensions.Options;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace dndhelper.Services
 {
     public class DiceRollService : IDiceRollService
     {
-        private readonly Random _random;
         private readonly ILogger _logger;
+        private readonly DiceRollOptions _options;
 
-        public DiceRollService(ILogger logger)
+        public DiceRollService(ILogger logger, IOptions<DiceRollOptions> options)
         {
-            _random = new Random();
             _logger = logger;
+            _options = options?.Value ?? new DiceRollOptions();
         }
 
-        public async Task<(List<Die> Rolls, int Total)> RollDiceAsync(int numberOfDice, int sides)
+        public DiceRollResult RollDice(int numberOfDice, int sides, int modifier = 0, string? expression = null)
         {
-            if (numberOfDice <= 0 || sides <= 0)
+            if (!string.IsNullOrWhiteSpace(expression))
             {
-                _logger.Warning($"Invalid dice roll request: numberOfDice={numberOfDice}, sides={sides} ⚔");
-                throw new ArgumentException("Number of dice and sides must be positive.");
+                var parsed = DiceExpressionParser.Parse(expression);
+                numberOfDice = parsed.NumberOfDice;
+                sides = parsed.Sides;
+                modifier = parsed.Modifier;
+                expression = parsed.Normalized;
             }
 
-            var rolls = new List<Die>();
+            Guard.GreaterThanZero(numberOfDice, nameof(numberOfDice));
+            Guard.GreaterThanZero(sides, nameof(sides));
+            Guard.InRange(numberOfDice, 1, _options.MaxDice, nameof(numberOfDice));
+            Guard.InRange(sides, 1, _options.MaxSides, nameof(sides));
+
+            var rolls = new List<int>(numberOfDice);
             int total = 0;
             for (int i = 0; i < numberOfDice; i++)
             {
-                int result = _random.Next(1, sides + 1);
-                rolls.Add(new Die { Sides = sides, Result = result });
+                int result = Random.Shared.Next(1, sides + 1);
+                rolls.Add(result);
                 total += result;
             }
 
-            _logger.Information($"Rolled {numberOfDice}d{sides}: {string.Join(", ", rolls.Select(r => r.Result))}, Total: {total} 🎲");
-            return await Task.FromResult((rolls, total));
+            total += modifier;
+
+            var normalized = string.IsNullOrWhiteSpace(expression)
+                ? (modifier == 0 ? $"{numberOfDice}d{sides}" : $"{numberOfDice}d{sides}{(modifier > 0 ? "+" : "-")}{Math.Abs(modifier)}")
+                : expression;
+
+            var min = numberOfDice + modifier;
+            var max = (numberOfDice * sides) + modifier;
+            var average = numberOfDice * (sides + 1) / 2.0 + modifier;
+
+            _logger.Debug(
+                "Rolled {NumberOfDice}d{Sides}: {Rolls} (Total: {Total})",
+                numberOfDice,
+                sides,
+                string.Join(", ", rolls),
+                total
+            );
+
+            return new DiceRollResult
+            {
+                NumberOfDice = numberOfDice,
+                Sides = sides,
+                Modifier = modifier,
+                Rolls = rolls,
+                Total = total,
+                Min = min,
+                Max = max,
+                Average = average,
+                Expression = normalized,
+                TimestampUtc = DateTime.UtcNow
+            };
         }
     }
 }
