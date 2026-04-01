@@ -4,6 +4,7 @@ using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
+using dndhelper.Authentication.Interfaces;
 
 namespace dndhelper.Controllers
 {
@@ -13,10 +14,17 @@ namespace dndhelper.Controllers
     public class RollController : ControllerBase
     {
         private readonly ISubtleRollService _subtleRollService;
+        private readonly IRollHistoryService _rollHistoryService;
+        private readonly IAuthService _authService;
 
-        public RollController(ISubtleRollService subtleRollService)
+        public RollController(
+            ISubtleRollService subtleRollService,
+            IRollHistoryService rollHistoryService,
+            IAuthService authService)
         {
             _subtleRollService = subtleRollService;
+            _rollHistoryService = rollHistoryService;
+            _authService = authService;
         }
 
         [HttpPost("subtle")]
@@ -34,6 +42,26 @@ namespace dndhelper.Controllers
             {
                 return StatusCode(429, new { message = ex.Message });
             }
+        }
+
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory([FromQuery] string? campaignId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        {
+            var user = await _authService.GetUserFromTokenAsync();
+            if (user == null)
+                return Unauthorized();
+
+            if (!string.IsNullOrWhiteSpace(campaignId))
+            {
+                if (user.CampaignIds == null || !user.CampaignIds.Contains(campaignId))
+                    return Forbid();
+
+                var rolls = await _rollHistoryService.GetRollsByCampaignAsync(campaignId, page, pageSize);
+                return Ok(rolls);
+            }
+
+            var myRolls = await _rollHistoryService.GetMyPublicRollsAsync(user.Id, page, pageSize);
+            return Ok(myRolls);
         }
     }
 }
