@@ -21,5 +21,6 @@ namespace dndhelper.Services.Interfaces
         Task<bool> ItemExistsInInventoryAsync(string inventoryId, string equipmentId);
         Task DecrementItemQuantityAsync(string inventoryId, string equipmentId, int decrementBy = 1);
         Task MoveItemAsync(string sourceInventoryId, string targetInventoryId, string equipmentId, int amount = 1);
+        Task<string> MoveItemToCharacterFirstInventoryAsync(string sourceInventoryId, string characterId, string equipmentId, int amount = 1);
     }
 }

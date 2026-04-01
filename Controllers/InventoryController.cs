@@ -202,6 +202,52 @@ public class InventoryController : ControllerBase
         });
     }
 
+    [HttpPost("{sourceInventoryId}/items/{equipmentId}/move-to-character/{characterId}")]
+    public async Task<IActionResult> MoveItemToCharacter(
+        string sourceInventoryId,
+        string equipmentId,
+        string characterId,
+        [FromBody] MoveItemToCharacterRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(sourceInventoryId) ||
+            string.IsNullOrWhiteSpace(characterId) ||
+            string.IsNullOrWhiteSpace(equipmentId))
+            return BadRequest("Invalid inventory, character, or equipment ID.");
+
+        string targetInventoryId;
+        try
+        {
+            targetInventoryId = await _inventoryService.MoveItemToCharacterFirstInventoryAsync(
+                sourceInventoryId,
+                characterId,
+                equipmentId,
+                request.Amount
+            );
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound("Character not found.");
+        }
+        catch (InvalidOperationException)
+        {
+            return BadRequest("Target character has no inventories.");
+        }
+
+        var source = await _inventoryService.GetByIdInternalAsync(sourceInventoryId);
+        var target = await _inventoryService.GetByIdInternalAsync(targetInventoryId);
+
+        if (source != null)
+            await BroadcastInventoryChangeAsync(source, "updated", source);
+
+        if (target != null)
+            await BroadcastInventoryChangeAsync(target, "updated", target);
+
+        return Ok(new
+        {
+            message = $"Moved {equipmentId} from {sourceInventoryId} to character {characterId} inventory {targetInventoryId}."
+        });
+    }
+
     [HttpPut("{inventoryId}/items/{equipmentId}")]
     public async Task<IActionResult> UpdateItem(string inventoryId, string equipmentId, InventoryItem item)
     {
@@ -266,6 +312,11 @@ public class InventoryController : ControllerBase
     public class MoveItemRequest
     {
         public string TargetInventoryId { get; set; } = null!;
+        public int Amount { get; set; } = 1;
+    }
+
+    public class MoveItemToCharacterRequest
+    {
         public int Amount { get; set; } = 1;
     }
 

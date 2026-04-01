@@ -389,5 +389,26 @@ namespace dndhelper.Services
             }
         }
 
+        public async Task<string> MoveItemToCharacterFirstInventoryAsync(string sourceInventoryId, string characterId, string equipmentId, int amount = 1)
+        {
+            Guard.NotNullOrWhiteSpace(sourceInventoryId, nameof(sourceInventoryId));
+            Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
+            Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
+            Guard.GreaterThanZero(amount, nameof(amount));
+
+            var character = await _characterService.GetByIdAsync(characterId);
+            if (character == null)
+                throw new KeyNotFoundException($"Character {characterId} not found.");
+
+            if (character.InventoryIds == null || character.InventoryIds.Count == 0)
+                throw new InvalidOperationException("Target character has no inventories.");
+
+            var targetInventoryId = character.InventoryIds[0];
+
+            await MoveItemAsync(sourceInventoryId, targetInventoryId, equipmentId, amount);
+
+            return targetInventoryId;
+        }
+
     }
 }
