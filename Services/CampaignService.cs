@@ -1,10 +1,12 @@
 using dndhelper.Authentication;
+using dndhelper.Authentication.Interfaces;
 using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Models.CampaignModels;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Services.SignalR;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -20,16 +22,26 @@ namespace dndhelper.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly ICharacterRepository _characterRepository;
+        private readonly IEncounterRepository _encounterRepository;
+        private readonly IEntitySyncService _entitySyncService;
+        private readonly IAuthService _authService;
 
         public CampaignService(
             ICampaignRepository repository, 
             ILogger logger, 
             IUserRepository userRepository, 
             IAuthorizationService authorizationService,
-        IHttpContextAccessor httpContextAccessor, ICharacterRepository characterRepository) : base(repository, logger, authorizationService, httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            ICharacterRepository characterRepository,
+            IEncounterRepository encounterRepository,
+            IEntitySyncService entitySyncService,
+            IAuthService authService) : base(repository, logger, authorizationService, httpContextAccessor)
         {
-            _userRepository = userRepository;
-            _characterRepository = characterRepository;
+            _userRepository = Guard.NotNull(userRepository, nameof(userRepository));
+            _characterRepository = Guard.NotNull(characterRepository, nameof(characterRepository));
+            _encounterRepository = Guard.NotNull(encounterRepository, nameof(encounterRepository));
+            _entitySyncService = Guard.NotNull(entitySyncService, nameof(entitySyncService));
+            _authService = Guard.NotNull(authService, nameof(authService));
         }
 
         public async Task<Campaign> CreateAsync(Campaign campaign, string userId)
@@ -245,6 +257,37 @@ namespace dndhelper.Services
             return await _repository.UpdateAsync(campaign);
         }
 
+        public async Task<Campaign?> SetActiveEncounterAsync(string campaignId, string? encounterId)
+        {
+            Guard.NotNullOrWhiteSpace(campaignId, nameof(campaignId));
+
+            var campaign = await _repository.GetByIdAsync(campaignId);
+            if (campaign == null)
+                return null;
+
+            if (!string.IsNullOrWhiteSpace(encounterId))
+            {
+                var encounter = await _encounterRepository.GetByIdAsync(encounterId);
+                if (encounter == null)
+                    throw new InvalidOperationException($"Encounter not found: {encounterId}");
+
+                Guard.That(
+                    string.Equals(encounter.CampaignId, campaignId, StringComparison.Ordinal),
+                    "Encounter must belong to the same campaign.",
+                    nameof(encounterId));
+            }
+
+            campaign.ActiveEncounterId = encounterId;
+
+            var updated = await _repository.UpdateAsync(campaign);
+            if (updated != null)
+            {
+                await BroadcastCampaignActiveEncounterChangedAsync(updated);
+            }
+
+            return updated;
+        }
+
         public async Task<CampaignOverviewDto?> GetOverviewForCharacterAsync(string characterId)
         {
             Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
@@ -288,6 +331,33 @@ namespace dndhelper.Services
                     IsNPC = character.IsNPC
                 }).ToList()
             };
+        }
+
+        private async Task BroadcastCampaignActiveEncounterChangedAsync(Campaign campaign)
+        {
+            var recipients = (campaign.OwnerIds ?? new List<string>()).Distinct().ToList();
+            if (recipients.Count == 0)
+                return;
+
+            var user = await _authService.GetUserFromTokenAsync();
+
+            await _entitySyncService.BroadcastToUsers(
+                "EntityChanged",
+                new
+                {
+                    entityType = "Campaign",
+                    entityId = campaign.Id,
+                    action = "activeEncounterChanged",
+                    data = new
+                    {
+                        campaignId = campaign.Id,
+                        activeEncounterId = campaign.ActiveEncounterId
+                    },
+                    changedBy = user.Username,
+                    timestamp = DateTime.UtcNow
+                },
+                recipients,
+                excludeUserId: user.Id);
         }
     }
 }

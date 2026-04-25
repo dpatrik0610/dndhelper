@@ -58,6 +58,7 @@ namespace dndhelper.Controllers
                 campaign.Description,
                 campaign.IsActive,
                 campaign.CurrentSessionId,
+                campaign.ActiveEncounterId,
                 campaign.SessionIds,
                 campaign.OwnerIds
             });
@@ -234,6 +235,47 @@ namespace dndhelper.Controllers
         {
             var result = await _campaignService.SetCurrentSessionAsync(id, sessionId);
             return result == null ? NotFound() : Ok(result);
+        }
+
+        [HttpPut("{id}/active-encounter/{encounterId}")]
+        public async Task<IActionResult> SetActiveEncounter(string id, string encounterId)
+        {
+            try
+            {
+                Guard.NotNullOrWhiteSpace(id, nameof(id));
+                Guard.NotNullOrWhiteSpace(encounterId, nameof(encounterId));
+
+                var result = await _campaignService.SetActiveEncounterAsync(id, encounterId);
+                return result == null ? NotFound() : Ok(result);
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("{id}/active-encounter")]
+        public async Task<IActionResult> ClearActiveEncounter(string id)
+        {
+            try
+            {
+                Guard.NotNullOrWhiteSpace(id, nameof(id));
+
+                var result = await _campaignService.SetActiveEncounterAsync(id, null);
+                return result == null ? NotFound() : Ok(result);
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
     }

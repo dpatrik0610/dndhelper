@@ -30,6 +30,7 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign?> AddSessionAsync(string campaignId, string sessionId);
         Task<Campaign?> RemoveSessionAsync(string campaignId, string sessionId);
         Task<Campaign?> SetCurrentSessionAsync(string campaignId, string sessionId);
+        Task<Campaign?> SetActiveEncounterAsync(string campaignId, string? encounterId);
         Task<CampaignOverviewDto?> GetOverviewForCharacterAsync(string characterId);
     }
 }

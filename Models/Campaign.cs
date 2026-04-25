@@ -32,5 +32,8 @@ namespace dndhelper.Models
         // Session tracking (for later use)
         public string? CurrentSessionId { get; set; }
         public List<string> SessionIds { get; set; } = new();
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? ActiveEncounterId { get; set; }
     }
 }

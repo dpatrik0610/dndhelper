@@ -118,6 +118,7 @@ namespace dndhelper.Core
             services.AddScoped<IInventoryRepository, InventoryRepository>();
             services.AddScoped<IMonsterRepository, MonsterRepository>();
             services.AddScoped<ICampaignRepository, CampaignRepository>();
+            services.AddScoped<IEncounterRepository, EncounterRepository>();
             services.AddScoped<ISpellRepository, SpellRepository>();
             services.AddScoped<INoteRepository, NoteRepository>();
             services.AddScoped<ISessionRepository, SessionRepository>();
@@ -137,6 +138,7 @@ namespace dndhelper.Core
             services.AddScoped<IInventoryService, InventoryService>();
             services.AddScoped<IMonsterService, MonsterService>();
             services.AddScoped<ICampaignService, CampaignService>();
+            services.AddScoped<IEncounterService, EncounterService>();
             services.AddScoped<ISpellService, SpellService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<INoteService, NoteService>();
@@ -148,6 +150,7 @@ namespace dndhelper.Core
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
+            services.AddScoped<IInternalBaseService<Encounter>, EncounterService>();
             services.AddScoped<IInternalBaseService<Session>, SessionService>();
             #endregion
 
