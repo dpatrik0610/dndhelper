@@ -1,4 +1,4 @@
-﻿using dndhelper.Core;
+using dndhelper.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,6 +74,7 @@ app.UseSerilogRequestLogging();
 app.UseCors(MyAllowSpecificOrigins);
 
 app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapHub<EncounterRoomHub>("/hubs/encounter-room");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthChecks("/health");

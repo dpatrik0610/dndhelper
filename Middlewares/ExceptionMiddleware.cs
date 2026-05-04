@@ -1,4 +1,4 @@
-﻿using dndhelper.Utils;
+using dndhelper.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -32,6 +32,7 @@ public class ExceptionMiddleware
             (HttpStatusCode status, string message) = ex switch
             {
                 NotFoundException => (HttpStatusCode.NotFound, ex.Message),
+                ConcurrencyException => (HttpStatusCode.Conflict, ex.Message),
                 ArgumentException => (HttpStatusCode.BadRequest, ex.Message),
                 InvalidOperationException => (HttpStatusCode.BadRequest, ex.Message),
                 UnauthorizedAccessException => (HttpStatusCode.Unauthorized, ex.Message),

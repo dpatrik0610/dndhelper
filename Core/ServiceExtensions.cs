@@ -5,6 +5,7 @@ using dndhelper.Database;
 using dndhelper.Database.Seed;
 using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
+using dndhelper.Models.EncounterRoomModels;
 using dndhelper.Models.RollModels;
 using dndhelper.Repositories;
 using dndhelper.Repositories.Interfaces;
@@ -125,6 +126,7 @@ namespace dndhelper.Core
             services.AddScoped<IRuleRepository, RuleRepository>();
             services.AddScoped<IRuleCategoryRepository, RuleCategoryRepository>();
             services.AddScoped<IRollRepository, RollRepository>();
+            services.AddScoped<IEncounterRoomRepository, EncounterRoomRepository>();
             #endregion
 
             #region Services
@@ -146,6 +148,7 @@ namespace dndhelper.Core
             services.AddScoped<IBackupService, BackupService>();
             services.AddScoped<IRuleService, RuleService>();
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
+            services.AddScoped<IEncounterRoomService, EncounterRoomService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
