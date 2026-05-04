@@ -72,11 +72,11 @@ if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DOTN
 
 app.UseSerilogRequestLogging();
 app.UseCors(MyAllowSpecificOrigins);
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHub<EncounterRoomHub>("/hubs/encounter-room");
-app.UseAuthentication();
-app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapControllers();
 

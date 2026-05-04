@@ -1,6 +1,6 @@
 using dndhelper.Models.EncounterRoomModels;
 using dndhelper.Services.Interfaces;
-using dndhelper.Utils;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using System;
@@ -8,13 +8,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Core
 {
-    /// <summary>
-    /// SignalR hub for real-time encounter room interactions.
-    /// Thin transport layer — all logic lives in the service.
-    /// 
-    /// Groups: room_{roomId}
-    /// Connection query params: userId
-    /// </summary>
+    [Authorize]
     public class EncounterRoomHub : Hub
     {
         private readonly IEncounterRoomService _roomService;
@@ -26,9 +20,42 @@ namespace dndhelper.Core
             _logger = logger;
         }
 
-        // ──────────────────────────────────────────────
-        // Connection lifecycle
-        // ──────────────────────────────────────────────
+        private async Task ExecuteRoomAction<T>(
+            string methodName,
+            RoomActionEnvelope<T> envelope,
+            Func<Task> action)
+        {
+            _logger.Information(
+                "EncounterRoomHub {MethodName} received. ConnectionId={ConnectionId}, RoomId={RoomId}, ExpectedRevision={ExpectedRevision}, Action={@Action}",
+                methodName,
+                Context.ConnectionId,
+                envelope.RoomId,
+                envelope.ExpectedRevision,
+                envelope.Action);
+
+            try
+            {
+                await action();
+
+                _logger.Information(
+                    "EncounterRoomHub {MethodName} completed. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                    methodName,
+                    Context.ConnectionId,
+                    envelope.RoomId);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    ex,
+                    "EncounterRoomHub {MethodName} failed. ConnectionId={ConnectionId}, RoomId={RoomId}, ExpectedRevision={ExpectedRevision}, Action={@Action}",
+                    methodName,
+                    Context.ConnectionId,
+                    envelope.RoomId,
+                    envelope.ExpectedRevision,
+                    envelope.Action);
+                throw;
+            }
+        }
 
         public override async Task OnConnectedAsync()
         {
@@ -37,14 +64,16 @@ namespace dndhelper.Core
 
             if (!string.IsNullOrEmpty(userId))
             {
-                // Also add to user-specific group for targeted messages (invites)
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
-                _logger.Information("✅ EncounterRoom hub: user {UserId} connected ({ConnectionId})",
-                    userId, Context.ConnectionId);
+                _logger.Information(
+                    "EncounterRoomHub connected. UserId={UserId}, ConnectionId={ConnectionId}",
+                    userId,
+                    Context.ConnectionId);
             }
             else
             {
-                _logger.Warning("⚠️ EncounterRoom hub: connection without userId ({ConnectionId})",
+                _logger.Warning(
+                    "EncounterRoomHub connected without userId. ConnectionId={ConnectionId}",
                     Context.ConnectionId);
             }
 
@@ -59,160 +88,176 @@ namespace dndhelper.Core
             if (!string.IsNullOrEmpty(userId))
             {
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId}");
-                _logger.Information("❌ EncounterRoom hub: user {UserId} disconnected", userId);
             }
+
+            _logger.Information(
+                exception,
+                "EncounterRoomHub disconnected. UserId={UserId}, ConnectionId={ConnectionId}",
+                userId,
+                Context.ConnectionId);
 
             await base.OnDisconnectedAsync(exception);
         }
 
-        // ──────────────────────────────────────────────
-        // Room lifecycle
-        // ──────────────────────────────────────────────
-
         public async Task<object> JoinRoom(string joinCode)
         {
-            var response = await _roomService.JoinRoomAsync(joinCode);
+            _logger.Information(
+                "EncounterRoomHub JoinRoom received. ConnectionId={ConnectionId}, JoinCode={JoinCode}",
+                Context.ConnectionId,
+                joinCode);
 
-            // Add this connection to the room's SignalR group
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"room_{response.RoomId}");
+            try
+            {
+                var response = await _roomService.JoinRoomAsync(joinCode);
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"room_{response.RoomId}");
 
-            _logger.Information("🚪 Connection {ConnectionId} joined room group {RoomId}",
-                Context.ConnectionId, response.RoomId);
+                _logger.Information(
+                    "EncounterRoomHub JoinRoom completed. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                    Context.ConnectionId,
+                    response.RoomId);
 
-            // Send full room state to the joining client
-            await Clients.Caller.SendAsync("RoomStateSync", response.RoomState);
-
-            return new { roomId = response.RoomId };
+                await Clients.Caller.SendAsync("RoomStateSync", response.RoomState);
+                return new { roomId = response.RoomId };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    ex,
+                    "EncounterRoomHub JoinRoom failed. ConnectionId={ConnectionId}, JoinCode={JoinCode}",
+                    Context.ConnectionId,
+                    joinCode);
+                throw;
+            }
         }
 
         public async Task LeaveRoom(string roomId)
         {
-            await _roomService.LeaveRoomAsync(roomId);
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"room_{roomId}");
+            _logger.Information(
+                "EncounterRoomHub LeaveRoom received. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                Context.ConnectionId,
+                roomId);
 
-            _logger.Information("🚪 Connection {ConnectionId} left room group {RoomId}",
-                Context.ConnectionId, roomId);
+            try
+            {
+                await _roomService.LeaveRoomAsync(roomId);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"room_{roomId}");
+
+                _logger.Information(
+                    "EncounterRoomHub LeaveRoom completed. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                    Context.ConnectionId,
+                    roomId);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    ex,
+                    "EncounterRoomHub LeaveRoom failed. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                    Context.ConnectionId,
+                    roomId);
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Joins a SignalR group for a room the user is already a member of (e.g. on reconnect).
-        /// Does NOT add the user as a player — use JoinRoom with a join code for that.
-        /// </summary>
         public async Task ReJoinRoom(string roomId)
         {
-            // Verify the user is still a member
-            var room = await _roomService.GetRoomAsync(roomId);
-            if (room == null) return;
+            _logger.Information(
+                "EncounterRoomHub ReJoinRoom received. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                Context.ConnectionId,
+                roomId);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"room_{roomId}");
-            await Clients.Caller.SendAsync("RoomStateSync", room);
+            try
+            {
+                var room = await _roomService.GetRoomAsync(roomId);
+                if (room == null)
+                {
+                    _logger.Warning(
+                        "EncounterRoomHub ReJoinRoom found no room. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                        Context.ConnectionId,
+                        roomId);
+                    return;
+                }
 
-            _logger.Information("🔄 Connection {ConnectionId} re-joined room group {RoomId}",
-                Context.ConnectionId, roomId);
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"room_{roomId}");
+                await Clients.Caller.SendAsync("RoomStateSync", room);
+
+                _logger.Information(
+                    "EncounterRoomHub ReJoinRoom completed. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                    Context.ConnectionId,
+                    roomId);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(
+                    ex,
+                    "EncounterRoomHub ReJoinRoom failed. ConnectionId={ConnectionId}, RoomId={RoomId}",
+                    Context.ConnectionId,
+                    roomId);
+                throw;
+            }
         }
 
-        // ──────────────────────────────────────────────
-        // Entity management
-        // ──────────────────────────────────────────────
+        public Task AddEntity(RoomActionEnvelope<AddEntityRequest> envelope) =>
+            ExecuteRoomAction(nameof(AddEntity), envelope, () =>
+                _roomService.AddEntityAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        public async Task AddEntity(RoomActionEnvelope<AddEntityRequest> envelope)
-        {
-            await _roomService.AddEntityAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
+        public Task UpdateEntity(RoomActionEnvelope<UpdateEntityRequest> envelope) =>
+            ExecuteRoomAction(nameof(UpdateEntity), envelope, () =>
+                _roomService.UpdateEntityAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        public async Task UpdateEntity(RoomActionEnvelope<UpdateEntityRequest> envelope)
-        {
-            await _roomService.UpdateEntityAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
+        public Task RemoveEntity(RoomActionEnvelope<RemoveEntityRequest> envelope) =>
+            ExecuteRoomAction(nameof(RemoveEntity), envelope, () =>
+                _roomService.RemoveEntityAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.EntityId));
 
-        public async Task RemoveEntity(RoomActionEnvelope<RemoveEntityRequest> envelope)
-        {
-            await _roomService.RemoveEntityAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.EntityId);
-        }
+        public Task AddToken(RoomActionEnvelope<AddTokenRequest> envelope) =>
+            ExecuteRoomAction(nameof(AddToken), envelope, () =>
+                _roomService.AddTokenAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        // ──────────────────────────────────────────────
-        // Token management
-        // ──────────────────────────────────────────────
+        public Task MoveToken(RoomActionEnvelope<MoveTokenRequest> envelope) =>
+            ExecuteRoomAction(nameof(MoveToken), envelope, () =>
+                _roomService.MoveTokenAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        public async Task AddToken(RoomActionEnvelope<AddTokenRequest> envelope)
-        {
-            await _roomService.AddTokenAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
+        public Task RemoveToken(RoomActionEnvelope<RemoveTokenRequest> envelope) =>
+            ExecuteRoomAction(nameof(RemoveToken), envelope, () =>
+                _roomService.RemoveTokenAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.TokenId));
 
-        public async Task MoveToken(RoomActionEnvelope<MoveTokenRequest> envelope)
-        {
-            await _roomService.MoveTokenAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
+        public Task AddMapElement(RoomActionEnvelope<AddMapElementRequest> envelope) =>
+            ExecuteRoomAction(nameof(AddMapElement), envelope, () =>
+                _roomService.AddMapElementAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        public async Task RemoveToken(RoomActionEnvelope<RemoveTokenRequest> envelope)
-        {
-            await _roomService.RemoveTokenAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.TokenId);
-        }
+        public Task RemoveMapElement(RoomActionEnvelope<RemoveMapElementRequest> envelope) =>
+            ExecuteRoomAction(nameof(RemoveMapElement), envelope, () =>
+                _roomService.RemoveMapElementAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.ElementId));
 
-        // ──────────────────────────────────────────────
-        // Map drawing
-        // ──────────────────────────────────────────────
+        public Task ClearMapElements(RoomActionEnvelope<object> envelope) =>
+            ExecuteRoomAction(nameof(ClearMapElements), envelope, () =>
+                _roomService.ClearMapElementsAsync(envelope.RoomId, envelope.ExpectedRevision));
 
-        public async Task AddMapElement(RoomActionEnvelope<AddMapElementRequest> envelope)
-        {
-            await _roomService.AddMapElementAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
+        public Task SetInitiative(RoomActionEnvelope<SetInitiativeRequest> envelope) =>
+            ExecuteRoomAction(nameof(SetInitiative), envelope, () =>
+                _roomService.SetInitiativeAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        public async Task RemoveMapElement(RoomActionEnvelope<RemoveMapElementRequest> envelope)
-        {
-            await _roomService.RemoveMapElementAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.ElementId);
-        }
+        public Task AdvanceTurn(RoomActionEnvelope<object> envelope) =>
+            ExecuteRoomAction(nameof(AdvanceTurn), envelope, () =>
+                _roomService.AdvanceTurnAsync(envelope.RoomId, envelope.ExpectedRevision));
 
-        public async Task ClearMapElements(RoomActionEnvelope<object> envelope)
-        {
-            await _roomService.ClearMapElementsAsync(envelope.RoomId, envelope.ExpectedRevision);
-        }
+        public Task StartCombat(RoomActionEnvelope<object> envelope) =>
+            ExecuteRoomAction(nameof(StartCombat), envelope, () =>
+                _roomService.StartCombatAsync(envelope.RoomId, envelope.ExpectedRevision));
 
-        // ──────────────────────────────────────────────
-        // Turn management
-        // ──────────────────────────────────────────────
+        public Task EndCombat(RoomActionEnvelope<object> envelope) =>
+            ExecuteRoomAction(nameof(EndCombat), envelope, () =>
+                _roomService.EndCombatAsync(envelope.RoomId, envelope.ExpectedRevision));
 
-        public async Task SetInitiative(RoomActionEnvelope<SetInitiativeRequest> envelope)
-        {
-            await _roomService.SetInitiativeAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
+        public Task UpdateMapSettings(RoomActionEnvelope<UpdateMapSettingsRequest> envelope) =>
+            ExecuteRoomAction(nameof(UpdateMapSettings), envelope, () =>
+                _roomService.UpdateMapSettingsAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action));
 
-        public async Task AdvanceTurn(RoomActionEnvelope<object> envelope)
-        {
-            await _roomService.AdvanceTurnAsync(envelope.RoomId, envelope.ExpectedRevision);
-        }
+        public Task AddInventory(RoomActionEnvelope<AddInventoryRequest> envelope) =>
+            ExecuteRoomAction(nameof(AddInventory), envelope, () =>
+                _roomService.AddInventoryAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.InventoryId));
 
-        public async Task StartCombat(RoomActionEnvelope<object> envelope)
-        {
-            await _roomService.StartCombatAsync(envelope.RoomId, envelope.ExpectedRevision);
-        }
-
-        public async Task EndCombat(RoomActionEnvelope<object> envelope)
-        {
-            await _roomService.EndCombatAsync(envelope.RoomId, envelope.ExpectedRevision);
-        }
-
-        // ──────────────────────────────────────────────
-        // Map settings
-        // ──────────────────────────────────────────────
-
-        public async Task UpdateMapSettings(RoomActionEnvelope<UpdateMapSettingsRequest> envelope)
-        {
-            await _roomService.UpdateMapSettingsAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action);
-        }
-
-        // ──────────────────────────────────────────────
-        // Inventory
-        // ──────────────────────────────────────────────
-
-        public async Task AddInventory(RoomActionEnvelope<AddInventoryRequest> envelope)
-        {
-            await _roomService.AddInventoryAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.InventoryId);
-        }
-
-        public async Task RemoveInventory(RoomActionEnvelope<RemoveInventoryRequest> envelope)
-        {
-            await _roomService.RemoveInventoryAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.InventoryId);
-        }
+        public Task RemoveInventory(RoomActionEnvelope<RemoveInventoryRequest> envelope) =>
+            ExecuteRoomAction(nameof(RemoveInventory), envelope, () =>
+                _roomService.RemoveInventoryAsync(envelope.RoomId, envelope.ExpectedRevision, envelope.Action.InventoryId));
     }
 }
