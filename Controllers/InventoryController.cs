@@ -1,4 +1,4 @@
-﻿using dndhelper.Authentication.Interfaces;
+using dndhelper.Authentication.Interfaces;
 using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -325,14 +325,24 @@ public class InventoryController : ControllerBase
     // =====================
     private async Task BroadcastInventoryChangeAsync(Inventory inventory, string action, object? data)
     {
-        if (inventory.OwnerIds == null || !inventory.OwnerIds.Any())
+        var hasOwners = inventory.OwnerIds != null && inventory.OwnerIds.Any();
+        var hasCampaign = !string.IsNullOrEmpty(inventory.CampaignId);
+        var hasCharacters = inventory.CharacterIds != null && inventory.CharacterIds.Any();
+
+        if (!hasOwners && !hasCampaign && !hasCharacters)
             return;
 
         var user = await _authService.GetUserFromTokenAsync();
-        var recipients = new HashSet<string>(inventory.OwnerIds);
+        var recipients = new HashSet<string>();
+
+        if (hasOwners)
+        {
+            foreach (var ownerId in inventory.OwnerIds)
+                recipients.Add(ownerId);
+        }
 
         // 1) If inventory explicitly has CampaignId → add that campaign's DMs
-        if (!string.IsNullOrEmpty(inventory.CampaignId))
+        if (hasCampaign)
         {
             var dmIds = await _campaignService.GetCampaignDMIdsAsync(inventory.CampaignId);
             if (dmIds != null)
@@ -341,7 +351,7 @@ public class InventoryController : ControllerBase
                     recipients.Add(dmId);
             }
         }
-        else if (inventory.CharacterIds != null && inventory.CharacterIds.Any())
+        else if (hasCharacters)
         {
             // 2) Otherwise derive campaigns from attached characters
             //    (e.g., shared inventory between party members)

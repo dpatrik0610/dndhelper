@@ -1,4 +1,4 @@
-﻿using dndhelper.Authorization;
+using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -143,7 +143,24 @@ namespace dndhelper.Services
                     entity.OwnerIds.Add(ownerId);
             }
 
-            return await base.CreateAsync(entity);
+            var created = await base.CreateAsync(entity);
+            if (created != null && created.CharacterIds != null)
+            {
+                foreach (var charId in created.CharacterIds)
+                {
+                    var character = await _characterService.GetByIdAsync(charId);
+                    if (character != null)
+                    {
+                        character.InventoryIds ??= new List<string>();
+                        if (!character.InventoryIds.Contains(created.Id!))
+                        {
+                            character.InventoryIds.Add(created.Id!);
+                            await _characterService.UpdateInternalAsync(character);
+                        }
+                    }
+                }
+            }
+            return created;
         }
 
         public override async Task<Inventory?> UpdateAsync(Inventory entity)
@@ -152,6 +169,14 @@ namespace dndhelper.Services
 
             if (entity is IOwnedResource owned)
                 await EnsureOwnershipAccess(owned);
+
+            // Get existing before updating to see link differences
+            var existing = await _repository.GetByIdAsync(entity.Id!);
+            var oldCharIds = existing?.CharacterIds ?? new List<string>();
+            var newCharIds = entity.CharacterIds ?? new List<string>();
+
+            var addedCharIds = newCharIds.Except(oldCharIds).ToList();
+            var removedCharIds = oldCharIds.Except(newCharIds).ToList();
 
             var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
 
@@ -164,7 +189,41 @@ namespace dndhelper.Services
 
             entity.UpdatedAt = DateTime.UtcNow;
 
-            return await _repository.UpdateAsync(entity);
+            var updated = await _repository.UpdateAsync(entity);
+
+            if (updated != null)
+            {
+                // Sync newly added characters
+                foreach (var charId in addedCharIds)
+                {
+                    var character = await _characterService.GetByIdAsync(charId);
+                    if (character != null)
+                    {
+                        character.InventoryIds ??= new List<string>();
+                        if (!character.InventoryIds.Contains(updated.Id!))
+                        {
+                            character.InventoryIds.Add(updated.Id!);
+                            await _characterService.UpdateInternalAsync(character);
+                        }
+                    }
+                }
+
+                // Sync newly removed characters
+                foreach (var charId in removedCharIds)
+                {
+                    var character = await _characterService.GetByIdAsync(charId);
+                    if (character != null && character.InventoryIds != null)
+                    {
+                        if (character.InventoryIds.Contains(updated.Id!))
+                        {
+                            character.InventoryIds.Remove(updated.Id!);
+                            await _characterService.UpdateInternalAsync(character);
+                        }
+                    }
+                }
+            }
+
+            return updated;
         }
 
         // Inventory Items
