@@ -16,6 +16,7 @@ namespace dndhelper.Repositories.Interfaces
         Task<bool> LogicDeleteAsync(string id);
         Task<bool> ExistsAsync(string id);
         Task<long> CountAsync();
+        Task<PagedResult<T>> GetAllPaginatedAsync(int page, int pageSize);
 
         // Cache management
         void AddToCache(T entity);

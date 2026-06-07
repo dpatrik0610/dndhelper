@@ -272,16 +272,17 @@ namespace dndhelper.Repositories
 
         public async Task<List<T>> GetByIdsAsync(IEnumerable<string> ids)
         {
-            var results = new List<T>();
-            foreach (var id in ids)
+            try
             {
-                var entity = await GetByIdAsync(id);
-                if (entity != null)
-                {
-                    results.Add(entity);
-                }
+                var filter = Builders<T>.Filter.In(e => e.Id, ids);
+                var results = await _collection.FindAsync(filter);
+                return await results.ToListAsync();
             }
-            return results;
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to retrieve entities by IDs from collection {Collection}", typeof(T).Name);
+                return new List<T>();
+            }
         }
 
         public async Task<T?> UpdateAsync(T entity)
@@ -378,6 +379,37 @@ namespace dndhelper.Repositories
             {
                 _logger.Error(ex, "Failed to check existence of entity {EntityId} in collection {Collection}", id, typeof(T).Name);
                 return false;
+            }
+        }
+
+        public async Task<PagedResult<T>> GetAllPaginatedAsync(int page, int pageSize)
+        {
+            try
+            {
+                var count = await _collection.CountDocumentsAsync(e => !e.IsDeleted);
+                var results = await _collection.Find(e => !e.IsDeleted)
+                    .Skip((page - 1) * pageSize)
+                    .Limit(pageSize)
+                    .ToListAsync();
+
+                return new PagedResult<T>
+                {
+                    Items = results,
+                    TotalItems = (int)count,
+                    Page = page,
+                    PageSize = pageSize
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to retrieve paginated entities from collection {Collection}", typeof(T).Name);
+                return new PagedResult<T>
+                {
+                    Items = new List<T>(),
+                    TotalItems = 0,
+                    Page = page,
+                    PageSize = pageSize
+                };
             }
         }
     }

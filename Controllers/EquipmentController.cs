@@ -63,6 +63,39 @@ namespace dndhelper.Controllers
             }
         }
 
+        [HttpPost("by-ids")]
+        public async Task<ActionResult<IEnumerable<Equipment>>> GetByIds([FromBody] IEnumerable<string> ids)
+        {
+            if (ids == null || !ids.Any())
+            {
+                return BadRequest("No IDs provided.");
+            }
+
+            try
+            {
+                var equipment = await _service.GetByIdsAsync(ids);
+                return Ok(equipment);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("paginated")]
+        public async Task<ActionResult<PagedResult<Equipment>>> GetAllPaginated([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                var result = await _service.GetAllPaginatedAsync(page, pageSize);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         [HttpGet("search")]
         public async Task<IActionResult> SearchEquipments([FromQuery] string name)
         {

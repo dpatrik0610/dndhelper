@@ -10,5 +10,7 @@ namespace dndhelper.Services.Interfaces
         Task<Equipment?> GetEquipmentByIndexAsync(string index);
         Task<bool> CheckIfIndexExists(string index);
         Task<List<Equipment>> SearchByName(string name);
+        Task<IEnumerable<Equipment>> GetByIdsAsync(IEnumerable<string> ids);
+        Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize);
     }
 }
