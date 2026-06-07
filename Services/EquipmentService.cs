@@ -79,7 +79,7 @@ namespace dndhelper.Services
             return false;
         }
 
-        public async Task<IEnumerable<Equipment>> GetByIdsAsync(IEnumerable<string> ids)
+        public async Task<List<Equipment>> GetByIdsAsync(IEnumerable<string> ids)
         {
             return await _repository.GetByIdsAsync(ids);
         }

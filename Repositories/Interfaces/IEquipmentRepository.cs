@@ -8,7 +8,7 @@ namespace dndhelper.Repositories.Interfaces
     {
         Task<Equipment?> GetByIndexAsync(string index);
         Task DeleteByIndex(string index);
-        Task<IEnumerable<Equipment>> GetByIdsAsync(IEnumerable<string> ids);
+        Task<List<Equipment>> GetByIdsAsync(IEnumerable<string> ids);
         Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize);
     }
 }
