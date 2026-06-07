@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models.CharacterModels;
+using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Utils;
@@ -72,6 +73,31 @@ namespace dndhelper.Services
 
             await _repository.UpdateAsync(character);
             return true;
+        }
+
+        public async Task<BulkLongRestResult> BulkLongRestAsync(IEnumerable<string> characterIds)
+        {
+            var successfulIds = new List<string>();
+            var failedIds = new List<string>();
+
+            foreach (var id in characterIds)
+            {
+                var success = await LongRestAsync(id);
+                if (success)
+                {
+                    successfulIds.Add(id);
+                }
+                else
+                {
+                    failedIds.Add(id);
+                }
+            }
+
+            return new BulkLongRestResult
+            {
+                SuccessfulIds = successfulIds,
+                FailedIds = failedIds
+            };
         }
     }
 }

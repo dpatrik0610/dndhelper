@@ -142,7 +142,26 @@ public class CharacterController : ControllerBase
         if (updated != null)
             await BroadcastCharacterChangeAsync(updated, "updated", updated);
 
-        return Ok();
+        return new JsonResult(new { message = "Long rest successful." });
+    }
+
+    [HttpPost("bulk-long-rest")]
+    public async Task<IActionResult> BulkLongRest([FromBody] IEnumerable<string> characterIds)
+    {
+        if (characterIds == null || !characterIds.Any())
+        {
+            return BadRequest("No character IDs provided.");
+        }
+
+        var result = await _characterService.BulkLongRestAsync(characterIds);
+
+        var updatedCharacters = await _characterService.GetByIdsAsync(result.SuccessfulIds);
+        foreach (var character in updatedCharacters)
+        {
+            await BroadcastCharacterChangeAsync(character, "updated", character);
+        }
+
+        return Ok(new { message = $"Bulk long rest attempted for {characterIds.Count()} characters.", successful = result.SuccessfulIds, failed = result.FailedIds });
     }
 
     private async Task BroadcastCharacterChangeAsync(Character character, string action, object data)
