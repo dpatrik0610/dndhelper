@@ -84,9 +84,9 @@ namespace dndhelper.Services
             return await _repository.GetByIdsAsync(ids);
         }
 
-        public async Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize)
+        public async Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null)
         {
-            return await _repository.GetAllPaginatedAsync(page, pageSize);
+            return await _repository.GetAllPaginatedAsync(page, pageSize, tag, tier, damageType, name);
         }
     }
 }

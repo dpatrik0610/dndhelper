@@ -11,6 +11,6 @@ namespace dndhelper.Services.Interfaces
         Task<bool> CheckIfIndexExists(string index);
         Task<List<Equipment>> SearchByName(string name);
         Task<List<Equipment>> GetByIdsAsync(IEnumerable<string> ids);
-        Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize);
+        Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null);
     }
 }

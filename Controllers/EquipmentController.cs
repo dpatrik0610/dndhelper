@@ -84,11 +84,11 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("paginated")]
-        public async Task<ActionResult<PagedResult<Equipment>>> GetAllPaginated([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<PagedResult<Equipment>>> GetAllPaginated([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? tag = null, [FromQuery] string? tier = null, [FromQuery] string? damageType = null, [FromQuery] string? name = null)
         {
             try
             {
-                var result = await _service.GetAllPaginatedAsync(page, pageSize);
+                var result = await _service.GetAllPaginatedAsync(page, pageSize, tag, tier, damageType, name);
                 return Ok(result);
             }
             catch (Exception ex)
