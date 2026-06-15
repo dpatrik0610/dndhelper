@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models;
+using dndhelper.Models.DTOs;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
@@ -84,9 +85,27 @@ namespace dndhelper.Services
             return await _repository.GetByIdsAsync(ids);
         }
 
+        public async Task<IEnumerable<EquipmentUserResponse>> GetByIdsForUserAsync(IEnumerable<string> ids)
+        {
+            var equipments = await _repository.GetByIdsAsync(ids);
+
+            return equipments.Select(equipment => new EquipmentUserResponse()
+            {
+                Id = equipment.Id,
+                Name = equipment.Name,
+                Description = equipment.Description,
+                Damage = equipment.Damage,
+                Range = equipment.Range,
+                Weight = equipment.Weight,
+                Tags = equipment.Tags,
+                Tier = equipment.Tier
+            });
+        }
+
         public async Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null)
         {
             return await _repository.GetAllPaginatedAsync(page, pageSize, tag, tier, damageType, name);
         }
+
     }
 }

@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models;
+using dndhelper.Models.DTOs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -11,6 +12,7 @@ namespace dndhelper.Services.Interfaces
         Task<bool> CheckIfIndexExists(string index);
         Task<List<Equipment>> SearchByName(string name);
         Task<List<Equipment>> GetByIdsAsync(IEnumerable<string> ids);
+        Task<IEnumerable<EquipmentUserResponse>> GetByIdsForUserAsync(IEnumerable<string> ids);
         Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null);
     }
 }

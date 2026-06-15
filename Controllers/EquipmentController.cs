@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models;
+using dndhelper.Models.DTOs;
 using dndhelper.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,6 +43,24 @@ namespace dndhelper.Controllers
                 var equipment = await _service.GetByIdAsync(id);
                 if (equipment == null) return NotFound("Item not found by that ID.");
                 return Ok(equipment);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("userview")]
+        public async Task<ActionResult<IEnumerable<EquipmentUserResponse>>> GetByIdsForUser([FromBody] IEnumerable<string> ids)
+        {
+            try
+            {
+                if (ids == null) return NotFound("No ids provided");
+
+                var response = await _service.GetByIdsForUserAsync(ids);
+                if (!response.Any()) return NotFound("Items not found.");
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
