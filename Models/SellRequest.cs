@@ -30,6 +30,8 @@ namespace dndhelper.Models
         public int Quantity { get; set; } = 1;
         public double OfferedPriceGp { get; set; }
 
+        public bool IsSteal { get; set; } = false;
+
         [BsonRepresentation(BsonType.String)]
         public SellRequestStatus Status { get; set; } = SellRequestStatus.Pending;
 

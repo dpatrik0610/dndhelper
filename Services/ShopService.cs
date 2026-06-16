@@ -174,18 +174,6 @@ namespace dndhelper.Services
                 ?? throw new KeyNotFoundException("Character not found.");
             await EnsureOwnershipAccess(character);
 
-            string playerInventoryId = character.InventoryIds?.FirstOrDefault()
-                ?? throw new InvalidOperationException("Character has no inventory bag.");
-
-            var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
-                ?? throw new KeyNotFoundException("Player inventory bag not found.");
-
-            var bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
-            if (bagItem == null || (bagItem.Quantity ?? 0) < request.Quantity)
-            {
-                throw new InvalidOperationException("Character has insufficient item stock to sell.");
-            }
-
             var campaign = await _campaignRepository.GetByIdAsync(request.CampaignId)
                 ?? throw new KeyNotFoundException("Campaign not found.");
 
@@ -197,20 +185,58 @@ namespace dndhelper.Services
             request.OwnerIds = owners.Distinct().ToList();
             request.Status = SellRequestStatus.Pending;
 
-            // Escrow item immediately: deduct from player bag
-            bagItem.Quantity -= request.Quantity;
-            if (bagItem.Quantity <= 0) 
+            if (request.IsSteal)
             {
-                playerInventory.Items.Remove(bagItem);
+                // STEAL FLOW: Verify item exists in Shop stock before submitting attempt
+                var shop = await _repository.GetByIdAsync(request.ShopId)
+                    ?? throw new KeyNotFoundException("Shop not found.");
+
+                var shopInventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId)
+                    ?? throw new KeyNotFoundException("Shop stock register not found.");
+
+                var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                if (shopItem == null || (shopItem.Quantity ?? 0) < request.Quantity)
+                {
+                    throw new InvalidOperationException("The shop has insufficient stock of this item to steal.");
+                }
+
+                // Set OfferedPriceGp to 0 for steal requests
+                request.OfferedPriceGp = 0;
+
+                var created = await _sellRequestRepository.CreateAsync(request);
+
+                return created;
             }
-            
-            await _inventoryRepository.UpdateAsync(playerInventory);
-            var created = await _sellRequestRepository.CreateAsync(request);
+            else
+            {
+                // STANDARD SELL FLOW: Escrow item from Player bag
+                string playerInventoryId = character.InventoryIds?.FirstOrDefault()
+                    ?? throw new InvalidOperationException("Character has no inventory bag.");
 
-            // Broadcast escrow update
-            await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
+                var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
+                    ?? throw new KeyNotFoundException("Player inventory bag not found.");
 
-            return created;
+                var bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                if (bagItem == null || (bagItem.Quantity ?? 0) < request.Quantity)
+                {
+                    throw new InvalidOperationException("Character has insufficient item stock to sell.");
+                }
+
+                // Escrow item immediately: deduct from player bag
+                bagItem.Quantity -= request.Quantity;
+                if (bagItem.Quantity <= 0) 
+                {
+                    playerInventory.Items.Remove(bagItem);
+                }
+                
+                await _inventoryRepository.UpdateAsync(playerInventory);
+                var created = await _sellRequestRepository.CreateAsync(request);
+
+                // Broadcast escrow update
+                await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
+
+                return created;
+            }
         }
 
         public async Task<IEnumerable<SellRequest>> GetSellRequestsForCampaignAsync(string campaignId)
@@ -259,60 +285,113 @@ namespace dndhelper.Services
             var shopInventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId)
                 ?? throw new KeyNotFoundException("Shop stock register not found.");
 
-            if (approve)
+            if (request.IsSteal)
             {
-                // 1. Pay Player
-                int priceSp = (int)Math.Round(request.OfferedPriceGp * 100);
-                _currencyService.AddAndConsolidateCurrency(character, priceSp);
-                character = await _characterRepository.UpdateAsync(character) ?? character;
-
-                // 2. Deduct from Shop Register Till (DMs register can go negative!)
-                _currencyService.RemoveCurrencyFromInventory(shopInventory, priceSp, allowNegative: true);
-                await _inventoryRepository.UpdateAsync(shopInventory);
-
-                // 3. Move escrowed item into Shop Stock
-                var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
-                if (shopItem != null)
+                if (approve)
                 {
-                    shopItem.Quantity = (shopItem.Quantity ?? 0) + request.Quantity;
+                    // APPROVED STEAL: Deduct item from Shop stock and move to player inventory (free of charge)
+                    var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                    if (shopItem == null || (shopItem.Quantity ?? 0) < request.Quantity)
+                    {
+                        throw new InvalidOperationException("The shop no longer has sufficient stock of this item to steal.");
+                    }
+
+                    // Deduct from shop stock
+                    shopItem.Quantity -= request.Quantity;
+                    if (shopItem.Quantity <= 0)
+                    {
+                        shopInventory.Items.Remove(shopItem);
+                    }
+                    await _inventoryRepository.UpdateAsync(shopInventory);
+
+                    // Add to player inventory bag
+                    string playerInventoryId = character.InventoryIds?.FirstOrDefault()
+                        ?? throw new InvalidOperationException("Character has no bag.");
+
+                    var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
+                        ?? throw new KeyNotFoundException("Player bag not found.");
+
+                    var bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                    if (bagItem != null)
+                    {
+                        bagItem.Quantity = (bagItem.Quantity ?? 0) + request.Quantity;
+                    }
+                    else
+                    {
+                        var equipment = await _equipmentRepository.GetByIdAsync(request.EquipmentId);
+                        playerInventory.Items ??= new List<InventoryItem>();
+                        playerInventory.Items.Add(new InventoryItem { EquipmentId = request.EquipmentId, EquipmentName = equipment?.Name, Quantity = request.Quantity });
+                    }
+                    await _inventoryRepository.UpdateAsync(playerInventory);
+
+                    // Broadcast both updates
+                    await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
+                    await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
                 }
                 else
                 {
-                    var equipment = await _equipmentRepository.GetByIdAsync(request.EquipmentId);
-                    shopInventory.Items ??= new List<InventoryItem>();
-                    shopInventory.Items.Add(new InventoryItem { EquipmentId = request.EquipmentId, EquipmentName = equipment?.Name, Quantity = request.Quantity });
+                    // REJECTED STEAL: Nothing was deducted during request phase, so nothing to restore.
+                    // Request status is already transitioned atomic-style to Rejected, which updates the view.
                 }
-                await _inventoryRepository.UpdateAsync(shopInventory);
-
-                // Broadcast
-                await BroadcastCharacterChangeAsync(character, "updated", character);
-                await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
             }
             else
             {
-                // Rejected: Return escrowed item to Player bag
-                string playerInventoryId = string.IsNullOrEmpty(request.SourceInventoryId) 
-                    ? character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.")
-                    : request.SourceInventoryId;
-
-                var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
-                    ?? throw new KeyNotFoundException("Player bag not found.");
-
-                var bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
-                if (bagItem != null)
+                // STANDARD SELL APPROVAL / REJECTION
+                if (approve)
                 {
-                    bagItem.Quantity = (bagItem.Quantity ?? 0) + request.Quantity;
+                    // 1. Pay Player
+                    int priceSp = (int)Math.Round(request.OfferedPriceGp * 100);
+                    _currencyService.AddAndConsolidateCurrency(character, priceSp);
+                    character = await _characterRepository.UpdateAsync(character) ?? character;
+
+                    // 2. Deduct from Shop Register Till (DMs register can go negative!)
+                    _currencyService.RemoveCurrencyFromInventory(shopInventory, priceSp, allowNegative: true);
+                    await _inventoryRepository.UpdateAsync(shopInventory);
+
+                    // 3. Move escrowed item into Shop Stock
+                    var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                    if (shopItem != null)
+                    {
+                        shopItem.Quantity = (shopItem.Quantity ?? 0) + request.Quantity;
+                    }
+                    else
+                    {
+                        var equipment = await _equipmentRepository.GetByIdAsync(request.EquipmentId);
+                        shopInventory.Items ??= new List<InventoryItem>();
+                        shopInventory.Items.Add(new InventoryItem { EquipmentId = request.EquipmentId, EquipmentName = equipment?.Name, Quantity = request.Quantity });
+                    }
+                    await _inventoryRepository.UpdateAsync(shopInventory);
+
+                    // Broadcast
+                    await BroadcastCharacterChangeAsync(character, "updated", character);
+                    await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
                 }
                 else
                 {
-                    var equipment = await _equipmentRepository.GetByIdAsync(request.EquipmentId);
-                    playerInventory.Items ??= new List<InventoryItem>();
-                    playerInventory.Items.Add(new InventoryItem { EquipmentId = request.EquipmentId, EquipmentName = equipment?.Name, Quantity = request.Quantity });
-                }
-                await _inventoryRepository.UpdateAsync(playerInventory);
+                    // Rejected: Return escrowed item to Player bag
+                    string playerInventoryId = string.IsNullOrEmpty(request.SourceInventoryId) 
+                        ? character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.")
+                        : request.SourceInventoryId;
 
-                // Broadcast
-                await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
+                    var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
+                        ?? throw new KeyNotFoundException("Player bag not found.");
+
+                    var bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                    if (bagItem != null)
+                    {
+                        bagItem.Quantity = (bagItem.Quantity ?? 0) + request.Quantity;
+                    }
+                    else
+                    {
+                        var equipment = await _equipmentRepository.GetByIdAsync(request.EquipmentId);
+                        playerInventory.Items ??= new List<InventoryItem>();
+                        playerInventory.Items.Add(new InventoryItem { EquipmentId = request.EquipmentId, EquipmentName = equipment?.Name, Quantity = request.Quantity });
+                    }
+                    await _inventoryRepository.UpdateAsync(playerInventory);
+
+                    // Broadcast
+                    await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
+                }
             }
 
             return updatedRequest;

@@ -16,7 +16,7 @@ namespace dndhelper.Models
         public string CampaignId { get; set; } = null!;
 
         [BsonRepresentation(BsonType.ObjectId)]
-        public string InventoryId { get; set; } = null!;
+        public string? InventoryId { get; set; } = null;
 
         [BsonRepresentation(BsonType.ObjectId)]
         public List<string> OwnerIds { get; set; } = new List<string>();
