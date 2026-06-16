@@ -1,4 +1,5 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -19,5 +20,11 @@ namespace dndhelper.Services.Interfaces
         Task AddCurrenciesToInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies);
         Task TransferBetweenCharactersAndNotifyAsync(string fromId, string toId, List<Currency> currencies);
         Task ClaimFromInventoryAndNotifyAsync(string characterId, string inventoryId, List<Currency> currencies);
+
+        void ValidateCharacterHasFunds(Character character, int costInSp);
+        void DeductAndConsolidateCurrency(Character character, int costInSp);
+        void AddAndConsolidateCurrency(Character character, int amountInSp);
+        void AddCurrencyToInventory(Inventory inventory, int amountInSp);
+        void RemoveCurrencyFromInventory(Inventory inventory, int amountInSp, bool allowNegative);
     }
 }

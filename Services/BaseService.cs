@@ -1,4 +1,4 @@
-﻿using dndhelper.Authorization;
+using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
@@ -237,7 +237,7 @@ namespace dndhelper.Services
 
         #region Helpers
 
-        private string? GetCurrentUserId()
+        protected string? GetCurrentUserId()
         {
             if (_user.Identity?.IsAuthenticated != true)
                 return null;

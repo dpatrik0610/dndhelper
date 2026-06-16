@@ -143,6 +143,8 @@ namespace dndhelper.Core
             services.AddScoped<IRuleCategoryRepository, RuleCategoryRepository>();
             services.AddScoped<IRollRepository, RollRepository>();
             services.AddScoped<IEncounterRoomRepository, EncounterRoomRepository>();
+            services.AddScoped<IShopRepository, ShopRepository>();
+            services.AddScoped<ISellRequestRepository, SellRequestRepository>();
             #endregion
 
             #region Services
@@ -165,6 +167,7 @@ namespace dndhelper.Core
             services.AddScoped<IRuleService, RuleService>();
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
             services.AddScoped<IEncounterRoomService, EncounterRoomService>();
+            services.AddScoped<IShopService, ShopService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();

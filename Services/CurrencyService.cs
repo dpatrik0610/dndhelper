@@ -484,6 +484,134 @@ namespace dndhelper.Services
             return string.Join(", ", currencies.Select(c => $"{c.Amount} {c.Type} ({c.CurrencyCode})"));
         }
 
+        public void ValidateCharacterHasFunds(Character character, int costInSp)
+        {
+            int totalWalletSp = GetTotalSilverValue(character.Currencies);
+            if (totalWalletSp < costInSp)
+            {
+                throw CustomExceptions.ThrowInvalidOperationException(
+                    _logger,
+                    $"Insufficient funds. This transaction costs {costInSp / 100.0} gp, but you only have {totalWalletSp / 100.0} gp value.");
+            }
+        }
+
+        public void DeductAndConsolidateCurrency(Character character, int costInSp)
+        {
+            int totalWalletSp = GetTotalSilverValue(character.Currencies);
+            if (totalWalletSp < costInSp)
+            {
+                throw new InvalidOperationException("Insufficient funds.");
+            }
+
+            character.Currencies ??= new List<Currency>();
+
+            // Get current gold and silver balances
+            var gpCurrency = character.Currencies.FirstOrDefault(c => c.Type == "gp");
+            var spCurrency = character.Currencies.FirstOrDefault(c => c.Type == "sp");
+
+            int currentGp = gpCurrency?.Amount ?? 0;
+            int currentSp = spCurrency?.Amount ?? 0;
+
+            int costGp = costInSp / 100;
+            int costSp = costInSp % 100;
+
+            // Step 1: Handle silver deficit by converting gold to silver if needed (gp -> sp change)
+            if (currentSp < costSp)
+            {
+                int deficitSp = costSp - currentSp;
+                int gpToConvert = (int)Math.Ceiling(deficitSp / 100.0);
+
+                currentGp -= gpToConvert;
+                currentSp += gpToConvert * 100;
+            }
+
+            // Step 2: Deduct silver cost
+            currentSp -= costSp;
+
+            // Step 3: Handle gold deficit by paying with silver if needed (sp -> gp coverage)
+            if (currentGp < costGp)
+            {
+                int deficitGp = costGp - currentGp;
+                currentSp -= deficitGp * 100;
+                currentGp += deficitGp;
+            }
+
+            // Step 4: Deduct gold cost
+            currentGp -= costGp;
+
+            // Step 5: Update the character's currencies list in place
+            character.Currencies.Clear();
+            if (currentGp > 0)
+            {
+                character.Currencies.Add(new Currency { Type = "gp", Amount = currentGp, CurrencyCode = "gp" });
+            }
+            if (currentSp > 0)
+            {
+                character.Currencies.Add(new Currency { Type = "sp", Amount = currentSp, CurrencyCode = "sp" });
+            }
+
+            if (currentGp == 0 && currentSp == 0)
+            {
+                character.Currencies.Add(new Currency { Type = "gp", Amount = 0, CurrencyCode = "gp" });
+                character.Currencies.Add(new Currency { Type = "sp", Amount = 0, CurrencyCode = "sp" });
+            }
+        }
+
+        public void AddAndConsolidateCurrency(Character character, int amountInSp)
+        {
+            int totalWalletSp = GetTotalSilverValue(character.Currencies);
+            int remainingSp = totalWalletSp + amountInSp;
+            ConsolidateWallet(character.Currencies ??= new List<Currency>(), remainingSp);
+        }
+
+        public void AddCurrencyToInventory(Inventory inventory, int amountInSp)
+        {
+            int totalSp = GetTotalSilverValue(inventory.Currencies);
+            int finalSp = totalSp + amountInSp;
+            ConsolidateWallet(inventory.Currencies ??= new List<Currency>(), finalSp);
+        }
+
+        public void RemoveCurrencyFromInventory(Inventory inventory, int amountInSp, bool allowNegative = true)
+        {
+            int totalSp = GetTotalSilverValue(inventory.Currencies);
+            if (!allowNegative && totalSp < amountInSp)
+            {
+                throw new InvalidOperationException("Insufficient inventory funds.");
+            }
+            int finalSp = totalSp - amountInSp;
+            ConsolidateWallet(inventory.Currencies ??= new List<Currency>(), finalSp);
+        }
+
+        private int GetTotalSilverValue(List<Currency>? currencies)
+        {
+            if (currencies == null) return 0;
+            int gp = currencies.FirstOrDefault(c => c.Type == "gp")?.Amount ?? 0;
+            int sp = currencies.FirstOrDefault(c => c.Type == "sp")?.Amount ?? 0;
+            return (gp * 100) + sp;
+        }
+
+        private void ConsolidateWallet(List<Currency> currencies, int totalSp)
+        {
+            currencies.Clear();
+            int gp = totalSp / 100;
+            int sp = totalSp % 100;
+
+            if (gp != 0)
+            {
+                currencies.Add(new Currency { Type = "gp", Amount = gp, CurrencyCode = "gp" });
+            }
+            if (sp != 0)
+            {
+                currencies.Add(new Currency { Type = "sp", Amount = sp, CurrencyCode = "sp" });
+            }
+            
+            if (gp == 0 && sp == 0)
+            {
+                currencies.Add(new Currency { Type = "gp", Amount = 0, CurrencyCode = "gp" });
+                currencies.Add(new Currency { Type = "sp", Amount = 0, CurrencyCode = "sp" });
+            }
+        }
+
         #endregion
     }
 }

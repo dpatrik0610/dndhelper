@@ -1,4 +1,4 @@
-﻿using dndhelper.Authorization;
+using dndhelper.Authorization;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
@@ -19,7 +19,7 @@ namespace dndhelper.Models
         public List<string> OwnerIds { get; set; } = new List<string>();
 
         [BsonRepresentation(BsonType.ObjectId)]
-        public string? CampaignId = null;
+        public string? CampaignId { get; set; } = null;
 
         public string Name { get; set; } = "Unnamed";
         public List<InventoryItem>? Items { get; set; } = new();
