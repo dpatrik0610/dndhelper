@@ -512,7 +512,8 @@ namespace dndhelper.Services
         {
             try
             {
-                await _entitySyncService.BroadcastEntityUpdated("Character", character.Id!, data, GetCurrentUserId());
+                var changedBy = _user?.Identity?.Name ?? GetCurrentUserId() ?? "System";
+                await _entitySyncService.BroadcastEntityUpdated("Character", character.Id!, data, changedBy);
             }
             catch (Exception ex)
             {
@@ -524,7 +525,8 @@ namespace dndhelper.Services
         {
             try
             {
-                await _entitySyncService.BroadcastEntityUpdated("Inventory", inventory.Id!, data, GetCurrentUserId());
+                var changedBy = _user?.Identity?.Name ?? GetCurrentUserId() ?? "System";
+                await _entitySyncService.BroadcastEntityUpdated("Inventory", inventory.Id!, data, changedBy);
             }
             catch (Exception ex)
             {
