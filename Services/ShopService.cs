@@ -210,13 +210,64 @@ namespace dndhelper.Services
             else
             {
                 // STANDARD SELL FLOW: Escrow item from Player bag
-                string playerInventoryId = character.InventoryIds?.FirstOrDefault()
-                    ?? throw new InvalidOperationException("Character has no inventory bag.");
+                string playerInventoryId;
+                Inventory playerInventory;
+                InventoryItem? bagItem = null;
 
-                var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
-                    ?? throw new KeyNotFoundException("Player inventory bag not found.");
+                if (!string.IsNullOrEmpty(request.SourceInventoryId))
+                {
+                    if (character.InventoryIds == null || !character.InventoryIds.Contains(request.SourceInventoryId))
+                    {
+                        throw new UnauthorizedAccessException("Character does not own the specified source inventory.");
+                    }
 
-                var bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                    playerInventoryId = request.SourceInventoryId;
+                    playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
+                        ?? throw new KeyNotFoundException("Player inventory bag not found.");
+
+                    bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                }
+                else
+                {
+                    // Fallback search: try to find an inventory owned by the character that actually has the item
+                    playerInventoryId = "";
+                    playerInventory = null!;
+
+                    if (character.InventoryIds != null)
+                    {
+                        foreach (var invId in character.InventoryIds)
+                        {
+                            var inv = await _inventoryRepository.GetByIdAsync(invId);
+                            if (inv != null)
+                            {
+                                var item = inv.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                                if (item != null && (item.Quantity ?? 0) >= request.Quantity)
+                                {
+                                    playerInventoryId = invId;
+                                    playerInventory = inv;
+                                    bagItem = item;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to character's first inventory if none has the item (to throw appropriate stock exception)
+                    if (bagItem == null)
+                    {
+                        playerInventoryId = character.InventoryIds?.FirstOrDefault()
+                            ?? throw new InvalidOperationException("Character has no inventory bag.");
+
+                        playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
+                            ?? throw new KeyNotFoundException("Player inventory bag not found.");
+
+                        bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
+                    }
+
+                    // Update request with the selected source inventory ID
+                    request.SourceInventoryId = playerInventoryId;
+                }
+
                 if (bagItem == null || (bagItem.Quantity ?? 0) < request.Quantity)
                 {
                     throw new InvalidOperationException("Character has insufficient item stock to sell.");
@@ -226,7 +277,7 @@ namespace dndhelper.Services
                 bagItem.Quantity -= request.Quantity;
                 if (bagItem.Quantity <= 0) 
                 {
-                    playerInventory.Items.Remove(bagItem);
+                    playerInventory.Items?.Remove(bagItem);
                 }
                 
                 await _inventoryRepository.UpdateAsync(playerInventory);
@@ -305,8 +356,9 @@ namespace dndhelper.Services
                     await _inventoryRepository.UpdateAsync(shopInventory);
 
                     // Add to player inventory bag
-                    string playerInventoryId = character.InventoryIds?.FirstOrDefault()
-                        ?? throw new InvalidOperationException("Character has no bag.");
+                    string playerInventoryId = string.IsNullOrEmpty(request.SourceInventoryId)
+                        ? character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.")
+                        : request.SourceInventoryId;
 
                     var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
                         ?? throw new KeyNotFoundException("Player bag not found.");
