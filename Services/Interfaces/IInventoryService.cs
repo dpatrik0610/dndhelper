@@ -7,6 +7,7 @@ namespace dndhelper.Services.Interfaces
     public interface IInventoryService : IBaseService<Inventory>, IInternalBaseService<Inventory>
     {
         // Inventories
+        Task<bool> IsShopInventoryAsync(string inventoryId);
         Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId);
         Task<IEnumerable<Inventory>> GetFromCharacterInventoryIdsAsync(string characterId);
         Task<IEnumerable<Inventory>> AddInventoryToCharacter(string characterId, string inventoryId);

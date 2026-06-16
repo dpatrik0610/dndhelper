@@ -24,5 +24,14 @@ namespace dndhelper.Repositories
             );
             return await _collection.Find(filter).ToListAsync();
         }
+
+        public async Task<Shop?> GetByInventoryIdAsync(string inventoryId)
+        {
+            var filter = Builders<Shop>.Filter.And(
+                Builders<Shop>.Filter.Eq(s => s.InventoryId, inventoryId),
+                Builders<Shop>.Filter.Eq(s => s.IsDeleted, false)
+            );
+            return await _collection.Find(filter).FirstOrDefaultAsync();
+        }
     }
 }

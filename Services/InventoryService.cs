@@ -18,6 +18,7 @@ namespace dndhelper.Services
     {
         private readonly IEquipmentRepository _equipmentRepo;
         private readonly ICharacterService _characterService;
+        private readonly IShopRepository _shopRepository;
 
         public InventoryService(
             IInventoryRepository repo, 
@@ -25,11 +26,20 @@ namespace dndhelper.Services
             IEquipmentRepository equipmentRepo,
             IAuthorizationService authorizationService,
             IHttpContextAccessor httpContextAccessor,
-            ICharacterService characterService
+            ICharacterService characterService,
+            IShopRepository shopRepository
             ) : base(repo, logger, authorizationService, httpContextAccessor) 
         {
             _equipmentRepo = equipmentRepo;
             _characterService = characterService;
+            _shopRepository = shopRepository;
+        }
+
+        public async Task<bool> IsShopInventoryAsync(string inventoryId)
+        {
+            if (string.IsNullOrWhiteSpace(inventoryId)) return false;
+            var shop = await _shopRepository.GetByInventoryIdAsync(inventoryId);
+            return shop != null;
         }
 
         private async Task<List<string>> ResolveOwnerIdsFromCharacterIdsAsync(IEnumerable<string>? characterIds)

@@ -58,9 +58,22 @@ public class InventoryController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetInventory(string id)
     {
-        var inventory = await _inventoryService.GetByIdAsync(id);
-        if (inventory == null) return NotFound();
-        return Ok(inventory);
+        try
+        {
+            var inventory = await _inventoryService.GetByIdAsync(id);
+            if (inventory == null) return NotFound();
+            return Ok(inventory);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            var isShop = await _inventoryService.IsShopInventoryAsync(id);
+            if (isShop)
+            {
+                var shopInventory = await _inventoryService.GetByIdInternalAsync(id);
+                if (shopInventory != null) return Ok(shopInventory);
+            }
+            throw;
+        }
     }
 
     [HttpPost]
