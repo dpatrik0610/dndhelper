@@ -18,5 +18,6 @@ namespace dndhelper.Services.Interfaces
         Task<User?> UpdateCharacterIds(User user, List<string> characterIds);
         Task<User?> UpdateCampaignIds(User user, List<string> campaignIds);
         Task<User?> RefreshLastLogin(string username);
+        Task<User?> UpdateSettingsForUser(User user, Dictionary<string, string> settings);
     }
 }

@@ -5,6 +5,7 @@ using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Serilog;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -96,6 +97,23 @@ namespace dndhelper.Services
                 throw CustomExceptions.ThrowArgumentException(_logger, nameof(user));
             await _repository.UpdateCharacterIds(user, characterIds ?? new List<string>());
             return await _repository.GetByIdAsync(user.Id);
+        }
+
+        public async Task<User?> UpdateSettingsForUser(User user, Dictionary<string,string> settings)
+        {
+            Guard.NotNull(user, nameof(user));
+            Guard.NotNullOrWhiteSpace(user.Id, nameof(user.Id));
+
+            try
+            {
+                var response = await _repository.UpdateAsync(user);
+                if (response != null) return user;
+            }
+            catch (Exception ex)
+            {
+                throw CustomExceptions.ThrowApplicationException(_logger, $"Server Error during updating settings: {ex}");
+            }
+            return null;
         }
 
         public async Task<User?> UpdateCampaignIds(User user, List<string> campaignIds)

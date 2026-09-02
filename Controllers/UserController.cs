@@ -44,6 +44,48 @@ namespace dndhelper.Controllers
             return Ok(response);
         }
 
+        [HttpGet("me/settings")]
+        [Authorize]
+        public async Task<ActionResult<Dictionary<string, string>>> GetUserSettings()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var user = await _userService.GetSelfAsync(userId);
+            if (user == null)
+            {
+                _logger.Warning($"User not found with ID: {userId}");
+                return NotFound();
+            }
+
+            Dictionary<string, string> response = user?.Settings ?? new Dictionary<string, string>();
+
+            return Ok(response);
+        }
+
+
+        [HttpPut("me/settings")]
+        [Authorize]
+        public async Task<ActionResult<Dictionary<string, string>>> UpdateUserSettings([FromBody] Dictionary<string, string> settings)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var user = await _userService.GetSelfAsync(userId);
+            if (user == null)
+            {
+                _logger.Warning($"User not found with ID: {userId}");
+                return NotFound();
+            }
+
+            var updated = await _userService.UpdateSettingsForUser(user, settings);
+            Dictionary<string, string> response = updated?.Settings ?? new Dictionary<string, string>();
+
+            return Ok(response);
+        }
+
         // GET: api/user
         [HttpGet]
         [Authorize(Roles = "Admin")]
@@ -108,7 +150,7 @@ namespace dndhelper.Controllers
             public List<UserRole> Roles { get; set; }
             public DateTime LastLogin { get; set; }
 
-            // TODO: Characters, Campaigns, Settings, etc.
+            public Dictionary<string, string> Settings { get; set; }
 
             public UserDataResponse(User user)
             {
@@ -116,6 +158,7 @@ namespace dndhelper.Controllers
                 Email = user.Email ?? string.Empty;
                 Roles = user.Roles;
                 LastLogin = user.LastLogin ?? DateTime.MinValue;
+                Settings = user.Settings ?? new Dictionary<string, string>();
             }
         }
     }
