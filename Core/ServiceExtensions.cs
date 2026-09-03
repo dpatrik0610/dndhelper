@@ -145,6 +145,7 @@ namespace dndhelper.Core
             services.AddScoped<IEncounterRoomRepository, EncounterRoomRepository>();
             services.AddScoped<IShopRepository, ShopRepository>();
             services.AddScoped<ISellRequestRepository, SellRequestRepository>();
+            services.AddScoped<IQuestRepository, QuestRepository>();
             #endregion
 
             #region Services
@@ -168,12 +169,14 @@ namespace dndhelper.Core
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
             services.AddScoped<IEncounterRoomService, EncounterRoomService>();
             services.AddScoped<IShopService, ShopService>();
+            services.AddScoped<IQuestService, QuestService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
             services.AddScoped<IInternalBaseService<Encounter>, EncounterService>();
             services.AddScoped<IInternalBaseService<Session>, SessionService>();
+            services.AddScoped<IInternalBaseService<Quest>, QuestService>();
             #endregion
 
             services.Configure<DiceRollOptions>(config.GetSection("DiceRoll"));
