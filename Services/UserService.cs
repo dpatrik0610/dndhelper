@@ -106,6 +106,7 @@ namespace dndhelper.Services
 
             try
             {
+                user.Settings = settings;
                 var response = await _repository.UpdateAsync(user);
                 if (response != null) return user;
             }
