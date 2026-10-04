@@ -126,7 +126,12 @@ namespace dndhelper.Models
         Explosion,
         Healing,
         Vortex,
-        Acid
+        Acid,
+        Thunder,
+        Necrotic,
+        Web,
+        Entangle,
+        Wind
     }
 
     public class TableToken
