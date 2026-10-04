@@ -149,6 +149,7 @@ namespace dndhelper.Controllers
             public string Email { get; set; }
             public List<UserRole> Roles { get; set; }
             public DateTime LastLogin { get; set; }
+            public DateTime DateCreated { get; set; }
 
             public Dictionary<string, string> Settings { get; set; }
 
@@ -158,6 +159,7 @@ namespace dndhelper.Controllers
                 Email = user.Email ?? string.Empty;
                 Roles = user.Roles;
                 LastLogin = user.LastLogin ?? DateTime.MinValue;
+                DateCreated = user.DateCreated;
                 Settings = user.Settings ?? new Dictionary<string, string>();
             }
         }
