@@ -76,7 +76,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<NotificationHub>("/hubs/notifications");
-app.MapHub<EncounterRoomHub>("/hubs/encounter-room");
+app.MapHub<TabletopHub>("/hubs/tabletop");
 app.MapHealthChecks("/health");
 app.MapControllers();
 

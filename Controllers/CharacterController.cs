@@ -95,11 +95,10 @@ public class CharacterController : ControllerBase
     public async Task<IActionResult> GetForCurrentUser()
     {
         User user = await _authService.GetUserFromTokenAsync();
-        if (user == null || user.CharacterIds.IsNullOrEmpty())
+        if (user == null)
             return Ok(Enumerable.Empty<Character>());
 
-        var characters = await _characterService.GetByIdsAsync(user.CharacterIds!);
-        return Ok(characters);
+        return Ok(await _characterService.GetForUserAsync(user.Id, user.CharacterIds));
     }
 
 

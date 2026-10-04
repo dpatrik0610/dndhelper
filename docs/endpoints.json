@@ -1,0 +1,2441 @@
+{
+  "endpoints": [
+    {
+      "controller": "AuthController",
+      "action": "Register",
+      "method": "POST",
+      "route": "api/auth/register",
+      "description": "Registers a new user with the specified username and password, then automatically authenticates them and returns a JWT token.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "RegisterRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "AuthController",
+      "action": "Login",
+      "method": "POST",
+      "route": "api/auth/login",
+      "description": "Authenticates a user with username and password, returning a JWT token on success.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "LoginRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "AuthController",
+      "action": "GetMyUserId",
+      "method": "GET",
+      "route": "api/auth/me",
+      "description": "Retrieves the current authenticated user's ID, username, and authentication status from their token claims.",
+      "parameters": []
+    },
+    {
+      "controller": "AuthController",
+      "action": "ChangePassword",
+      "method": "POST",
+      "route": "api/auth/change-password",
+      "description": "Changes the password for the current authenticated user.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ChangePasswordRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "AuthController",
+      "action": "ResetPassword",
+      "method": "POST",
+      "route": "api/auth/reset-password",
+      "description": "Resets a specified user's password. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ResetPasswordRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "BackupController",
+      "action": "ExportCollection",
+      "method": "GET",
+      "route": "api/backup/{collectionName}",
+      "description": "Exports a specific MongoDB collection as a compressed gzip archive backup file.",
+      "parameters": [
+        {
+          "name": "collectionName",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "BackupController",
+      "action": "ExportAllCollections",
+      "method": "GET",
+      "route": "api/backup/all",
+      "description": "Exports all MongoDB collections as a consolidated backup zip archive. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "BackupController",
+      "action": "RestoreCollection",
+      "method": "POST",
+      "route": "api/backup/{collectionName}/restore",
+      "description": "Restores a specific MongoDB collection from an uploaded gzip archive backup file.",
+      "parameters": [
+        {
+          "name": "collectionName",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "file",
+          "type": "IFormFile?",
+          "source": "implicit"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CacheController",
+      "action": "Info",
+      "method": "GET",
+      "route": "api/cache/info",
+      "description": "Retrieves keys currently tracked in memory cache grouped by prefix, along with the total count. Accessible only by administrators.",
+      "parameters": []
+    },
+    {
+      "controller": "CacheController",
+      "action": "ClearAll",
+      "method": "DELETE",
+      "route": "api/cache",
+      "description": "Clears all cached data items and clears the tracked key index from memory. Accessible only by administrators.",
+      "parameters": []
+    },
+    {
+      "controller": "CampaignController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/campaign",
+      "description": "Retrieves all active campaigns registered in the system.",
+      "parameters": []
+    },
+    {
+      "controller": "CampaignController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/campaign/{id}",
+      "description": "Retrieves complete details of a specific campaign by its unique ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "GetBasic",
+      "method": "GET",
+      "route": "api/campaign/{id}/basic",
+      "description": "Retrieves basic metadata of a specific campaign by ID, excluding loaded complex nested relationships.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "GetOverviewForCharacter",
+      "method": "GET",
+      "route": "api/campaign/character/{characterId}/overview",
+      "description": "Retrieves an overview of the campaign currently associated with the specified character ID.",
+      "parameters": [
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/campaign/create",
+      "description": "Creates a new campaign and sets the current authenticated user as an owner.",
+      "parameters": [
+        {
+          "name": "campaign",
+          "type": "Campaign",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/campaign/{id}",
+      "description": "Updates details of an existing campaign by ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "campaign",
+          "type": "Campaign",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/campaign/{id}",
+      "description": "Deletes a campaign by its unique ID if the authenticated user is an owner.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "GetCharacters",
+      "method": "GET",
+      "route": "api/campaign/{id}/characters",
+      "description": "Retrieves all player characters currently enrolled in the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "AddPlayer",
+      "method": "POST",
+      "route": "api/campaign/{id}/characters/{characterId}",
+      "description": "Enrolls a player character into the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "RemovePlayer",
+      "method": "DELETE",
+      "route": "api/campaign/{id}/characters/{characterId}",
+      "description": "Removes a player character from the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "AddWorld",
+      "method": "POST",
+      "route": "api/campaign/{id}/worlds/{worldId}",
+      "description": "Associates a game world or map ID with the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "worldId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "RemoveWorld",
+      "method": "DELETE",
+      "route": "api/campaign/{id}/worlds/{worldId}",
+      "description": "Removes the association of a game world or map ID from the campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "worldId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "AddQuest",
+      "method": "POST",
+      "route": "api/campaign/{id}/quests/{questId}",
+      "description": "Adds or associates a quest to the campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "questId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "RemoveQuest",
+      "method": "DELETE",
+      "route": "api/campaign/{id}/quests/{questId}",
+      "description": "Removes a quest from the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "questId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "AddNote",
+      "method": "POST",
+      "route": "api/campaign/{id}/notes/{noteId}",
+      "description": "Links a journal note to the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "noteId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "RemoveNote",
+      "method": "DELETE",
+      "route": "api/campaign/{id}/notes/{noteId}",
+      "description": "Unlinks a journal note from the campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "noteId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "AddSession",
+      "method": "POST",
+      "route": "api/campaign/{id}/sessions/{sessionId}",
+      "description": "Adds a session record to the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "RemoveSession",
+      "method": "DELETE",
+      "route": "api/campaign/{id}/sessions/{sessionId}",
+      "description": "Removes a session record from the campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "SetCurrentSession",
+      "method": "PUT",
+      "route": "api/campaign/{id}/current-session/{sessionId}",
+      "description": "Updates the active current session pointer for the campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "sessionId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "SetActiveEncounter",
+      "method": "PUT",
+      "route": "api/campaign/{id}/active-encounter/{encounterId}",
+      "description": "Sets the active encounter for the campaign to enable real-time tracking.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "encounterId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CampaignController",
+      "action": "ClearActiveEncounter",
+      "method": "DELETE",
+      "route": "api/campaign/{id}/active-encounter",
+      "description": "Clears the active encounter pointer for the specified campaign.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/character",
+      "description": "Retrieves all player characters stored in the system.",
+      "parameters": []
+    },
+    {
+      "controller": "CharacterController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/character/{id}",
+      "description": "Retrieves the detailed character data for a specified ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/character",
+      "description": "Creates a new character, broadcasts the change to associated campaign players/DMs over SignalR, and returns the created character details.",
+      "parameters": [
+        {
+          "name": "character",
+          "type": "Character",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/character/{id}",
+      "description": "Updates an existing character's stats and attributes and broadcasts the sync event via SignalR.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "character",
+          "type": "Character",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/character/{id}",
+      "description": "Deletes a character, triggers sync deletion updates to relevant users via SignalR, and returns NoContent.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "GetForCurrentUser",
+      "method": "GET",
+      "route": "api/character/own",
+      "description": "Retrieves all characters owned by the currently authenticated user.",
+      "parameters": []
+    },
+    {
+      "controller": "CharacterController",
+      "action": "UseSpellSlot",
+      "method": "POST",
+      "route": "api/character/{id}/spellslots/use/{level}",
+      "description": "Uses one spell slot of the specified level for the character, updating their slot counts and broadcasting the change.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "level",
+          "type": "int",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "RecoverSpellSlot",
+      "method": "POST",
+      "route": "api/character/{id}/spellslots/recover/{level}",
+      "description": "Recovers a specified amount of spell slots of a given level for the character and broadcasts the update.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "level",
+          "type": "int",
+          "source": "implicit"
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "LongRest",
+      "method": "POST",
+      "route": "api/character/{id}/longrest",
+      "description": "Triggers a long rest action for a character, restoring hit points and spell slots, then broadcasts the sync update.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CharacterController",
+      "action": "BulkLongRest",
+      "method": "POST",
+      "route": "api/character/bulk-long-rest",
+      "description": "Initiates a long rest for multiple characters simultaneously and broadcasts updates for each successful character.",
+      "parameters": [
+        {
+          "name": "characterIds",
+          "type": "IEnumerable<string>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "CurrencyController",
+      "action": "GetCharacterCurrencies",
+      "method": "GET",
+      "route": "api/currency/{characterId}",
+      "description": "Retrieves the currencies associated with a specific character ID.",
+      "parameters": [
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "CurrencyController",
+      "action": "RemoveCurrencies",
+      "method": "PUT",
+      "route": "api/currency/remove/{characterId}",
+      "description": "Deducts specific currencies from a character wallet and notifies relevant clients.",
+      "parameters": [
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "currencies",
+          "type": "List<Currency>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "CurrencyController",
+      "action": "TransferCurrencies",
+      "method": "PUT",
+      "route": "api/currency/transfer/{targetId}",
+      "description": "Transfers specific currencies to a target character and triggers sync notifications.",
+      "parameters": [
+        {
+          "name": "targetId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "currencies",
+          "type": "List<Currency>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "CurrencyController",
+      "action": "AddCurrenciesToInventory",
+      "method": "PUT",
+      "route": "api/currency/inventory/{inventoryId}",
+      "description": "Adds currencies directly to a shared inventory (loot). Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "currencies",
+          "type": "List<Currency>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "CurrencyController",
+      "action": "TransferBetweenCharacters",
+      "method": "PUT",
+      "route": "api/currency/transfer-between/{fromId}/{toId}",
+      "description": "Transfers specified currencies directly from one character to another character. Accessible by Admins and Users.",
+      "parameters": [
+        {
+          "name": "fromId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "toId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "currencies",
+          "type": "List<Currency>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "CurrencyController",
+      "action": "ClaimFromInventory",
+      "method": "PUT",
+      "route": "api/currency/claim/{characterId}/{inventoryId}",
+      "description": "Transfers specific currencies from a party inventory to a character's wallet. Accessible by Admins and Users.",
+      "parameters": [
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "currencies",
+          "type": "List<Currency>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "DatabaseController",
+      "action": "GetCollections",
+      "method": "GET",
+      "route": "api/database/collections",
+      "description": "Lists names of all collections active in the MongoDB database. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "DiceController",
+      "action": "RollDice",
+      "method": "GET",
+      "route": "api/roll/{numberOfDice}d{sides}",
+      "description": "Simulates rolling a specified quantity of multi-sided dice publicly, enforces rate-limiting, and records the result in roll history.",
+      "parameters": [
+        {
+          "name": "numberOfDice",
+          "type": "int",
+          "source": "implicit"
+        },
+        {
+          "name": "sides",
+          "type": "int",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "DiceController",
+      "action": "RollExpression",
+      "method": "GET",
+      "route": "api/roll",
+      "description": "Simulates a dice roll using standard formula notation passed as a query string parameter, enforces rate-limiting, and logs history.",
+      "parameters": [
+        {
+          "name": "expression",
+          "type": "string",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/encounter/{id}",
+      "description": "Retrieves a specific combat encounter by its ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/encounter",
+      "description": "Retrieves a list of all combat encounters.",
+      "parameters": []
+    },
+    {
+      "controller": "EncounterController",
+      "action": "GetByCampaign",
+      "method": "GET",
+      "route": "api/encounter/campaign/{campaignId}",
+      "description": "Retrieves all combat encounters associated with a specific campaign.",
+      "parameters": [
+        {
+          "name": "campaignId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterController",
+      "action": "GetBySession",
+      "method": "GET",
+      "route": "api/encounter/session/{sessionId}",
+      "description": "Retrieves all combat encounters tied to a specific session.",
+      "parameters": [
+        {
+          "name": "sessionId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/encounter",
+      "description": "Creates a new combat encounter record and dispatches standard update notifications to clients.",
+      "parameters": [
+        {
+          "name": "encounter",
+          "type": "Encounter",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/encounter/{id}",
+      "description": "Updates details of an existing combat encounter and broadcasts changes to active clients.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "encounter",
+          "type": "Encounter",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/encounter/{id}",
+      "description": "Deletes a combat encounter by ID and broadcasts deletion sync updates.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/encounterroom",
+      "description": "Creates a virtual encounter room for tabletop grid maps. The caller is assigned as the Dungeon Master.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "CreateRoomRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/encounterroom/{id}",
+      "description": "Retrieves details and state of an encounter room (requires room membership/DM status).",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "GetMyRooms",
+      "method": "GET",
+      "route": "api/encounterroom/my",
+      "description": "Retrieves all virtual encounter rooms the current user is associated with as either player or DM.",
+      "parameters": []
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "Join",
+      "method": "POST",
+      "route": "api/encounterroom/join",
+      "description": "Enables a player to join an active room by providing a temporary invite join code.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "JoinRoomRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "Leave",
+      "method": "POST",
+      "route": "api/encounterroom/{id}/leave",
+      "description": "Allows a player to leave a room. DMs are prohibited from leaving and must end the room.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "End",
+      "method": "DELETE",
+      "route": "api/encounterroom/{id}",
+      "description": "Soft-deletes/ends an active virtual encounter room. Accessible only by Dungeon Masters.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "RegenerateCode",
+      "method": "POST",
+      "route": "api/encounterroom/{id}/code",
+      "description": "Generates a new entry join code for the virtual room. Accessible only by Dungeon Masters.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EncounterRoomController",
+      "action": "InvitePlayers",
+      "method": "POST",
+      "route": "api/encounterroom/{id}/invite",
+      "description": "Sends invitations to listed user IDs for joining the room. Accessible only by Dungeon Masters.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "InvitePlayersRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/equipment",
+      "description": "Retrieves all equipment items in the global catalog.",
+      "parameters": []
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/equipment/{id}",
+      "description": "Retrieves detailed properties of an equipment item by its database ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "GetByIdsForUser",
+      "method": "POST",
+      "route": "api/equipment/userview",
+      "description": "Retrieves public details of multiple equipment items by their IDs, optimized for inventory presentation.",
+      "parameters": [
+        {
+          "name": "ids",
+          "type": "IEnumerable<string>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "GetByIndex",
+      "method": "GET",
+      "route": "index/{index}",
+      "description": "Retrieves a specific equipment item by its unique index string (overrides base route).",
+      "parameters": [
+        {
+          "name": "index",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "GetByIds",
+      "method": "POST",
+      "route": "api/equipment/by-ids",
+      "description": "Retrieves raw details of multiple equipment items by list of IDs.",
+      "parameters": [
+        {
+          "name": "ids",
+          "type": "IEnumerable<string>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "GetAllPaginated",
+      "method": "GET",
+      "route": "api/equipment/paginated",
+      "description": "Retrieves a paginated list of equipment items filtered optionally by tag, tier, damage type, or name.",
+      "parameters": [
+        {
+          "name": "page",
+          "type": "int",
+          "source": "FromQuery"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "source": "FromQuery"
+        },
+        {
+          "name": "tag",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "tier",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "damageType",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "name",
+          "type": "string?",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "SearchEquipments",
+      "method": "GET",
+      "route": "api/equipment/search",
+      "description": "Searches equipment items matching a name query string.",
+      "parameters": [
+        {
+          "name": "name",
+          "type": "string",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/equipment",
+      "description": "Creates a new equipment catalog entry.",
+      "parameters": [
+        {
+          "name": "equipment",
+          "type": "Equipment",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "CreateMany",
+      "method": "POST",
+      "route": "api/equipment/many",
+      "description": "Performs bulk creation of multiple equipment items in the global catalog.",
+      "parameters": [
+        {
+          "name": "equipments",
+          "type": "List<Equipment>",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/equipment/{id}",
+      "description": "Updates details of an existing equipment item entry.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipment",
+          "type": "Equipment",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "UpdateByIndex",
+      "method": "PUT",
+      "route": "index/{index}",
+      "description": "Updates properties of an equipment item found by its unique index string (overrides base route).",
+      "parameters": [
+        {
+          "name": "index",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipment",
+          "type": "Equipment",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "EquipmentController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/equipment/{id}",
+      "description": "Deletes an equipment catalog item by its database ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/inventory/all",
+      "description": "Retrieves all inventories in the system. Accessible only by administrators.",
+      "parameters": []
+    },
+    {
+      "controller": "InventoryController",
+      "action": "GetInventoriesByCharacter",
+      "method": "GET",
+      "route": "api/inventory/character/{characterId}",
+      "description": "Retrieves all inventories assigned to a specific character.",
+      "parameters": [
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "GetInventory",
+      "method": "GET",
+      "route": "api/inventory/{id}",
+      "description": "Retrieves details of a specific inventory by ID. Bypasses normal authorization if it is a shop inventory.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "CreateInventory",
+      "method": "POST",
+      "route": "api/inventory",
+      "description": "Creates a new inventory record and broadcasts sync updates over SignalR.",
+      "parameters": [
+        {
+          "name": "inventory",
+          "type": "Inventory",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "UpdateInventory",
+      "method": "PUT",
+      "route": "api/inventory/{id}",
+      "description": "Updates metadata/properties of an inventory and broadcasts sync changes.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "inventory",
+          "type": "Inventory",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "AddInventoryToCharacter",
+      "method": "PATCH",
+      "route": "api/inventory/{inventoryId}/assign-to/{characterId}",
+      "description": "Links an existing inventory to a character, and broadcasts character changes over SignalR.",
+      "parameters": [
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "DeleteInventory",
+      "method": "DELETE",
+      "route": "api/inventory/{id}",
+      "description": "Removes an inventory record and broadcasts sync deletion events.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "GetItems",
+      "method": "GET",
+      "route": "api/inventory/{inventoryId}/items",
+      "description": "Retrieves all equipment items in the specified inventory.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "GetItem",
+      "method": "GET",
+      "route": "api/inventory/{inventoryId}/items/{equipmentId}",
+      "description": "Retrieves details of a specific item inside an inventory.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipmentId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "AddItem",
+      "method": "POST",
+      "route": "api/inventory/{inventoryId}/additem",
+      "description": "Adds or increments the quantity of an equipment item inside an inventory, then broadcasts the sync update.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "ModifyItemAmountRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "AddNewItem",
+      "method": "POST",
+      "route": "api/inventory/{inventoryId}/additem/new",
+      "description": "Appends a brand new equipment catalog record directly into the inventory and broadcasts the update.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipment",
+          "type": "Equipment",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "MoveItem",
+      "method": "POST",
+      "route": "api/inventory/{sourceInventoryId}/items/{equipmentId}/move",
+      "description": "Moves a specified quantity of an equipment item from a source inventory to a target inventory, broadcasting updates to both.",
+      "parameters": [
+        {
+          "name": "sourceInventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipmentId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "MoveItemRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "MoveItemToCharacter",
+      "method": "POST",
+      "route": "api/inventory/{sourceInventoryId}/items/{equipmentId}/move-to-character/{characterId}",
+      "description": "Transfers an equipment item from a source inventory into a target character's first available inventory, broadcasting sync changes.",
+      "parameters": [
+        {
+          "name": "sourceInventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipmentId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "characterId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "MoveItemToCharacterRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "UpdateItem",
+      "method": "PUT",
+      "route": "api/inventory/{inventoryId}/items/{equipmentId}",
+      "description": "Overwrites properties of a specific item inside an inventory, broadcasting changes.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipmentId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "item",
+          "type": "InventoryItem",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "DeleteItem",
+      "method": "DELETE",
+      "route": "api/inventory/{inventoryId}/items/{equipmentId}",
+      "description": "Removes an item completely from the inventory and broadcasts the sync update.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "equipmentId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "InventoryController",
+      "action": "DecrementItemQuantity",
+      "method": "PATCH",
+      "route": "api/inventory/{inventoryId}/items/",
+      "description": "Decrements the quantity of an item inside the inventory, deleting it if count reaches zero, and broadcasts updates.",
+      "parameters": [
+        {
+          "name": "inventoryId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "ModifyItemAmountRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/monster/{id}",
+      "description": "Retrieves detailed stats of a monster by ID. Accessible by Users and Admins.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "GetByName",
+      "method": "GET",
+      "route": "api/monster/name/{name}",
+      "description": "Retrieves a list of monsters matching the exact or partial name. Accessible by Users and Admins.",
+      "parameters": [
+        {
+          "name": "name",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/monster",
+      "description": "Retrieves all monsters registered in the system. Accessible by Users and Admins.",
+      "parameters": []
+    },
+    {
+      "controller": "MonsterController",
+      "action": "GetPaged",
+      "method": "GET",
+      "route": "api/monster/paged",
+      "description": "Retrieves a paginated list of monsters. Accessible by Users and Admins.",
+      "parameters": [
+        {
+          "name": "page",
+          "type": "int",
+          "source": "FromQuery"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "Search",
+      "method": "GET",
+      "route": "api/monster/search",
+      "description": "Advanced monster search supporting filters for name, type, CR ranges, tags, sorting, and paging. Accessible by Users, Admins, and DungeonMasters.",
+      "parameters": [
+        {
+          "name": "name",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "type",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "minCR",
+          "type": "double?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "maxCR",
+          "type": "double?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "tags",
+          "type": "List<string>?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "sortBy",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "desc",
+          "type": "bool",
+          "source": "FromQuery"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "source": "FromQuery"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/monster",
+      "description": "Creates a custom monster owned by the creating DM. Accessible by DungeonMasters and Admins.",
+      "parameters": [
+        {
+          "name": "monster",
+          "type": "Monster",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/monster/{id}",
+      "description": "Updates details of an existing custom monster. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "monster",
+          "type": "Monster",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/monster/{id}",
+      "description": "Deletes a custom monster permanently. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "LogicDelete",
+      "method": "PATCH",
+      "route": "api/monster/soft-delete/{id}",
+      "description": "Performs a soft-delete to hide a monster from listing queries. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "DeleteOwn",
+      "method": "DELETE",
+      "route": "api/monster/delete-own/{id}",
+      "description": "Deletes a custom monster if the user is its owner. Accessible by DungeonMasters and Admins.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "SwitchOwner",
+      "method": "POST",
+      "route": "api/monster/{monsterId}/switch-owner/{id}",
+      "description": "Transfers ownership of a custom monster to a different user. Accessible by DungeonMasters and Admins.",
+      "parameters": [
+        {
+          "name": "monsterId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "AddOwner",
+      "method": "GET",
+      "route": "api/monster/{monsterId}/addOwner/{newOwner}",
+      "description": "Grants co-ownership of a custom monster to another user. Accessible by DungeonMasters and Admins.",
+      "parameters": [
+        {
+          "name": "monsterId",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "newOwner",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "GetCount",
+      "method": "GET",
+      "route": "api/monster/count",
+      "description": "Retrieves the total count of monsters in the database. Accessible by Users, Admins, and DungeonMasters.",
+      "parameters": []
+    },
+    {
+      "controller": "NoteController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/note/{id}",
+      "description": "Retrieves details of a specific journal or session note by ID.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "NoteController",
+      "action": "GetMany",
+      "method": "GET",
+      "route": "api/note/many",
+      "description": "Retrieves multiple journal/session notes based on a comma-separated query parameter of IDs.",
+      "parameters": [
+        {
+          "name": "ids",
+          "type": "string",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "NoteController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/note",
+      "description": "Creates a new journal or campaign note.",
+      "parameters": [
+        {
+          "name": "note",
+          "type": "Note",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "NoteController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/note/{id}",
+      "description": "Updates details/content of an existing note.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "updatedNote",
+          "type": "Note",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "NoteController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/note/{id}",
+      "description": "Deletes a note permanently.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "NotificationController",
+      "action": "SendNotification",
+      "method": "POST",
+      "route": "api/notification",
+      "description": "Sends a real-time SignalR notification to all users, or only to specific listed user IDs if specified.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "NotificationRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "NotificationController",
+      "action": "SendNotificationExcept",
+      "method": "POST",
+      "route": "api/notification/except",
+      "description": "Broadcasts a real-time SignalR notification to all clients EXCEPT the specified excluded user IDs.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "NotificationRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "RollController",
+      "action": "SubtleRoll",
+      "method": "POST",
+      "route": "api/roll/subtle",
+      "description": "Dispatches a hidden or GM-only subtle dice roll and returns the generated roll receipt.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "SubtleRollRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "RollController",
+      "action": "GetHistory",
+      "method": "GET",
+      "route": "api/roll/history",
+      "description": "Retrieves public dice roll history records, optionally filtering by campaignId (if the user has membership), otherwise retrieving the user's own public rolls.",
+      "parameters": [
+        {
+          "name": "campaignId",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "source": "FromQuery"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "RuleCategoriesController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/rule-categories",
+      "description": "Retrieves all categories of rule system documentation. Anonymous access allowed.",
+      "parameters": []
+    },
+    {
+      "controller": "RuleCategoriesController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/rule-categories",
+      "description": "Creates a new category for system rules. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "RuleCategoryDto",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "RulesController",
+      "action": "GetRules",
+      "method": "GET",
+      "route": "api/rules",
+      "description": "Retrieves a list of system rules matching filters (category, tag, source, search text) using cursor-based pagination. Anonymous access allowed.",
+      "parameters": [
+        {
+          "name": "category",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "tag",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "source",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "search",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "cursor",
+          "type": "string?",
+          "source": "FromQuery"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "RulesController",
+      "action": "GetRuleBySlug",
+      "method": "GET",
+      "route": "api/rules/{slug}",
+      "description": "Retrieves details of a specific system rule by its URL slug. Anonymous access allowed.",
+      "parameters": [
+        {
+          "name": "slug",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "RulesController",
+      "action": "GetStats",
+      "method": "GET",
+      "route": "api/rules/stats",
+      "description": "Retrieves rule-related statistics and metrics. Anonymous access allowed.",
+      "parameters": []
+    },
+    {
+      "controller": "RulesController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/rules",
+      "description": "Registers a new system rule. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "RuleDetailDto",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "RulesController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/rules/{slug}",
+      "description": "Updates details of an existing system rule by slug. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "slug",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "RuleDetailDto",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "SessionController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/session/{id}",
+      "description": "Retrieves details of a specific campaign session.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "SessionController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/session",
+      "description": "Retrieves all campaign sessions registered in the system.",
+      "parameters": []
+    },
+    {
+      "controller": "SessionController",
+      "action": "GetByCampaign",
+      "method": "GET",
+      "route": "api/session/campaign/{campaignId}",
+      "description": "Retrieves all session records associated with a specific campaign ID.",
+      "parameters": [
+        {
+          "name": "campaignId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "SessionController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/session",
+      "description": "Creates a new campaign session record and broadcasts sync notifications.",
+      "parameters": [
+        {
+          "name": "session",
+          "type": "Session",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "SessionController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/session/{id}",
+      "description": "Updates details of an existing campaign session and broadcasts sync notifications.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "session",
+          "type": "Session",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "SessionController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/session/{id}",
+      "description": "Deletes a campaign session by ID and broadcasts deletion sync updates.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/shop/{id}",
+      "description": "Retrieves details of a specific shop.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "GetShopsForCampaign",
+      "method": "GET",
+      "route": "api/shop/campaign/{campaignId}",
+      "description": "Retrieves all shops associated with a campaign.",
+      "parameters": [
+        {
+          "name": "campaignId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "CreateShop",
+      "method": "POST",
+      "route": "api/shop",
+      "description": "Creates a new merchant shop, sets up its inventory, and broadcasts the creation event.",
+      "parameters": [
+        {
+          "name": "shop",
+          "type": "Shop",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "GetShopItems",
+      "method": "GET",
+      "route": "api/shop/{shopId}/items",
+      "description": "Retrieves items and quantities currently available in the merchant shop inventory.",
+      "parameters": [
+        {
+          "name": "shopId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "BuyItem",
+      "method": "POST",
+      "route": "api/shop/{id}/buy",
+      "description": "Handles merchant shop purchases: deducts gold from the character's wallet, adds items to their inventory, and adjusts shop stock.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "request",
+          "type": "BuyRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "SubmitSellRequest",
+      "method": "POST",
+      "route": "api/shop/sell-requests",
+      "description": "Submits a request to sell items to the merchant shop, to be subsequently approved or rejected by the DM.",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "SellRequest",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "GetCampaignSellRequests",
+      "method": "GET",
+      "route": "api/shop/campaign/{campaignId}/sell-requests",
+      "description": "Retrieves list of submitted sell requests under a specified campaign.",
+      "parameters": [
+        {
+          "name": "campaignId",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "ApproveSellRequest",
+      "method": "PATCH",
+      "route": "api/shop/sell-requests/{id}/approve",
+      "description": "Approves a pending sell request: increases selling character's currency and updates shop stock. Accessible only by Dungeon Masters.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "RejectSellRequest",
+      "method": "PATCH",
+      "route": "api/shop/sell-requests/{id}/reject",
+      "description": "Rejects a pending sell request. Accessible only by Dungeon Masters.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "UpdateShop",
+      "method": "PUT",
+      "route": "api/shop/{id}",
+      "description": "Updates metadata/properties of a merchant shop and broadcasts updates.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "shop",
+          "type": "Shop",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "ToggleShopOpen",
+      "method": "PATCH",
+      "route": "api/shop/{id}/toggle-open",
+      "description": "Toggles a shop's open or closed status and broadcasts the state change.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "isOpen",
+          "type": "bool",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "ShopController",
+      "action": "DeleteShop",
+      "method": "DELETE",
+      "route": "api/shop/{id}",
+      "description": "Deletes a merchant shop and its associated items, broadcasting updates.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "SpellsController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/spells/{id}",
+      "description": "Retrieves properties and details of a specific spell. Accessible by Users and Admins.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "SpellsController",
+      "action": "GetAllNames",
+      "method": "GET",
+      "route": "api/spells/names",
+      "description": "Retrieves a fast list of names and IDs for all spells in the catalog.",
+      "parameters": []
+    },
+    {
+      "controller": "SpellsController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/spells",
+      "description": "Retrieves all spells cataloged in the database. Accessible by Users and Admins.",
+      "parameters": []
+    },
+    {
+      "controller": "SpellsController",
+      "action": "Create",
+      "method": "POST",
+      "route": "api/spells",
+      "description": "Adds a new magic spell catalog entry. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "spell",
+          "type": "Spell",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "SpellsController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/spells/{id}",
+      "description": "Updates properties of an existing spell. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "spell",
+          "type": "Spell",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "SpellsController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/spells/{id}",
+      "description": "Deletes a spell entry permanently from the catalog. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "SpellsController",
+      "action": "LogicDelete",
+      "method": "PATCH",
+      "route": "api/spells/soft-delete/{id}",
+      "description": "Performs a logical soft-delete to hide a spell from query listings. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "UserController",
+      "action": "GetSelf",
+      "method": "GET",
+      "route": "api/user/me",
+      "description": "Retrieves the user profile details of the current authenticated user.",
+      "parameters": []
+    },
+    {
+      "controller": "UserController",
+      "action": "GetAll",
+      "method": "GET",
+      "route": "api/user",
+      "description": "Retrieves a list of all registered user accounts. Accessible only by administrators.",
+      "parameters": []
+    },
+    {
+      "controller": "UserController",
+      "action": "GetById",
+      "method": "GET",
+      "route": "api/user/{id}",
+      "description": "Retrieves detailed profile data of a user by ID. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "UserController",
+      "action": "Update",
+      "method": "PUT",
+      "route": "api/user/{id}",
+      "description": "Updates profile details and roles of a user. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "user",
+          "type": "User",
+          "source": "FromBody"
+        }
+      ]
+    },
+    {
+      "controller": "UserController",
+      "action": "UpdateStatus",
+      "method": "PATCH",
+      "route": "api/user/{id}/status",
+      "description": "Updates user status flags (e.g., Active, Suspended). Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        },
+        {
+          "name": "status",
+          "type": "UserStatus",
+          "source": "FromQuery"
+        }
+      ]
+    },
+    {
+      "controller": "UserController",
+      "action": "Delete",
+      "method": "DELETE",
+      "route": "api/user/{id}",
+      "description": "Deletes a user account permanently. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "UserController",
+      "action": "LogicDelete",
+      "method": "PATCH",
+      "route": "api/user/{id}/logic-delete",
+      "description": "Soft-deletes a user account to deactivate it. Accessible only by administrators.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    }
+  ]
+}

@@ -34,6 +34,9 @@ namespace dndhelper.Models
 
         public EncounterStatus Status { get; set; } = EncounterStatus.Planned;
 
+        /// <summary>Tabletop board saved when the encounter ended; the table can load it back.</summary>
+        public StoredBoard? Board { get; set; }
+
         public DateTime? StartedAt { get; set; }
         public DateTime? EndedAt { get; set; }
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;

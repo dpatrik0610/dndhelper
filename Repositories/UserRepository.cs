@@ -63,6 +63,13 @@ namespace dndhelper.Repositories
             }
         }
 
+        public async Task AddCharacterIdAsync(string userId, string characterId)
+        {
+            // $addToSet: concurrent creates can't overwrite each other's ids.
+            var update = Builders<User>.Update.AddToSet(u => u.CharacterIds, characterId);
+            await _collection.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
         public async Task UpdateCharacterIds(User user, List<string> characterIds)
         {
             try

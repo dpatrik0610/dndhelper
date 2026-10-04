@@ -1,6 +1,121 @@
-@dndhelper_HostAddress = http://localhost:5289
+@dndhelper_HostAddress = https://localhost:7222
+@Token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI2ODk4MzRjY2NjNWJjYmVlMzI2YTUwYTMiLCJ1bmlxdWVfbmFtZSI6InFhbnRhbmFzIiwiZW1haWwiOiIiLCJJc0FjdGl2ZSI6IkFjdGl2ZSIsInJvbGUiOiJBZG1pbiIsIm5iZiI6MTc4ODQzNTE0MSwiZXhwIjoxNzg4NTIxNTQxLCJpYXQiOjE3ODg0MzUxNDEsImlzcyI6ImRuZGhlbHBlciIsImF1ZCI6ImRuZGhlbHBlciJ9.alD01VM0ZgL3sWRq970jRcPAC8rB6UsZxdIYpV72m_o
+@CampaignId = 690ab1d7055b3915c7686358
+@QuestId = 6a995debf75619c273fb056c
 
-GET {{dndhelper_HostAddress}}/weatherforecast/
+### 1. Create a Campaign Quest (DM/Admin Only)
+POST {{dndhelper_HostAddress}}/api/quest
+Authorization: Bearer {{Token}}
+Content-Type: application/json
+
+{
+  "campaignId": "{{CampaignId}}",
+  "title": "Help Bob",
+  "description": "Help Bob find their lost treasure",
+  "location": "Bob's Realm",
+  "status": "Available",
+  "type": "Side",
+  "objectives": [
+    {
+      "description": "Find Clues",
+      "currentProgress": 2,
+      "completionThreshold": 10
+    }
+  ],
+  "rewardCurrencies":[{
+    "type": "gp",
+    "amount": 100,
+    "currencyCode": "gp"
+  }]
+}
+
+###
+
+### 2. Get Quests for a Campaign
+GET {{dndhelper_HostAddress}}/api/quest/campaign/{{CampaignId}}
+Authorization: Bearer {{Token}}
 Accept: application/json
 
 ###
+
+### 3. Add an Objective to a Quest Atomically
+POST {{dndhelper_HostAddress}}/api/quest/{{QuestId}}/objective
+Authorization: Bearer {{Token}}
+Content-Type: application/json
+
+{
+  "description": "Defeat monsters 2",
+  "currentProgress": 0,
+  "completionThreshold": 5
+}
+
+###
+
+### 4. Update Quest Objective Progress
+PUT {{dndhelper_HostAddress}}/api/quest/{{QuestId}}/objective
+Authorization: Bearer {{Token}}
+Content-Type: application/json
+
+{
+  "id": "objective-guid-here",
+  "description": "Interrogate the tavern keeper",
+  "currentProgress": 1,
+  "completionThreshold": 1,
+  "isCompleted": true
+}
+
+###
+
+### 5. Create a Personal Quest (As a Player)
+POST {{dndhelper_HostAddress}}/api/quest
+Authorization: Bearer {{Token}}
+Content-Type: application/json
+
+{
+  "campaignId": "650c5f11e0c24b17b8ef1234",
+  "involvedCharacterIds": ["650c5f11e0c24b17b8ef5678"],
+  "title": "Avenge My Family",
+  "description": "Track down the red-branded rogue who stole the heirloom.",
+  "type": "Personal",
+  "status": "Active",
+  "objectives": []
+}
+
+###
+
+### 6. Get a Specific Quest by ID
+GET {{dndhelper_HostAddress}}/api/quest/650c5f11e0c24b17b8ef9999
+Authorization: Bearer {{Token}}
+Accept: application/json
+
+###
+
+### 7. Update an Entire Quest Document
+PUT {{dndhelper_HostAddress}}/api/quest/650c5f11e0c24b17b8ef9999
+Authorization: Bearer {{Token}}
+Content-Type: application/json
+
+{
+  "campaignId": {{CampaignId}},
+  "title": "Uncover the Cult's Lair (Updated)",
+  "description": "Find where the dragon cult is gathering in the city sewers.",
+  "location": "Waterdeep Sewers - Lower Levels",
+  "status": "Active",
+  "type": "Main",
+  "objectives": []
+}
+
+###
+
+### 8. Delete an Objective Atomically
+DELETE {{dndhelper_HostAddress}}/api/quest/650c5f11e0c24b17b8ef9999/objective/objective-guid-here
+Authorization: Bearer {{Token}}
+Accept: application/json
+
+###
+
+### 9. Delete a Quest
+DELETE {{dndhelper_HostAddress}}/api/quest/650c5f11e0c24b17b8ef9999
+Authorization: Bearer {{Token}}
+Accept: application/json
+
