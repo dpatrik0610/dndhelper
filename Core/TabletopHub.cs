@@ -68,6 +68,8 @@ namespace dndhelper.Core
         public Task UpsertToken(TableToken token) => _service.UpsertTokenAsync(Table, token);
         public Task RemoveToken(string tokenId) => _service.RemoveTokenAsync(Table, tokenId);
         public Task SetEconomy(string tokenId, TurnEconomy economy) => _service.SetEconomyAsync(Table, tokenId, economy);
+        /// <summary>Null value = roll d20 + initiative bonus on the server.</summary>
+        public Task<TableLogEntry?> SetInitiative(string tokenId, int? value) => _service.SetInitiativeAsync(Table, tokenId, value);
 
         public Task UpdateGrid(GridSettings grid) => _service.UpdateGridAsync(Table, grid);
         public Task UpdateMap(MapLayer map) => _service.UpdateMapAsync(Table, map);

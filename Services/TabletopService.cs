@@ -216,6 +216,52 @@ namespace dndhelper.Services
             });
         }
 
+        /// <summary>
+        /// Puts a token into the initiative order: a typed value, or (value null) d20 + the character's initiative
+        /// bonus rolled here and logged for everyone. Players may only join once with their own token; the DM can always set it.
+        /// </summary>
+        public async Task<TableLogEntry?> SetInitiativeAsync(TableContext ctx, string tokenId, int? value)
+        {
+            TableLogEntry? entry = null;
+            await ChangeAsync(ctx.TableId, async t =>
+            {
+                var token = FindToken(t, tokenId);
+                if (!ctx.IsDm)
+                {
+                    if (token.Layer != TableLayer.Token || !Owns(ctx, token)) throw Fail("That's not your token.");
+                    if (token.Initiative != null) throw Fail("You're already in the initiative order. Ask the DM to change it.");
+                }
+
+                if (value is int typed)
+                {
+                    token.Initiative = Math.Clamp(typed, -20, 99);
+                    return;
+                }
+
+                var bonus = 0;
+                if (token.CharacterId != null)
+                    bonus = (await _characters.GetByIdAsync(token.CharacterId))?.Initiative ?? 0;
+                var roll = _dice.RollDice(1, 20, Math.Clamp(bonus, -20, 30));
+                token.Initiative = Math.Clamp(roll.Total, -20, 99);
+
+                entry = new TableLogEntry
+                {
+                    UserId = ctx.UserId,
+                    UserName = ctx.Name,
+                    Name = token.Name,
+                    Label = "Initiative",
+                    Rolls = new List<DiceRollResult> { roll },
+                };
+                t.Log.Add(entry);
+                if (t.Log.Count > MaxLog) t.Log.RemoveRange(0, t.Log.Count - MaxLog);
+            }, async t =>
+            {
+                await BroadcastStateAsync(t);
+                if (entry != null) await SendAll(t, "LogAdded", entry);
+            });
+            return entry;
+        }
+
         public Task SetEconomyAsync(TableContext ctx, string tokenId, TurnEconomy economy) =>
             Change(ctx.TableId, t =>
             {

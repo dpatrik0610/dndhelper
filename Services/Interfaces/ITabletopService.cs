@@ -15,6 +15,7 @@ namespace dndhelper.Services.Interfaces
         Task UpsertTokenAsync(TableContext ctx, TableToken input);
         Task RemoveTokenAsync(TableContext ctx, string tokenId);
         Task SetEconomyAsync(TableContext ctx, string tokenId, TurnEconomy economy);
+        Task<TableLogEntry?> SetInitiativeAsync(TableContext ctx, string tokenId, int? value);
 
         Task UpdateGridAsync(TableContext ctx, GridSettings grid);
         Task UpdateMapAsync(TableContext ctx, MapLayer map);
