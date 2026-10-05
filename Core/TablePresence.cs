@@ -55,6 +55,14 @@ namespace dndhelper.Core
             }
         }
 
+        public List<string> Connections(string tableId, Func<TableContext, bool> match)
+        {
+            lock (_gate)
+                return _tables.TryGetValue(tableId, out var seats)
+                    ? seats.Where(s => match(s.Value)).Select(s => s.Key).ToList()
+                    : new List<string>();
+        }
+
         /// <summary>Unseats every matching connection and returns them.</summary>
         public List<(string ConnectionId, TableContext Seat)> RemoveWhere(string tableId, Func<TableContext, bool> match)
         {

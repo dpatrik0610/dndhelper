@@ -142,6 +142,7 @@ namespace dndhelper.Core
             services.AddScoped<IRuleCategoryRepository, RuleCategoryRepository>();
             services.AddScoped<IRollRepository, RollRepository>();
             services.AddSingleton<ITabletopRepository, TabletopRepository>();
+            services.AddSingleton<IChatRepository, ChatRepository>();
             services.AddScoped<IShopRepository, ShopRepository>();
             services.AddScoped<ISellRequestRepository, SellRequestRepository>();
             services.AddScoped<IQuestRepository, QuestRepository>();
@@ -168,6 +169,7 @@ namespace dndhelper.Core
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
             services.AddScoped<ITabletopService, TabletopService>();
             services.AddSingleton<TablePresence>();
+            services.AddScoped<IChatService, ChatService>();
             services.AddScoped<IShopService, ShopService>();
             services.AddScoped<IQuestService, QuestService>();
 
