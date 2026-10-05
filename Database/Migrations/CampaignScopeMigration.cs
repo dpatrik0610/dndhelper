@@ -49,8 +49,9 @@ namespace dndhelper.Database.Migrations
             var report = new Dictionary<string, long>();
 
             report["Users.Roles"] = await MigrateUserRolesAsync(superAdminId, dryRun);
-            report["Campaigns.Members"] = await MigrateCampaignMembersAsync(superAdminId, dryRun);
+            // Characters first: membership is derived from which campaign each character belongs to.
             report["Characters.CampaignId"] = await MigrateCharactersAsync(target, dryRun);
+            report["Campaigns.Members"] = await MigrateCampaignMembersAsync(superAdminId, dryRun);
             report["Inventories.CampaignId"] = await MigrateInventoriesAsync(target, dryRun);
             report["Notes.CampaignId"] = await MigrateNotesAsync(target, dryRun);
             foreach (var name in ContentCollections)
@@ -79,48 +80,74 @@ namespace dndhelper.Database.Migrations
             return a.ModifiedCount + o.ModifiedCount;
         }
 
+        /// <summary>
+        /// Brings every campaign's membership in line with its characters: a campaign without members gets its
+        /// OwnerIds (else the superadmin) as DM; every character that belongs to the campaign (listed in
+        /// CharacterIds or pointing at it with CampaignId) is listed, and its owners become Players.
+        /// Only adds, so it also repairs a database migrated before this rule and re-runs report 0.
+        /// </summary>
         private async Task<long> MigrateCampaignMembersAsync(ObjectId superAdminId, bool dryRun)
         {
             var f = Builders<BsonDocument>.Filter;
-            var filter = f.Or(f.Exists("Members", false), f.Size("Members", 0));
-            var campaigns = await C("Campaigns").Find(filter).ToListAsync();
-            if (dryRun) return campaigns.Count;
+            var campaigns = await C("Campaigns").Find(FilterDefinition<BsonDocument>.Empty).ToListAsync();
+            var characters = await C("Characters").Find(Builders<BsonDocument>.Filter.Ne("IsDeleted", true)).ToListAsync();
+            long changed = 0;
 
             foreach (var campaign in campaigns)
             {
-                // userId -> roles, insertion-ordered
-                var members = new List<(ObjectId UserId, string Role)>();
+                var campaignId = campaign["_id"].AsObjectId;
+                var members = ArrayOf(campaign, "Members")
+                    .Select(m => m.AsBsonDocument)
+                    .Select(m => (UserId: ToObjectId(m["UserId"]) ?? ObjectId.Empty, Roles: ArrayOf(m, "Roles").Select(r => r.AsString).ToList()))
+                    .Where(m => m.UserId != ObjectId.Empty)
+                    .ToList();
+                var membersBefore = members.Count;
                 void Add(ObjectId id, string role)
                 {
-                    if (!members.Any(m => m.UserId == id)) members.Add((id, role));
+                    if (!members.Any(m => m.UserId == id)) members.Add((id, new List<string> { role }));
                 }
 
-                foreach (var owner in ArrayOf(campaign, "OwnerIds"))
-                    if (ObjectId.TryParse(owner.ToString(), out var id)) Add(id, "DM");
-                if (members.Count == 0) Add(superAdminId, "DM");
-
-                var characterIds = ArrayOf(campaign, "CharacterIds").Select(ToObjectId).Where(x => x != null).Cast<ObjectId>();
-                var characters = await C("Characters").Find(f.In("_id", characterIds)).ToListAsync();
-                foreach (var owner in characters.SelectMany(c => ArrayOf(c, "OwnerIds")))
-                    if (ObjectId.TryParse(owner.ToString(), out var id)) Add(id, "Player");
-
-                var memberDocs = new BsonArray(members.Select(m => new BsonDocument
+                if (members.Count == 0)
                 {
-                    { "UserId", m.UserId },
-                    { "Roles", new BsonArray { m.Role } }
-                }));
-                var dmIds = new BsonArray(members.Where(m => m.Role == "DM").Select(m => m.UserId.ToString()));
+                    foreach (var owner in ArrayOf(campaign, "OwnerIds"))
+                        if (ToObjectId(owner) is { } id) Add(id, "DM");
+                    if (members.Count == 0) Add(superAdminId, "DM");
+                }
+
+                var listed = ArrayOf(campaign, "CharacterIds").Select(x => x.ToString()!).ToList();
+                var belonging = characters.Where(c =>
+                    listed.Contains(c["_id"].ToString()!) ||
+                    (c.Contains("CampaignId") && ToObjectId(c["CampaignId"]) == campaignId)).ToList();
+
+                foreach (var owner in belonging.SelectMany(c => ArrayOf(c, "OwnerIds")))
+                    if (ToObjectId(owner) is { } id) Add(id, "Player");
+
+                var characterIds = listed.Concat(belonging.Select(c => c["_id"].ToString()!)).Distinct().ToList();
+                var missingInvite = !campaign.Contains("InviteCode") || campaign["InviteCode"].IsBsonNull;
+                var missingImports = !campaign.Contains("CoreImports");
+
+                if (members.Count == membersBefore && characterIds.Count == listed.Count && !missingInvite && !missingImports)
+                    continue;
+
+                changed++;
+                if (dryRun) continue;
 
                 var update = Builders<BsonDocument>.Update
-                    .Set("Members", memberDocs)
-                    .Set("OwnerIds", dmIds)
-                    .Set("CoreImports", new BsonArray(CoreTypes));
-                if (!campaign.Contains("InviteCode") || campaign["InviteCode"].IsBsonNull)
+                    .Set("Members", new BsonArray(members.Select(m => new BsonDocument
+                    {
+                        { "UserId", m.UserId },
+                        { "Roles", new BsonArray(m.Roles) }
+                    })))
+                    .Set("OwnerIds", new BsonArray(members.Where(m => m.Roles.Contains("DM")).Select(m => m.UserId.ToString())))
+                    .Set("CharacterIds", new BsonArray(characterIds));
+                if (missingInvite)
                     update = update.Set("InviteCode", RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 8));
+                if (missingImports)
+                    update = update.Set("CoreImports", new BsonArray(CoreTypes));
 
-                await C("Campaigns").UpdateOneAsync(f.Eq("_id", campaign["_id"]), update);
+                await C("Campaigns").UpdateOneAsync(f.Eq("_id", campaignId), update);
             }
-            return campaigns.Count;
+            return changed;
         }
 
         private async Task<long> MigrateCharactersAsync(ObjectId target, bool dryRun)
