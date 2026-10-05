@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 [Authorize]
@@ -35,6 +36,16 @@ public class CharacterController : ControllerBase
     {
        var characters = await _characterService.GetAllAsync();
         return Ok(characters);
+    }
+
+    /// <summary>My characters that aren't in any campaign (left, or kicked with them), so I can bring them back in.</summary>
+    [HttpGet("unassigned")]
+    public async Task<IActionResult> GetUnassigned()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var mine = await _characterService.GetByOwnerIdAsync(userId);
+        return Ok(mine.Where(c => c.CampaignId == null && !c.IsDeleted));
     }
 
     [HttpGet("{id}")]

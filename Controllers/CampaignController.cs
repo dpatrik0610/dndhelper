@@ -192,8 +192,8 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/characters/{characterId}")]
         public async Task<IActionResult> AddPlayer(string id, string characterId)
         {
-            await _access.EnsureDmAsync(id);
-            var result = await _campaignService.AddCharacterAsync(id, characterId);
+            // DM adds anyone's character; a member may bring in their own unassigned one (checked in the service).
+            var result = await _campaignService.AddCharacterAsCallerAsync(id, characterId);
             return result == null ? NotFound() : Ok(result);
         }
 

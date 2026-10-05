@@ -15,6 +15,7 @@ namespace dndhelper.Services.Interfaces
 
         Task<List<Character>> GetCharactersAsync(string campaignId);
         Task<Campaign?> AddCharacterAsync(string campaignId, string characterId);
+        Task<Campaign?> AddCharacterAsCallerAsync(string campaignId, string characterId);
         Task<Campaign?> RemoveCharacterAsync(string campaignId, string characterId);
         Task<Character> SetCharacterOwnersAsync(string campaignId, string characterId, List<string> ownerIds);
 

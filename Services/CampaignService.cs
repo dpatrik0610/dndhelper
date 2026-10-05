@@ -237,6 +237,24 @@ namespace dndhelper.Services
             if (member.Roles.Contains(CampaignRoles.Dm) && campaign.DmIds().Count == 1)
                 throw new ArgumentException("The last DM can't leave. Make someone else DM first.");
 
+            // Their characters leave with them: kept by them, out of this campaign. A character shared with
+            // other players stays, without them as an owner.
+            var characters = await _characterRepository.GetByIdsAsync(campaign.CharacterIds ?? new List<string>());
+            foreach (var character in characters.Where(c => c.CampaignId == campaignId && c.OwnerIds?.Contains(userId) == true))
+            {
+                if (character.OwnerIds!.Count == 1)
+                {
+                    await MoveCharacterAsync(character, null);
+                    continue;
+                }
+                character.OwnerIds.Remove(userId);
+                await _characterRepository.UpdateAsync(character);
+                await _userRepository.RemoveCharacterIdAsync(userId, character.Id!);
+                await SyncInventoryOwnersAsync(character.Id!);
+            }
+
+            campaign = (await _repository.GetByIdAsync(campaignId))!;
+            member = campaign.GetMember(userId)!;
             campaign.Members.Remove(member);
             campaign.SyncOwners();
             return await SaveMembershipAsync(campaign);
@@ -282,17 +300,66 @@ namespace dndhelper.Services
             return characters;
         }
 
+        /// <summary>
+        /// Moves a character into a campaign, or out of every campaign (null). Its own inventories travel with it
+        /// (shared stashes with other characters stay put) and the old campaign stops listing it.
+        /// </summary>
+        private async Task MoveCharacterAsync(Character character, string? toCampaignId)
+        {
+            var fromCampaignId = character.CampaignId;
+            if (fromCampaignId == toCampaignId) return;
+
+            await _characterRepository.SetCampaignAsync(character.Id!, toCampaignId);
+            foreach (var inventory in await _inventoryRepository.GetByCharacterIdAsync(character.Id!))
+                if ((inventory.CharacterIds ?? new List<string>()).All(id => id == character.Id))
+                    await _inventoryRepository.SetCampaignAsync(inventory.Id!, toCampaignId);
+            character.CampaignId = toCampaignId;
+
+            if (fromCampaignId != null && await _repository.GetByIdAsync(fromCampaignId) is { } from
+                && from.CharacterIds.Remove(character.Id!))
+                await _repository.UpdateAsync(from);
+        }
+
+        /// <summary>Recomputes inventory owners after a character's owners changed: an inventory belongs to the owners of all its characters.</summary>
+        private async Task SyncInventoryOwnersAsync(string characterId)
+        {
+            foreach (var inventory in await _inventoryRepository.GetByCharacterIdAsync(characterId))
+            {
+                var characters = await _characterRepository.GetByIdsAsync(inventory.CharacterIds ?? new List<string>());
+                inventory.OwnerIds = characters.SelectMany(c => c.OwnerIds ?? new List<string>()).Distinct().ToList();
+                await _inventoryRepository.UpdateAsync(inventory);
+            }
+        }
+
+        /// <summary>
+        /// POST campaign/{id}/characters/{characterId}: the DM adds any character; a member may bring in a
+        /// character they own that isn't in any campaign.
+        /// </summary>
+        public async Task<Campaign?> AddCharacterAsCallerAsync(string campaignId, string characterId)
+        {
+            if (!await Access.IsDmAsync(campaignId))
+            {
+                await Access.EnsureMemberAsync(campaignId);
+                var character = await _characterRepository.GetByIdAsync(characterId)
+                    ?? throw new NotFoundException("Character not found.");
+                if (character.OwnerIds?.Contains(Access.UserId!) != true)
+                    throw new ForbiddenException("You can only bring in your own characters.");
+                if (character.CampaignId != null)
+                    throw new ArgumentException("That character is still in another campaign.");
+            }
+            return await AddCharacterAsync(campaignId, characterId);
+        }
+
         public async Task<Campaign?> AddCharacterAsync(string campaignId, string characterId)
         {
-            var campaign = await _repository.GetByIdAsync(campaignId);
-            if (campaign == null) return null;
+            if (await _repository.GetByIdAsync(campaignId) == null) return null;
 
             var character = await _characterRepository.GetByIdAsync(characterId)
                 ?? throw new NotFoundException("Character not found.");
 
             // Keep both sides of the link in sync, and make the character's owners players.
-            if (character.CampaignId != campaignId)
-                await _characterRepository.SetCampaignAsync(characterId, campaignId);
+            await MoveCharacterAsync(character, campaignId);
+            var campaign = (await _repository.GetByIdAsync(campaignId))!;
 
             if (!campaign.CharacterIds.Contains(characterId))
                 campaign.CharacterIds.Add(characterId);
@@ -332,13 +399,7 @@ namespace dndhelper.Services
             foreach (var removed in previous.Except(ownerIds))
                 await _userRepository.RemoveCharacterIdAsync(removed, characterId);
 
-            // An inventory belongs to the owners of all its characters.
-            foreach (var inventory in await _inventoryRepository.GetByCharacterIdAsync(characterId))
-            {
-                var characters = await _characterRepository.GetByIdsAsync(inventory.CharacterIds ?? new List<string>());
-                inventory.OwnerIds = characters.SelectMany(c => c.OwnerIds ?? new List<string>()).Distinct().ToList();
-                await _inventoryRepository.UpdateAsync(inventory);
-            }
+            await SyncInventoryOwnersAsync(characterId);
 
             if (!campaign.CharacterIds.Contains(characterId))
                 await AddCharacterAsync(campaignId, characterId);
@@ -390,10 +451,15 @@ namespace dndhelper.Services
             var campaign = await _repository.GetByIdAsync(campaignId);
             if (campaign == null) return null;
 
-            campaign.CharacterIds.Remove(characterId);
-            if ((await _characterRepository.GetByIdAsync(characterId))?.CampaignId == campaignId)
-                await _characterRepository.SetCampaignAsync(characterId, null);
-            return await _repository.UpdateAsync(campaign);
+            // The owner keeps the character; it (and its own inventories) just leave the campaign.
+            var character = await _characterRepository.GetByIdAsync(characterId);
+            if (character?.CampaignId == campaignId)
+                await MoveCharacterAsync(character, null);
+
+            campaign = (await _repository.GetByIdAsync(campaignId))!;
+            if (campaign.CharacterIds.Remove(characterId))
+                await _repository.UpdateAsync(campaign);
+            return campaign;
         }
 
         // ------------------------
