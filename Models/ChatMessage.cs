@@ -75,7 +75,9 @@ namespace dndhelper.Models
         bool IsDm,
         ChatPage Page,
         List<ChatTarget> WhisperTargets,
-        List<ChatSpeaker> Characters);
+        List<ChatSpeaker> Characters,
+        // Character id → portrait URL for the campaign characters that have one; looked up live, so new portraits show on old messages.
+        Dictionary<string, string> Avatars);
 
     /// <summary>ToCharacterId is for DM whispers only; a player's whisper always goes to the DMs.</summary>
     public record ChatSendRequest(string Text, string? CharacterId, bool Whisper, string? ToCharacterId);

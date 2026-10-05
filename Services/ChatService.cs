@@ -63,7 +63,8 @@ namespace dndhelper.Services
                 isDm,
                 await PageAsync(member, campaign.Id, null),
                 isDm ? WhisperTargets(campaign, characters).Select(c => new ChatTarget(c.Id!, c.Name ?? "Unnamed")).ToList() : new List<ChatTarget>(),
-                isDm ? new List<ChatSpeaker>() : mine.Select(c => new ChatSpeaker(c.Id!, c.Name ?? "Unnamed")).ToList());
+                isDm ? new List<ChatSpeaker>() : mine.Select(c => new ChatSpeaker(c.Id!, c.Name ?? "Unnamed")).ToList(),
+                characters.Where(c => !string.IsNullOrWhiteSpace(c.ImageUrl)).ToDictionary(c => c.Id!, c => c.ImageUrl!));
             return (member, room);
         }
 
