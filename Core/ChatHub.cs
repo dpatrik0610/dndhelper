@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace dndhelper.Core
@@ -93,12 +94,13 @@ namespace dndhelper.Core
             if (seat.Member.IsDm) yield return Dms(seat.CampaignId);
         }
 
-        /// <summary>Same rule as ChatMessage.VisibleTo: a whisper goes to the DMs, the sender and its target. Clients drop repeats by id.</summary>
+        /// <summary>Same rule as ChatMessage.VisibleTo: a whisper goes to the DMs, the sender and its target's owners. Clients drop repeats by id.</summary>
         private IClientProxy Audience(ChatMessage message)
         {
             if (!message.Whisper) return Clients.Group(All(message.CampaignId));
 
             var groups = new List<string> { Dms(message.CampaignId), User(message.CampaignId, message.UserId) };
+            groups.AddRange((message.ToUserIds ?? new List<string>()).Select(id => User(message.CampaignId, id)));
             if (message.ToUserId != null) groups.Add(User(message.CampaignId, message.ToUserId));
             return Clients.Groups(groups);
         }

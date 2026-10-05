@@ -62,7 +62,7 @@ namespace dndhelper.Services
                 campaign.Name,
                 isDm,
                 await PageAsync(member, campaign.Id, null),
-                isDm ? Players(campaign, characters) : new List<ChatPlayer>(),
+                isDm ? WhisperTargets(campaign, characters).Select(c => new ChatTarget(c.Id!, c.Name ?? "Unnamed")).ToList() : new List<ChatTarget>(),
                 isDm ? new List<ChatSpeaker>() : mine.Select(c => new ChatSpeaker(c.Id!, c.Name ?? "Unnamed")).ToList());
             return (member, room);
         }
@@ -84,14 +84,11 @@ namespace dndhelper.Services
                 name = character.Name ?? name;
             }
 
-            // Players whisper to the DMs; a DM whispers to one of the campaign's players.
-            string? toUserId = null, toName = null;
+            // Players whisper to the DMs; a DM whispers to one of the campaign's player characters (all its owners read it).
+            Character? to = null;
             if (request.Whisper && author.IsDm)
-            {
-                var to = Players(campaign, characters).FirstOrDefault(p => p.UserId == request.ToUserId)
-                    ?? throw new ArgumentException("Pick a player to whisper to.");
-                (toUserId, toName) = (to.UserId, to.Name);
-            }
+                to = WhisperTargets(campaign, characters).FirstOrDefault(c => c.Id == request.ToCharacterId)
+                    ?? throw new ArgumentException("Pick a character to whisper to.");
 
             var message = new ChatMessage
             {
@@ -102,8 +99,9 @@ namespace dndhelper.Services
                 IsDm = author.IsDm,
                 Text = text,
                 Whisper = request.Whisper,
-                ToUserId = toUserId,
-                ToName = toName,
+                ToCharacterId = to?.Id,
+                ToUserIds = to == null ? new List<string>() : PlayerOwners(campaign, to),
+                ToName = to?.Name,
                 CreatedAt = DateTime.UtcNow,
             };
             await _repository.AddAsync(message);
@@ -157,14 +155,15 @@ namespace dndhelper.Services
                 .Where(c => !c.IsDeleted && c.Id != null)
                 .ToList();
 
-        /// <summary>Character owners who aren't the campaign's DMs, named after their characters.</summary>
-        private static List<ChatPlayer> Players(Campaign campaign, List<Character> characters) =>
+        /// <summary>A character's owners who aren't the campaign's DMs.</summary>
+        private static List<string> PlayerOwners(Campaign campaign, Character character) =>
+            (character.OwnerIds ?? new List<string>()).Where(owner => !IsOwner(campaign, owner)).Distinct().ToList();
+
+        /// <summary>Characters a DM can whisper to: those with at least one player owner, by name.</summary>
+        private static List<Character> WhisperTargets(Campaign campaign, List<Character> characters) =>
             characters
-                .SelectMany(c => (c.OwnerIds ?? new List<string>()).Select(owner => (Owner: owner, Name: c.Name ?? "Unnamed")))
-                .Where(p => !IsOwner(campaign, p.Owner))
-                .GroupBy(p => p.Owner)
-                .Select(g => new ChatPlayer(g.Key, string.Join(", ", g.Select(p => p.Name))))
-                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Where(c => PlayerOwners(campaign, c).Count > 0)
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
         private static bool IsOwner(Campaign campaign, string userId) => campaign.OwnerIds?.Contains(userId) ?? false;

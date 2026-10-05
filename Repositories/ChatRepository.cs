@@ -37,7 +37,10 @@ namespace dndhelper.Repositories
             var filter = f.Eq(m => m.CampaignId, campaignId) & f.Eq(m => m.IsDeleted, false);
             // Same rule as ChatMessage.VisibleTo. Ne(true) also matches messages saved before whispers existed.
             if (!viewer.IsDm)
-                filter &= f.Ne(m => m.Whisper, true) | f.Eq(m => m.UserId, viewer.UserId) | f.Eq(m => m.ToUserId, viewer.UserId);
+                filter &= f.Ne(m => m.Whisper, true)
+                    | f.Eq(m => m.UserId, viewer.UserId)
+                    | f.AnyEq(m => m.ToUserIds, viewer.UserId)
+                    | f.Eq(m => m.ToUserId, viewer.UserId);
             if (beforeId != null)
                 filter &= f.Lt("_id", ObjectId.Parse(beforeId));
 

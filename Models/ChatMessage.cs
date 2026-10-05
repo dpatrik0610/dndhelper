@@ -30,12 +30,17 @@ namespace dndhelper.Models
         public bool IsDm { get; set; }
         public string Text { get; set; } = string.Empty;
 
-        /// <summary>Only the sender, the DMs and ToUserId (if any) see it.</summary>
+        /// <summary>Only the sender, the DMs and the target character's owners see it.</summary>
         public bool Whisper { get; set; }
-        /// <summary>The player a DM whispers to; null on a player's whisper, which goes to the DMs.</summary>
+        /// <summary>The character a DM whispers to; null on a player's whisper, which goes to the DMs.</summary>
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? ToCharacterId { get; set; }
+        /// <summary>That character's owners when it was sent, so a later owner change doesn't reveal or hide it.</summary>
+        public List<string> ToUserIds { get; set; } = new();
+        public string? ToName { get; set; }
+        /// <summary>Legacy: whispers sent to a person, before they went to characters. Still honoured for reading.</summary>
         [BsonRepresentation(BsonType.ObjectId)]
         public string? ToUserId { get; set; }
-        public string? ToName { get; set; }
 
         public DateTime? EditedAt { get; set; }
 
@@ -45,7 +50,7 @@ namespace dndhelper.Models
 
         /// <summary>Mirrored by the history query in ChatRepository.</summary>
         public bool VisibleTo(ChatMember viewer) =>
-            !Whisper || viewer.IsDm || UserId == viewer.UserId || ToUserId == viewer.UserId;
+            !Whisper || viewer.IsDm || UserId == viewer.UserId || ToUserId == viewer.UserId || (ToUserIds?.Contains(viewer.UserId) ?? false);
     }
 
     /// <summary>The signed-in user, before campaign membership is checked.</summary>
@@ -57,8 +62,8 @@ namespace dndhelper.Models
     /// <summary>A campaign the caller can chat in.</summary>
     public record ChatCampaign(string Id, string Name, bool IsDm);
 
-    /// <summary>A player the DM can whisper to; Name lists their characters in the campaign.</summary>
-    public record ChatPlayer(string UserId, string Name);
+    /// <summary>A player character the DM can whisper to; all its owners read the whisper.</summary>
+    public record ChatTarget(string CharacterId, string Name);
 
     /// <summary>A character the member can speak as.</summary>
     public record ChatSpeaker(string Id, string Name);
@@ -69,11 +74,11 @@ namespace dndhelper.Models
         string CampaignName,
         bool IsDm,
         ChatPage Page,
-        List<ChatPlayer> Players,
+        List<ChatTarget> WhisperTargets,
         List<ChatSpeaker> Characters);
 
-    /// <summary>ToUserId is for DM whispers only; a player's whisper always goes to the DMs.</summary>
-    public record ChatSendRequest(string Text, string? CharacterId, bool Whisper, string? ToUserId);
+    /// <summary>ToCharacterId is for DM whispers only; a player's whisper always goes to the DMs.</summary>
+    public record ChatSendRequest(string Text, string? CharacterId, bool Whisper, string? ToCharacterId);
 
     /// <summary>Messages oldest first, and whether older ones exist.</summary>
     public record ChatPage(List<ChatMessage> Messages, bool HasMore);
