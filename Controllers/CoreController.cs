@@ -1,9 +1,11 @@
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
+using dndhelper.Services.SignalR;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -22,10 +24,12 @@ namespace dndhelper.Controllers
         private readonly IMonsterRepository _monsters;
         private readonly IRuleRepository _rules;
         private readonly ICampaignRepository _campaigns;
+        private readonly IEntitySyncService _sync;
 
         public CoreController(ISpellRepository spells, IEquipmentRepository equipment, IMonsterRepository monsters,
-            IRuleRepository rules, ICampaignRepository campaigns)
+            IRuleRepository rules, ICampaignRepository campaigns, IEntitySyncService sync)
         {
+            _sync = sync;
             _spells = spells;
             _equipment = equipment;
             _monsters = monsters;
@@ -77,6 +81,7 @@ namespace dndhelper.Controllers
                 await _campaigns.UpdateAsync(campaign);
             }
 
+            await AnnounceAsync(coreType, id);
             return NoContent();
         }
 
@@ -105,8 +110,17 @@ namespace dndhelper.Controllers
                 default:
                     return BadRequest(new { message = $"Unknown core type '{type}'." });
             }
-            return moved ? NoContent() : NotFound(new { message = $"Nothing found with id {id}." });
+            if (!moved) return NotFound(new { message = $"Nothing found with id {id}." });
+            await AnnounceAsync(CoreContentTypes.All.First(t => t.Equals(type, StringComparison.OrdinalIgnoreCase)), id);
+            return NoContent();
         }
+
+        /// <summary>
+        /// Core content is one shared copy that every importing campaign reads live; this just tells open
+        /// browsers to refresh their cached lists. Only the type name goes out, so everyone can receive it.
+        /// </summary>
+        private Task AnnounceAsync(string coreType, string id) =>
+            _sync.BroadcastEntityUpdated("CoreContent", id, new { type = coreType }, User.Identity?.Name ?? "superadmin");
 
         private static NotFoundException Missing(string id) => new($"Nothing found with id {id}.");
     }
