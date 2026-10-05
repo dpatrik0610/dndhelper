@@ -35,6 +35,7 @@ public class ExceptionMiddleware
                 ConcurrencyException => (HttpStatusCode.Conflict, ex.Message),
                 ArgumentException => (HttpStatusCode.BadRequest, ex.Message),
                 InvalidOperationException => (HttpStatusCode.BadRequest, ex.Message),
+                ForbiddenException => (HttpStatusCode.Forbidden, ex.Message),
                 UnauthorizedAccessException => (HttpStatusCode.Unauthorized, ex.Message),
                 AlreadyExistsException => (HttpStatusCode.Conflict, ex.Message),
                 _ => (HttpStatusCode.InternalServerError, $"An unexpected error occurred: {ex.Message} ")

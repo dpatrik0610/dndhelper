@@ -26,7 +26,7 @@ namespace dndhelper.Services
             if (options == null) throw new ArgumentNullException(nameof(options));
 
             var normalizedOptions = NormalizeOptions(options);
-            var result = await _repository.QueryAsync(normalizedOptions);
+            var result = await _repository.QueryAsync(normalizedOptions, await ScopeFilterAsync());
 
             return new RuleListResponse
             {
@@ -41,7 +41,7 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(slug))
                 throw new ArgumentNullException(nameof(slug));
 
-            var rule = await _repository.GetBySlugAsync(slug);
+            var rule = await _repository.GetBySlugAsync(slug, await ScopeFilterAsync());
             return rule == null ? null : MapToDetailDto(rule);
         }
 
@@ -53,7 +53,7 @@ namespace dndhelper.Services
 
         public async Task<RuleStats> GetStatsAsync()
         {
-            return await _repository.GetStatsAsync();
+            return await _repository.GetStatsAsync(await ScopeFilterAsync());
         }
 
         public async Task<RuleDetailDto?> CreateRuleAsync(RuleDetailDto dto)
@@ -62,8 +62,9 @@ namespace dndhelper.Services
 
             var entity = MapToEntity(dto);
             ValidateRule(entity);
+            await Access.PrepareCreateAsync(entity);
             await EnsureCategoryExistsAsync(entity.Category);
-            await EnsureUniqueSlugAsync(entity.Slug, null);
+            await EnsureUniqueSlugAsync(entity.Slug, entity.CampaignId, null);
 
             entity.CreatedAt = DateTime.UtcNow;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -79,14 +80,15 @@ namespace dndhelper.Services
                 throw new ArgumentNullException(nameof(slug));
             if (dto == null) throw new ArgumentNullException(nameof(dto));
 
-            var existing = await _repository.GetBySlugAsync(slug);
+            var existing = await _repository.GetBySlugAsync(slug, await ScopeFilterAsync());
             if (existing == null)
                 return null;
 
+            await EnsureWriteAccess(existing);
             ApplyDtoToEntity(dto, existing);
             ValidateRule(existing);
             await EnsureCategoryExistsAsync(existing.Category);
-            await EnsureUniqueSlugAsync(existing.Slug, existing.Id);
+            await EnsureUniqueSlugAsync(existing.Slug, existing.CampaignId, existing.Id);
 
             existing.UpdatedAt = DateTime.UtcNow;
 
@@ -97,8 +99,9 @@ namespace dndhelper.Services
         public override async Task<Rule?> CreateAsync(Rule entity)
         {
             ValidateRule(entity);
+            await Access.PrepareCreateAsync(entity);
             await EnsureCategoryExistsAsync(entity.Category);
-            await EnsureUniqueSlugAsync(entity.Slug, null);
+            await EnsureUniqueSlugAsync(entity.Slug, entity.CampaignId, null);
 
             entity.CreatedAt = DateTime.UtcNow;
             entity.UpdatedAt = DateTime.UtcNow;
@@ -110,8 +113,11 @@ namespace dndhelper.Services
         public override async Task<Rule?> UpdateAsync(Rule entity)
         {
             ValidateRule(entity);
+            var existing = entity.Id == null ? null : await _repository.GetByIdAsync(entity.Id);
+            if (existing == null) return null;
+            await EnsureWriteAccess(existing);
             await EnsureCategoryExistsAsync(entity.Category);
-            await EnsureUniqueSlugAsync(entity.Slug, entity.Id);
+            await EnsureUniqueSlugAsync(entity.Slug, existing.CampaignId, entity.Id);
 
             entity.UpdatedAt = DateTime.UtcNow;
             return await _repository.UpdateAsync(entity);
@@ -168,6 +174,7 @@ namespace dndhelper.Services
             return new RuleSnippetDto
             {
                 Id = rule.Id,
+                CampaignId = rule.CampaignId,
                 Slug = rule.Slug,
                 Title = rule.Title,
                 Category = rule.Category,
@@ -184,6 +191,7 @@ namespace dndhelper.Services
             return new RuleDetailDto
             {
                 Id = snippet.Id,
+                CampaignId = snippet.CampaignId,
                 Slug = snippet.Slug,
                 Title = snippet.Title,
                 Category = snippet.Category,
@@ -229,12 +237,12 @@ namespace dndhelper.Services
                 throw new ArgumentException($"Category '{category}' does not exist. Create it first.");
         }
 
-        private async Task EnsureUniqueSlugAsync(string slug, string? excludeId)
+        private async Task EnsureUniqueSlugAsync(string slug, string? campaignId, string? excludeId)
         {
             if (string.IsNullOrWhiteSpace(slug))
                 throw new ArgumentException("Slug is required.");
 
-            var exists = await _repository.SlugExistsAsync(slug, excludeId);
+            var exists = await _repository.SlugExistsAsync(slug, campaignId, excludeId);
             if (exists)
             {
                 throw new ArgumentException("Slug must be unique.");

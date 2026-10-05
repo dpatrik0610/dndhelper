@@ -36,7 +36,7 @@ namespace dndhelper.Controllers
                 var note = await _noteService.GetByIdAsync(id);
                 return Ok(new { data = note, message = "Note retrieved successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error retrieving note {Id}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -57,7 +57,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = notes, message = "Notes retrieved successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error retrieving note list {Ids}", ids);
                 return StatusCode(500, new { message = ex.Message });
@@ -79,7 +79,7 @@ namespace dndhelper.Controllers
                 var created = await _noteService.CreateAsync(note);
                 return Ok(new { data = created, message = "Note created successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error creating note");
                 return StatusCode(500, new { message = ex.Message });
@@ -104,7 +104,7 @@ namespace dndhelper.Controllers
                 var saved = await _noteService.UpdateAsync(updatedNote);
                 return Ok(new { data = saved, message = "Note updated successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error updating note {Id}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -123,7 +123,7 @@ namespace dndhelper.Controllers
                 await _noteService.DeleteAsync(id);
                 return Ok(new { message = "Note deleted successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error deleting note {Id}", id);
                 return StatusCode(500, new { message = ex.Message });

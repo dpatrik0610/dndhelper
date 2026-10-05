@@ -99,13 +99,14 @@ namespace dndhelper.Services
         {
             var code = (joinCode ?? string.Empty).Trim().ToUpperInvariant();
             var table = await _repository.GetByJoinCodeAsync(code) ?? throw Fail("No table with that code.");
-            var campaign = await _campaigns.GetByIdAsync(table.CampaignId);
-            var isDm = campaign != null && IsDm(campaign, caller);
+            var campaign = await _campaigns.GetByIdAsync(table.CampaignId) ?? throw Fail("Campaign not found.");
+            var isDm = IsDm(campaign, caller);
+            if (!isDm && !campaign.IsMember(caller.UserId)) throw Fail("You're not in this campaign.");
 
             return new TableJoinResult(
                 table.Id!,
                 table.CampaignId,
-                campaign?.Name ?? "Campaign",
+                campaign.Name,
                 table.JoinCode,
                 isDm,
                 Snapshot(table, isDm),

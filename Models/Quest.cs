@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Quest : IEntity
+    public class Quest : IEntity, ICampaignScoped
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]

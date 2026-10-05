@@ -30,7 +30,7 @@ namespace dndhelper.Controllers
                 var equipment = await _service.GetAllAsync();
                 return Ok(equipment);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -44,7 +44,7 @@ namespace dndhelper.Controllers
                 if (equipment == null) return NotFound("Item not found by that ID.");
                 return Ok(equipment);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -62,7 +62,7 @@ namespace dndhelper.Controllers
 
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -77,7 +77,7 @@ namespace dndhelper.Controllers
                 if (equipment == null) return NotFound("Item not found by that Index.");
                 return Ok(equipment);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -96,7 +96,7 @@ namespace dndhelper.Controllers
                 var equipment = await _service.GetByIdsAsync(ids);
                 return Ok(equipment);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -110,7 +110,7 @@ namespace dndhelper.Controllers
                 var result = await _service.GetAllPaginatedAsync(page, pageSize, tag, tier, damageType, name);
                 return Ok(result);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -131,7 +131,7 @@ namespace dndhelper.Controllers
                 var created = await _service.CreateAsync(equipment);
                 return CreatedAtAction(nameof(GetById), new { id = created!.Id }, created);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -148,7 +148,7 @@ namespace dndhelper.Controllers
                 var createdItems = await _service.CreateManyAsync(equipments);
                 return Ok(createdItems);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -165,7 +165,7 @@ namespace dndhelper.Controllers
                 var updated = await _service.UpdateAsync(equipment);
                 return Ok(updated);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -182,7 +182,7 @@ namespace dndhelper.Controllers
                 var updated = await _service.UpdateAsync(equipment);
                 return Ok(updated);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
@@ -197,7 +197,7 @@ namespace dndhelper.Controllers
                 await _service.DeleteAsync(id);
                 return NoContent();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, new { error = ex.Message });
             }

@@ -52,6 +52,10 @@ public class CharacterController : ControllerBase
         if (string.IsNullOrEmpty(created?.Id)) 
             return StatusCode(500, "Server side error at character creation.");
 
+        // A character made while a campaign is selected is listed by that campaign right away.
+        if (!string.IsNullOrEmpty(created.CampaignId))
+            await _campaignService.AddCharacterAsync(created.CampaignId, created.Id);
+
 
         await BroadcastCharacterChangeAsync(created, "created", created);
 

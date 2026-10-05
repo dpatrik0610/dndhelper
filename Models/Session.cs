@@ -6,13 +6,14 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Session : IEntity, IOwnedResource
+    public class Session : IEntity, IOwnedResource, ICampaignScoped
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
 
         // Relationships
+        [BsonRepresentation(BsonType.ObjectId)]
         public string CampaignId { get; set; } = string.Empty;
         public List<string> OwnerIds { get; set; } = new();
         public List<string> NoteIds { get; set; } = new();

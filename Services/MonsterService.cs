@@ -17,28 +17,28 @@ namespace dndhelper.Services
         {
         }
 
-        public Task<List<Monster>> GetMonstersByNameAsync(string name)
+        public async Task<List<Monster>> GetMonstersByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Monster name cannot be null or empty.");
 
-            return _repository.FindByNamePhraseAsync(name);
+            return await _repository.FindByNamePhraseAsync(name, await ScopeFilterAsync());
         }
 
-        public Task<List<Monster>> GetPagedMonstersAsync(int page, int pageSize)
+        public async Task<List<Monster>> GetPagedMonstersAsync(int page, int pageSize)
         {
             if (page <= 0 || pageSize <= 0)
                 throw new ArgumentException("Page and page size must be greater than zero.");
-            return _repository.GetPagedAsync(page, pageSize);
+            return await _repository.GetPagedAsync(await ScopeFilterAsync(), page, pageSize);
         }
 
-        public Task<List<Monster>> SearchMonstersAsync(string query, int page, int pageSize)
+        public async Task<List<Monster>> SearchMonstersAsync(string query, int page, int pageSize)
         {
             if (string.IsNullOrWhiteSpace(query))
                 throw new ArgumentException("Search query cannot be null or empty.");
             if (page <= 0 || pageSize <= 0)
                 throw new ArgumentException("Page and page size must be greater than zero.");
-            return _repository.SearchAsync(query, page, pageSize);
+            return await _repository.SearchAsync(await ScopeFilterAsync(), query, page, pageSize);
         }
 
         public async Task<bool> DeleteOwnMonsterAsync(string monsterId, string userId)
@@ -51,6 +51,7 @@ namespace dndhelper.Services
             var monster = await _repository.GetByIdAsync(monsterId);
             if (monster == null) return false;
 
+            await EnsureWriteAccess(monster);
             if (monster.CreatedByUserId != userId)
                 throw new UnauthorizedAccessException("User does not own this monster.");
 
@@ -63,7 +64,7 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(ownerId))
                 throw new ArgumentException("Owner ID cannot be null or empty.");
 
-            var monsters = await _repository.FindByOwnerIdAsync(ownerId);
+            var monsters = await _repository.FindByOwnerIdAsync(await ScopeFilterAsync(), ownerId);
             return monsters;
         }
 
@@ -79,6 +80,7 @@ namespace dndhelper.Services
             var monster = await _repository.GetByIdAsync(monsterId);
             if (monster == null) return false;
 
+            await EnsureWriteAccess(monster);
             if (monster.CreatedByUserId != requesterUserId)
                 throw new UnauthorizedAccessException("User is not allowed to switch ownership.");
 
@@ -99,6 +101,7 @@ namespace dndhelper.Services
             var monster = await _repository.GetByIdAsync(monsterId);
             if (monster == null) return false;
 
+            await EnsureWriteAccess(monster);
             if (monster.CreatedByUserId != requesterUserId)
                 throw new UnauthorizedAccessException("User is not allowed to add owners.");
 
@@ -115,13 +118,13 @@ namespace dndhelper.Services
             if (criteria == null)
                 throw new ArgumentNullException(nameof(criteria));
 
-            var monsters = await _repository.SearchAsync(criteria);
+            var monsters = await _repository.SearchAsync(await ScopeFilterAsync(), criteria);
 
             return monsters;
         }
-        public Task<long> GetCountAsync()
+        public async Task<long> GetCountAsync()
         {
-            return _repository.GetCountAsync();
+            return await _repository.GetCountAsync(await ScopeFilterAsync());
         }
     }
 }

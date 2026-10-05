@@ -39,6 +39,7 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(campaignId))
                 throw new ArgumentNullException(nameof(campaignId));
 
+            await Access.EnsureMemberAsync(campaignId);
             var sessions = await _repository.GetByCampaignIdAsync(campaignId);
             return sessions;
         }

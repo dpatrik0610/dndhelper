@@ -1,5 +1,6 @@
 using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
+using dndhelper.Authorization;
 using dndhelper.Authorization.Policies;
 using dndhelper.Database;
 using dndhelper.Database.Seed;
@@ -19,6 +20,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson.Serialization.Conventions;
 using Serilog;
 using System;
 using System.Text;
@@ -43,6 +45,10 @@ namespace dndhelper.Core
             #endregion
 
             #region Database
+            // Unknown fields are ignored on read, so adding or dropping model properties never breaks old documents.
+            ConventionRegistry.Register("IgnoreExtraElements",
+                new ConventionPack { new IgnoreExtraElementsConvention(true) }, _ => true);
+
             services.AddSingleton(sp =>
             {
                 var connectionString = config["MongoDB:ConnectionString"];
@@ -124,7 +130,8 @@ namespace dndhelper.Core
                 options.AddPolicy("OwnershipPolicy", policy =>
                     policy.Requirements.Add(new OwnershipRequirement()));
             });
-            services.AddSingleton<IAuthorizationHandler, OwnershipHandler>();
+            services.AddScoped<CampaignAccess>();
+            services.AddScoped<IAuthorizationHandler, OwnershipHandler>();
             #endregion
 
             #region Repos
@@ -165,6 +172,7 @@ namespace dndhelper.Core
             services.AddScoped<INoteService, NoteService>();
             services.AddScoped<ISessionService, SessionService>();
             services.AddScoped<IBackupService, BackupService>();
+            services.AddScoped<Database.Migrations.CampaignScopeMigration>();
             services.AddScoped<IRuleService, RuleService>();
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
             services.AddScoped<ITabletopService, TabletopService>();

@@ -1,15 +1,18 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Spell : IEntity
+    public class Spell : IEntity, ICampaignContent
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CampaignId { get; set; }
 
         [BsonElement("index")]
         public string? Index { get; set; }

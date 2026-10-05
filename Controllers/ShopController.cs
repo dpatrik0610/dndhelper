@@ -64,7 +64,7 @@ namespace dndhelper.Controllers
                 await BroadcastShopChangeAsync(created, "created", created);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return BadRequest(ex.Message);
             }
@@ -78,7 +78,7 @@ namespace dndhelper.Controllers
                 var items = await _shopService.GetShopItemsAsync(shopId);
                 return Ok(items);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Failed to get shop items.");
                 return StatusCode(500, "An error occurred fetching the shop items.");
@@ -122,7 +122,7 @@ namespace dndhelper.Controllers
                 await _entitySyncService.BroadcastEntityUpdated("SellRequest", created.Id!, created, User.Identity?.Name ?? "Player");
                 return Ok(created);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return BadRequest(ex.Message);
             }
@@ -140,7 +140,7 @@ namespace dndhelper.Controllers
             {
                 return Unauthorized(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return BadRequest(ex.Message);
             }
@@ -165,7 +165,7 @@ namespace dndhelper.Controllers
             {
                 return BadRequest(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return BadRequest(ex.Message);
             }
@@ -186,7 +186,7 @@ namespace dndhelper.Controllers
             {
                 return Unauthorized(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return BadRequest(ex.Message);
             }
@@ -238,7 +238,7 @@ namespace dndhelper.Controllers
                     updatedBy: User.Identity?.Name ?? "System"
                 );
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Failed to broadcast Shop update over SignalR. ShopId={ShopId}", shop.Id);
             }

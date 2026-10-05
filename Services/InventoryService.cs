@@ -139,9 +139,18 @@ namespace dndhelper.Services
             }
         }
 
+        /// <summary>
+        /// Only the DM of the target campaign (or the superadmin) creates inventories. A character's
+        /// starting inventory is made by CharacterService on creation, so players never need this.
+        /// </summary>
         public override async Task<Inventory?> CreateAsync(Inventory entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+            var campaignId = string.IsNullOrWhiteSpace(entity.CampaignId) ? Access.CurrentCampaignId : entity.CampaignId;
+            if (campaignId == null ? !Access.IsSuperAdmin : !await Access.IsDmAsync(campaignId))
+                throw new ForbiddenException("Only the campaign's DM can create inventories.");
+            entity.CampaignId = campaignId;
 
             var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
 

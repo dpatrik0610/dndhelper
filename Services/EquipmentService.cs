@@ -25,10 +25,9 @@ namespace dndhelper.Services
 
         public async Task<Equipment?> GetEquipmentByIndexAsync(string index)
         {
-            var local = await _repository.GetByIndexAsync(index);
-            if (local != null) return local;
-
-            return null;
+            var local = await _repository.GetByIndexAsync(index, await ScopeFilterAsync());
+            if (local != null) await EnsureReadAccess(local);
+            return local;
         }
         public async Task<List<Equipment>> SearchByName(string name)
         {
@@ -37,7 +36,7 @@ namespace dndhelper.Services
 
             try
             {
-                var allItems = await _repository.GetAllAsync();
+                var allItems = await GetAllInScopeAsync();
 
                 if (allItems == null || !allItems.Any())
                 {
@@ -74,20 +73,15 @@ namespace dndhelper.Services
 
         public async Task<bool> CheckIfIndexExists(string index)
         {
-            var localExists = await _repository.GetByIndexAsync(index) != null;
+            var localExists = await _repository.GetByIndexAsync(index, await ScopeFilterAsync()) != null;
             if (localExists) return true;
 
             return false;
         }
 
-        public async Task<List<Equipment>> GetByIdsAsync(IEnumerable<string> ids)
-        {
-            return await _repository.GetByIdsAsync(ids);
-        }
-
         public async Task<IEnumerable<EquipmentUserResponse>> GetByIdsForUserAsync(IEnumerable<string> ids)
         {
-            var equipments = await _repository.GetByIdsAsync(ids);
+            var equipments = await GetByIdsAsync(ids);
 
             return equipments.Select(equipment => new EquipmentUserResponse()
             {
@@ -104,7 +98,7 @@ namespace dndhelper.Services
 
         public async Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null)
         {
-            return await _repository.GetAllPaginatedAsync(page, pageSize, tag, tier, damageType, name);
+            return await _repository.GetAllPaginatedAsync(await ScopeFilterAsync(), page, pageSize, tag, tier, damageType, name);
         }
 
     }

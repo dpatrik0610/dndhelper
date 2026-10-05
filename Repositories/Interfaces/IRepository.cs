@@ -1,4 +1,5 @@
 ﻿using dndhelper.Models;
+using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -9,6 +10,8 @@ namespace dndhelper.Repositories.Interfaces
         Task<T?> GetByIdAsync(string id);
         Task<List<T>> GetByIdsAsync(IEnumerable<string> ids);
         Task<IEnumerable<T>> GetAllAsync();
+        Task<List<T>> FindAsync(FilterDefinition<T> filter);
+        Task<bool> SetCampaignAsync(string id, string? campaignId);
         Task<T> CreateAsync(T entity);
         Task<List<T>> CreateManyAsync(List<T> entities);
         Task<T?> UpdateAsync(T entity);

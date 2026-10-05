@@ -38,7 +38,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = quest, message = "Quest retrieved successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error retrieving quest {Id}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -57,7 +57,7 @@ namespace dndhelper.Controllers
                 var quests = await _questService.GetByCampaignIdAsync(campaignId);
                 return Ok(new { data = quests, message = "Quests retrieved successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error retrieving quests for campaign {CampaignId}", campaignId);
                 return StatusCode(500, new { message = ex.Message });
@@ -79,7 +79,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = created, message = "Quest created successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error creating quest");
                 return StatusCode(500, new { message = ex.Message });
@@ -104,7 +104,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = updated, message = "Quest updated successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error updating quest {QuestId}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -126,7 +126,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { message = "Quest deleted successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error deleting quest {QuestId}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -151,7 +151,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = updatedQuest, message = "Objective added successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error adding objective to quest {QuestId}", questId);
                 return StatusCode(500, new { message = ex.Message });
@@ -176,7 +176,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = updatedQuest, message = "Objective updated successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error updating objective in quest {QuestId}", questId);
                 return StatusCode(500, new { message = ex.Message });
@@ -201,7 +201,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { data = updatedQuest, message = "Objective deleted successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error deleting objective from quest {QuestId}", questId);
                 return StatusCode(500, new { message = ex.Message });

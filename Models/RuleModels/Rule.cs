@@ -6,11 +6,14 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models.RuleModels
 {
-    public class Rule : IEntity
+    public class Rule : IEntity, ICampaignContent
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CampaignId { get; set; }
 
         [BsonRequired]
         [BsonElement("slug")]

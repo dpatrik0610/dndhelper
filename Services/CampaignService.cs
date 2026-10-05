@@ -14,6 +14,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services
@@ -23,6 +24,7 @@ namespace dndhelper.Services
         private readonly IUserRepository _userRepository;
         private readonly ICharacterRepository _characterRepository;
         private readonly IEncounterRepository _encounterRepository;
+        private readonly IInventoryRepository _inventoryRepository;
         private readonly IEntitySyncService _entitySyncService;
         private readonly IAuthService _authService;
 
@@ -34,12 +36,14 @@ namespace dndhelper.Services
             IHttpContextAccessor httpContextAccessor,
             ICharacterRepository characterRepository,
             IEncounterRepository encounterRepository,
+            IInventoryRepository inventoryRepository,
             IEntitySyncService entitySyncService,
             IAuthService authService) : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _userRepository = Guard.NotNull(userRepository, nameof(userRepository));
             _characterRepository = Guard.NotNull(characterRepository, nameof(characterRepository));
             _encounterRepository = Guard.NotNull(encounterRepository, nameof(encounterRepository));
+            _inventoryRepository = Guard.NotNull(inventoryRepository, nameof(inventoryRepository));
             _entitySyncService = Guard.NotNull(entitySyncService, nameof(entitySyncService));
             _authService = Guard.NotNull(authService, nameof(authService));
         }
@@ -57,8 +61,12 @@ namespace dndhelper.Services
                 throw CustomExceptions.ThrowCustomException(_logger, $"User not found with ID: {userId}");
 
             campaign.CreatedAt = DateTime.UtcNow;
-            if (campaign.OwnerIds.IsNullOrEmpty())
-                campaign.OwnerIds = new List<string>();
+            // The creator is the campaign's DM; membership never comes from the client.
+            campaign.Members = new List<CampaignMember>();
+            campaign.AddMember(userId, CampaignRoles.Dm);
+            campaign.InviteCode = NewInviteCode();
+            campaign.CoreImports ??= new List<string>();
+            campaign.CoreImports = campaign.CoreImports.Intersect(CoreContentTypes.All).ToList();
 
             _logger.Debug("Creating entity of type {EntityType}", typeof(Campaign).Name);
 
@@ -86,9 +94,7 @@ namespace dndhelper.Services
             if (user == null)
                 throw CustomExceptions.ThrowCustomException(_logger, $"User not found with ID: {userId}");
 
-            var campaign = await _repository.GetByIdAsync(campaignId);
-            if (campaign == null)
-                throw CustomExceptions.ThrowCustomException(_logger, $"Campaign not found with ID: {campaignId}");
+            var campaign = await Access.EnsureDmAsync(campaignId);
 
             // Logical delete
             var deleted = await _repository.LogicDeleteAsync(campaignId);
@@ -106,16 +112,160 @@ namespace dndhelper.Services
 
         public async Task<List<string>> GetCampaignDMIdsAsync(string campaignId)
         {
-            List<User> users = new List<User>();
             var campaign = await _repository.GetByIdAsync(campaignId);
+            var dmIds = campaign?.DmIds() ?? new List<string>();
+            if (dmIds.Count == 0)
+                return dmIds;
 
-            if (campaign == null || campaign.OwnerIds.IsNullOrEmpty())
-                return new List<string> { };
-
-            users = await _userRepository.GetByIdsAsync(campaign.OwnerIds!);
-
+            var users = await _userRepository.GetByIdsAsync(dmIds);
             return users.Select(x => x.Id).ToList();
         }
+
+        // ------------------------
+        // ACCESS: members read, DMs write. The superadmin sees every campaign.
+        // ------------------------
+        public override async Task<Campaign?> GetByIdAsync(string id)
+        {
+            var campaign = await _repository.GetByIdAsync(id);
+            if (campaign != null)
+                await Access.EnsureMemberAsync(id);
+            return campaign;
+        }
+
+        /// <summary>Campaigns I'm a member of. The superadmin too: everything else is in GetOverviewOfAllAsync.</summary>
+        public override async Task<IEnumerable<Campaign>> GetAllAsync() =>
+            await _repository.GetForMemberAsync(Access.UserId ?? string.Empty);
+
+        /// <summary>Superadmin overview of every campaign on the site.</summary>
+        public async Task<List<CampaignSummaryDto>> GetOverviewOfAllAsync()
+        {
+            if (!Access.IsSuperAdmin)
+                throw new ForbiddenException("Only the superadmin can list every campaign.");
+
+            var campaigns = (await _repository.GetAllAsync()).ToList();
+            var dmIds = campaigns.SelectMany(c => c.DmIds()).Distinct().ToList();
+            var names = (await _userRepository.GetByIdsAsync(dmIds)).ToDictionary(u => u.Id, u => u.Username);
+
+            return campaigns
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new CampaignSummaryDto
+                {
+                    Id = c.Id!,
+                    Name = c.Name,
+                    Description = c.Description,
+                    IsActive = c.IsActive,
+                    CreatedAt = c.CreatedAt,
+                    Dms = c.DmIds().Select(id => names.GetValueOrDefault(id) ?? "(deleted user)").ToList(),
+                    MemberCount = c.Members?.Count ?? 0,
+                    CharacterCount = c.CharacterIds?.Count ?? 0,
+                    AmIMember = c.IsMember(Access.UserId),
+                })
+                .ToList();
+        }
+
+        public override async Task<Campaign?> UpdateAsync(Campaign campaign)
+        {
+            var existing = await Access.EnsureDmAsync(campaign.Id);
+
+            // Membership, invite code and core imports have their own endpoints.
+            campaign.Members = existing.Members;
+            campaign.OwnerIds = existing.OwnerIds;
+            campaign.InviteCode = existing.InviteCode;
+            campaign.CoreImports = existing.CoreImports;
+            campaign.UpdatedAt = DateTime.UtcNow;
+            return await _repository.UpdateAsync(campaign);
+        }
+
+        // ------------------------
+        // MEMBERSHIP
+        // ------------------------
+        public async Task<Campaign> JoinAsync(string inviteCode)
+        {
+            Guard.NotNullOrWhiteSpace(inviteCode, nameof(inviteCode));
+            var userId = Access.UserId ?? throw new UnauthorizedAccessException("Not logged in.");
+
+            var campaign = await _repository.GetByInviteCodeAsync(inviteCode.Trim().ToUpperInvariant())
+                ?? throw new NotFoundException("No campaign with that invite code.");
+
+            if (campaign.IsMember(userId))
+                return campaign;
+
+            campaign.AddMember(userId, CampaignRoles.Player);
+            return await SaveMembershipAsync(campaign);
+        }
+
+        public async Task<List<CampaignMemberDto>> GetMembersAsync(string campaignId)
+        {
+            var campaign = await Access.EnsureMemberAsync(campaignId);
+            var users = await _userRepository.GetByIdsAsync(campaign.Members.Select(m => m.UserId));
+            var names = users.ToDictionary(u => u.Id, u => u.Username);
+
+            return campaign.Members.Select(m => new CampaignMemberDto
+            {
+                UserId = m.UserId,
+                Username = names.GetValueOrDefault(m.UserId) ?? "(deleted user)",
+                Roles = m.Roles
+            }).ToList();
+        }
+
+        public async Task<Campaign> SetMemberRolesAsync(string campaignId, string userId, List<string> roles)
+        {
+            var campaign = await Access.EnsureDmAsync(campaignId);
+            var member = campaign.GetMember(userId) ?? throw new NotFoundException("User is not a member of this campaign.");
+
+            roles = roles.Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim()).Distinct().ToList();
+            if (roles.Count == 0)
+                throw new ArgumentException("A member needs at least one role.");
+
+            var wasDm = member.Roles.Contains(CampaignRoles.Dm);
+            if (wasDm && !roles.Contains(CampaignRoles.Dm) && campaign.DmIds().Count == 1)
+                throw new ArgumentException("A campaign needs at least one DM.");
+
+            member.Roles = roles;
+            campaign.SyncOwners();
+            return await SaveMembershipAsync(campaign);
+        }
+
+        /// <summary>DMs remove anyone; members may remove themselves (leave).</summary>
+        public async Task<Campaign> RemoveMemberAsync(string campaignId, string userId)
+        {
+            var campaign = userId == Access.UserId
+                ? await Access.EnsureMemberAsync(campaignId)
+                : await Access.EnsureDmAsync(campaignId);
+
+            var member = campaign.GetMember(userId) ?? throw new NotFoundException("User is not a member of this campaign.");
+            if (member.Roles.Contains(CampaignRoles.Dm) && campaign.DmIds().Count == 1)
+                throw new ArgumentException("The last DM can't leave. Make someone else DM first.");
+
+            campaign.Members.Remove(member);
+            campaign.SyncOwners();
+            return await SaveMembershipAsync(campaign);
+        }
+
+        public async Task<Campaign> RegenerateInviteCodeAsync(string campaignId)
+        {
+            var campaign = await Access.EnsureDmAsync(campaignId);
+            campaign.InviteCode = NewInviteCode();
+            return await SaveMembershipAsync(campaign);
+        }
+
+        public async Task<Campaign> SetCoreImportsAsync(string campaignId, List<string> types)
+        {
+            var campaign = await Access.EnsureDmAsync(campaignId);
+            campaign.CoreImports = (types ?? new()).Intersect(CoreContentTypes.All).ToList();
+            return await SaveMembershipAsync(campaign);
+        }
+
+        // UpdateAsync skips nulls but writes lists whole, so these fields round-trip as set here.
+        private async Task<Campaign> SaveMembershipAsync(Campaign campaign)
+        {
+            campaign.UpdatedAt = DateTime.UtcNow;
+            return await _repository.UpdateAsync(campaign)
+                ?? throw new InvalidOperationException("Failed to save campaign.");
+        }
+
+        private static string NewInviteCode() =>
+            RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 8);
 
         // ------------------------
         // PLAYER MANAGEMENT
@@ -135,10 +285,104 @@ namespace dndhelper.Services
         public async Task<Campaign?> AddCharacterAsync(string campaignId, string characterId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);
-            if (campaign == null || campaign.CharacterIds.Contains(characterId)) return campaign;
+            if (campaign == null) return null;
 
-            campaign.CharacterIds.Add(characterId);
+            var character = await _characterRepository.GetByIdAsync(characterId)
+                ?? throw new NotFoundException("Character not found.");
+
+            // Keep both sides of the link in sync, and make the character's owners players.
+            if (character.CampaignId != campaignId)
+                await _characterRepository.SetCampaignAsync(characterId, campaignId);
+
+            if (!campaign.CharacterIds.Contains(characterId))
+                campaign.CharacterIds.Add(characterId);
+            foreach (var ownerId in character.OwnerIds ?? new List<string>())
+                if (!campaign.IsMember(ownerId))
+                    campaign.AddMember(ownerId, CampaignRoles.Player);
+
             return await _repository.UpdateAsync(campaign);
+        }
+
+        /// <summary>
+        /// DM hands a character to one or more campaign members (e.g. a character the DM built for a player).
+        /// Keeps the owners' character lists and the character's inventories in step.
+        /// </summary>
+        public async Task<Character> SetCharacterOwnersAsync(string campaignId, string characterId, List<string> ownerIds)
+        {
+            var campaign = await Access.EnsureDmAsync(campaignId);
+            var character = await _characterRepository.GetByIdAsync(characterId)
+                ?? throw new NotFoundException("Character not found.");
+            if (character.CampaignId != campaignId)
+                throw new ArgumentException("That character isn't in this campaign.");
+
+            ownerIds = (ownerIds ?? new()).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+            if (ownerIds.Count == 0)
+                throw new ArgumentException("A character needs at least one player.");
+            var outsider = ownerIds.FirstOrDefault(id => !campaign.IsMember(id));
+            if (outsider != null)
+                throw new ArgumentException("Only members of this campaign can be given a character.");
+
+            var previous = character.OwnerIds ?? new List<string>();
+            character.OwnerIds = ownerIds;
+            character = await _characterRepository.UpdateAsync(character)
+                ?? throw new InvalidOperationException("Failed to save character.");
+
+            foreach (var added in ownerIds.Except(previous))
+                await _userRepository.AddCharacterIdAsync(added, characterId);
+            foreach (var removed in previous.Except(ownerIds))
+                await _userRepository.RemoveCharacterIdAsync(removed, characterId);
+
+            // An inventory belongs to the owners of all its characters.
+            foreach (var inventory in await _inventoryRepository.GetByCharacterIdAsync(characterId))
+            {
+                var characters = await _characterRepository.GetByIdsAsync(inventory.CharacterIds ?? new List<string>());
+                inventory.OwnerIds = characters.SelectMany(c => c.OwnerIds ?? new List<string>()).Distinct().ToList();
+                await _inventoryRepository.UpdateAsync(inventory);
+            }
+
+            if (!campaign.CharacterIds.Contains(characterId))
+                await AddCharacterAsync(campaignId, characterId);
+
+            await BroadcastOwnersChangedAsync(campaign, character, previous);
+            return character;
+        }
+
+        /// <summary>
+        /// Live update: new players get "assigned" (the character appears in their list), dropped players
+        /// get "unassigned" (it disappears), everyone else who can see it gets a plain "updated".
+        /// </summary>
+        private async Task BroadcastOwnersChangedAsync(Campaign campaign, Character character, List<string> previousOwners)
+        {
+            var user = await _authService.GetUserFromTokenAsync();
+            var owners = character.OwnerIds ?? new List<string>();
+            var dms = campaign.DmIds();
+
+            var groups = new[]
+            {
+                ("assigned", owners.Except(previousOwners)),
+                ("unassigned", previousOwners.Except(owners).Except(dms)),
+                ("updated", owners.Intersect(previousOwners).Union(dms)),
+            };
+
+            foreach (var (action, recipients) in groups)
+            {
+                var ids = recipients.Distinct().ToList();
+                if (ids.Count == 0) continue;
+
+                await _entitySyncService.BroadcastToUsers(
+                    "EntityChanged",
+                    new
+                    {
+                        entityType = "Character",
+                        entityId = character.Id,
+                        action,
+                        data = character,
+                        changedBy = user.Username,
+                        timestamp = DateTime.UtcNow,
+                    },
+                    ids,
+                    excludeUserId: user.Id);
+            }
         }
 
         public async Task<Campaign?> RemoveCharacterAsync(string campaignId, string characterId)
@@ -147,6 +391,8 @@ namespace dndhelper.Services
             if (campaign == null) return null;
 
             campaign.CharacterIds.Remove(characterId);
+            if ((await _characterRepository.GetByIdAsync(characterId))?.CampaignId == campaignId)
+                await _characterRepository.SetCampaignAsync(characterId, null);
             return await _repository.UpdateAsync(campaign);
         }
 

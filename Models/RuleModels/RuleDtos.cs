@@ -14,6 +14,8 @@ namespace dndhelper.Models.RuleModels
     public class RuleSnippetDto
     {
         public string? Id { get; set; }
+        // Null = core rule (read-only outside the superadmin). Ignored on input.
+        public string? CampaignId { get; set; }
         public string Slug { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;

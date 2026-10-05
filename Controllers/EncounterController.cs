@@ -97,7 +97,7 @@ namespace dndhelper.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error creating encounter");
                 return StatusCode(500, new { message = ex.Message });
@@ -123,7 +123,7 @@ namespace dndhelper.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error updating encounter {EncounterId}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -146,7 +146,7 @@ namespace dndhelper.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error deleting encounter {EncounterId}", id);
                 return StatusCode(500, new { message = ex.Message });

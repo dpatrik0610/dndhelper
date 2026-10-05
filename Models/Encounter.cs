@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 
 namespace dndhelper.Models
 {
-    public class Encounter : IEntity, IOwnedResource
+    public class Encounter : IEntity, IOwnedResource, ICampaignScoped
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]

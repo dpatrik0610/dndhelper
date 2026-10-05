@@ -1,15 +1,18 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System;
 namespace dndhelper.Models
 {
-    public class Equipment : IEntity
+    public class Equipment : IEntity, ICampaignContent
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; } = null;
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CampaignId { get; set; }
         public string Index { get; set; } = null!;
         public string Name { get; set; } = null!;
         [JsonProperty("desc")]

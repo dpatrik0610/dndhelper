@@ -5,11 +5,14 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Note : IEntity
+    public class Note : IEntity, ICampaignScoped
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CampaignId { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public bool IsDeleted { get; set; }

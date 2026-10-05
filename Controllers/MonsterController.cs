@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
 {
+    // Campaign membership / DM rights are enforced in MonsterService.
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class MonsterController : ControllerBase
@@ -25,7 +27,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "User,Admin")]
         public async Task<IActionResult> GetById(string id)
         {
             try
@@ -41,7 +42,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("name/{name}")]
-        [Authorize(Roles = "User,Admin")]
         public async Task<IActionResult> GetByName(string name)
         {
             try
@@ -59,7 +59,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "User,Admin")]
         public async Task<IActionResult> GetAll()
         {
             var monsters = await _monsterService.GetAllAsync();
@@ -67,7 +66,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("paged")]
-        [Authorize(Roles = "User,Admin")]
         public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             try
@@ -82,7 +80,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("search")]
-        [Authorize(Roles = "User,Admin,DungeonMaster")]
         public async Task<IActionResult> Search(
             [FromQuery] string? name,
             [FromQuery] string? type,
@@ -121,7 +118,6 @@ namespace dndhelper.Controllers
         // --- Admin only ---
 
         [HttpPost]
-        [Authorize(Roles = "DungeonMaster,Admin")]
         public async Task<IActionResult> Create([FromBody] Monster monster)
         {
             try
@@ -144,7 +140,6 @@ namespace dndhelper.Controllers
 
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(string id, [FromBody] Monster monster)
         {
             if (id != monster.Id)
@@ -162,7 +157,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(string id)
         {
             try
@@ -177,7 +171,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpPatch("soft-delete/{id}")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> LogicDelete(string id)
         {
             try
@@ -193,7 +186,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpDelete("delete-own/{id}")]
-        [Authorize(Roles = "DungeonMaster,Admin")]
         public async Task<IActionResult> DeleteOwn(string id)
         {
             try
@@ -215,7 +207,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpPost("{monsterId}/switch-owner/{id}")]
-        [Authorize(Roles = "DungeonMaster,Admin")]
         public async Task<IActionResult> SwitchOwner(string monsterId, string id)
         {
             try
@@ -236,7 +227,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("{monsterId}/addOwner/{newOwner}")]
-        [Authorize(Roles = "DungeonMaster,Admin")]
         public async Task<IActionResult> AddOwner(string monsterId, string newOwner)
         {
             try
@@ -258,7 +248,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("count")]
-        [Authorize(Roles = "User,Admin,DungeonMaster")]
         public async Task<IActionResult> GetCount()
         {
             try

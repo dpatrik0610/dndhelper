@@ -1,4 +1,5 @@
 using dndhelper.Authentication.Interfaces;
+using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -18,13 +20,50 @@ namespace dndhelper.Controllers
         private readonly ICampaignService _campaignService;
         private readonly IAuthService _authService;
         private readonly ILogger _logger;
+        private readonly CampaignAccess _access;
 
-        public CampaignController(ICampaignService service, IAuthService authService, ILogger logger)
+        public CampaignController(ICampaignService service, IAuthService authService, ILogger logger, CampaignAccess access)
         {
             _campaignService = service;
             _authService = authService;
             _logger = logger;
+            _access = access;
         }
+
+        // ------------------------
+        // MEMBERSHIP
+        // ------------------------
+        public record JoinRequest(string Code);
+
+        /// <summary>Superadmin only: every campaign on the site (the normal list is just my campaigns).</summary>
+        [HttpGet("all")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetOverviewOfAll() =>
+            Ok(await _campaignService.GetOverviewOfAllAsync());
+
+        [HttpPost("join")]
+        public async Task<IActionResult> Join([FromBody] JoinRequest request) =>
+            Ok(await _campaignService.JoinAsync(request.Code));
+
+        [HttpGet("{id}/members")]
+        public async Task<IActionResult> GetMembers(string id) =>
+            Ok(await _campaignService.GetMembersAsync(id));
+
+        [HttpPut("{id}/members/{userId}/roles")]
+        public async Task<IActionResult> SetMemberRoles(string id, string userId, [FromBody] List<string> roles) =>
+            Ok(await _campaignService.SetMemberRolesAsync(id, userId, roles));
+
+        [HttpDelete("{id}/members/{userId}")]
+        public async Task<IActionResult> RemoveMember(string id, string userId) =>
+            Ok(await _campaignService.RemoveMemberAsync(id, userId));
+
+        [HttpPost("{id}/invite-code")]
+        public async Task<IActionResult> RegenerateInviteCode(string id) =>
+            Ok(await _campaignService.RegenerateInviteCodeAsync(id));
+
+        [HttpPut("{id}/core-imports")]
+        public async Task<IActionResult> SetCoreImports(string id, [FromBody] List<string> types) =>
+            Ok(await _campaignService.SetCoreImportsAsync(id, types));
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -50,6 +89,7 @@ namespace dndhelper.Controllers
             var campaign = await _campaignService.GetByIdInternalAsync(id);
             if (campaign == null)
                 return NotFound(new { message = "Campaign not found." });
+            await _access.EnsureMemberAsync(id);
 
             return Ok(new
             {
@@ -85,7 +125,7 @@ namespace dndhelper.Controllers
             {
                 return Unauthorized(ex.Message);
             }
-            catch (System.Exception ex)
+            catch (System.Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error getting campaign overview for character {CharacterId}", characterId);
                 return StatusCode(500, ex.Message);
@@ -104,7 +144,7 @@ namespace dndhelper.Controllers
                 var created = await _campaignService.CreateAsync(campaign, userId);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
-            catch (System.Exception ex)
+            catch (System.Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, ex.Message);
             }
@@ -132,7 +172,7 @@ namespace dndhelper.Controllers
                 var success = await _campaignService.DeleteAsync(id, userId);
                 return success ? Ok() : NotFound();
             }
-            catch (System.Exception ex)
+            catch (System.Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 return StatusCode(500, ex.Message);
             }
@@ -144,6 +184,7 @@ namespace dndhelper.Controllers
         [HttpGet("{id}/characters")]
         public async Task<IActionResult> GetCharacters(string id)
         {
+            await _access.EnsureMemberAsync(id);
             var result = await _campaignService.GetCharactersAsync(id);
             return result == null ? NotFound() : Ok(result);
         }
@@ -151,13 +192,20 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/characters/{characterId}")]
         public async Task<IActionResult> AddPlayer(string id, string characterId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.AddCharacterAsync(id, characterId);
             return result == null ? NotFound() : Ok(result);
         }
 
+        /// <summary>DM decides who plays a character (any campaign members).</summary>
+        [HttpPut("{id}/characters/{characterId}/owners")]
+        public async Task<IActionResult> SetCharacterOwners(string id, string characterId, [FromBody] List<string> ownerIds) =>
+            Ok(await _campaignService.SetCharacterOwnersAsync(id, characterId, ownerIds));
+
         [HttpDelete("{id}/characters/{characterId}")]
         public async Task<IActionResult> RemovePlayer(string id, string characterId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.RemoveCharacterAsync(id, characterId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -168,6 +216,7 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/worlds/{worldId}")]
         public async Task<IActionResult> AddWorld(string id, string worldId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.AddWorldAsync(id, worldId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -175,6 +224,7 @@ namespace dndhelper.Controllers
         [HttpDelete("{id}/worlds/{worldId}")]
         public async Task<IActionResult> RemoveWorld(string id, string worldId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.RemoveWorldAsync(id, worldId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -185,6 +235,7 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/quests/{questId}")]
         public async Task<IActionResult> AddQuest(string id, string questId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.AddQuestAsync(id, questId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -192,6 +243,7 @@ namespace dndhelper.Controllers
         [HttpDelete("{id}/quests/{questId}")]
         public async Task<IActionResult> RemoveQuest(string id, string questId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.RemoveQuestAsync(id, questId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -202,6 +254,7 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/notes/{noteId}")]
         public async Task<IActionResult> AddNote(string id, string noteId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.AddNoteAsync(id, noteId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -209,6 +262,7 @@ namespace dndhelper.Controllers
         [HttpDelete("{id}/notes/{noteId}")]
         public async Task<IActionResult> RemoveNote(string id, string noteId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.RemoveNoteAsync(id, noteId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -219,6 +273,7 @@ namespace dndhelper.Controllers
         [HttpPost("{id}/sessions/{sessionId}")]
         public async Task<IActionResult> AddSession(string id, string sessionId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.AddSessionAsync(id, sessionId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -226,6 +281,7 @@ namespace dndhelper.Controllers
         [HttpDelete("{id}/sessions/{sessionId}")]
         public async Task<IActionResult> RemoveSession(string id, string sessionId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.RemoveSessionAsync(id, sessionId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -233,6 +289,7 @@ namespace dndhelper.Controllers
         [HttpPut("{id}/current-session/{sessionId}")]
         public async Task<IActionResult> SetCurrentSession(string id, string sessionId)
         {
+            await _access.EnsureDmAsync(id);
             var result = await _campaignService.SetCurrentSessionAsync(id, sessionId);
             return result == null ? NotFound() : Ok(result);
         }
@@ -245,6 +302,7 @@ namespace dndhelper.Controllers
                 Guard.NotNullOrWhiteSpace(id, nameof(id));
                 Guard.NotNullOrWhiteSpace(encounterId, nameof(encounterId));
 
+                await _access.EnsureDmAsync(id);
                 var result = await _campaignService.SetActiveEncounterAsync(id, encounterId);
                 return result == null ? NotFound() : Ok(result);
             }
@@ -269,6 +327,7 @@ namespace dndhelper.Controllers
             {
                 Guard.NotNullOrWhiteSpace(id, nameof(id));
 
+                await _access.EnsureDmAsync(id);
                 var result = await _campaignService.SetActiveEncounterAsync(id, null);
                 return result == null ? NotFound() : Ok(result);
             }

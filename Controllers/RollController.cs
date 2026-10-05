@@ -45,7 +45,7 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("history")]
-        public async Task<IActionResult> GetHistory([FromQuery] string? campaignId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        public async Task<IActionResult> GetHistory([FromServices] dndhelper.Authorization.CampaignAccess access, [FromQuery] string? campaignId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
             var user = await _authService.GetUserFromTokenAsync();
             if (user == null)
@@ -53,8 +53,8 @@ namespace dndhelper.Controllers
 
             if (!string.IsNullOrWhiteSpace(campaignId))
             {
-                if (user.CampaignIds == null || !user.CampaignIds.Contains(campaignId))
-                    return Forbid();
+                // Includes subtle rolls, so DM only.
+                await access.EnsureDmAsync(campaignId);
 
                 var rolls = await _rollHistoryService.GetRollsByCampaignAsync(campaignId, page, pageSize);
                 return Ok(rolls);

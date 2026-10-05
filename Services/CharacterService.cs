@@ -1,4 +1,4 @@
-﻿using dndhelper.Models.CharacterModels;
+﻿using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -19,16 +19,21 @@ namespace dndhelper.Services
     {
         private readonly ITabletopService _tabletop;
         private readonly IUserRepository _users;
+        private readonly IInventoryRepository _inventories;
 
         public CharacterService(ICharacterRepository repository, ILogger logger, IAuthorizationService authorizationService,
-        IHttpContextAccessor httpContextAccessor, ITabletopService tabletop, IUserRepository users)
+        IHttpContextAccessor httpContextAccessor, ITabletopService tabletop, IUserRepository users, IInventoryRepository inventories)
             : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _tabletop = tabletop;
             _users = users;
+            _inventories = inventories;
         }
 
-        /// <summary>A new character is listed on every owner's account (the creator is added as owner by the base).</summary>
+        /// <summary>
+        /// A new character is listed on every owner's account (the creator is added as owner by the base) and
+        /// gets its starting inventory here, so players never need permission to create inventories.
+        /// </summary>
         public override async Task<Character?> CreateAsync(Character entity)
         {
             var created = await base.CreateAsync(entity);
@@ -36,6 +41,19 @@ namespace dndhelper.Services
 
             foreach (var ownerId in (created.OwnerIds ?? new List<string>()).Distinct())
                 await _users.AddCharacterIdAsync(ownerId, created.Id);
+
+            var inventory = await _inventories.CreateAsync(new Inventory
+            {
+                Name = $"{created.Name}'s Equipment",
+                CharacterIds = new List<string> { created.Id },
+                OwnerIds = created.OwnerIds ?? new List<string>(),
+                CampaignId = created.CampaignId,
+            });
+            if (inventory?.Id != null)
+            {
+                created.InventoryIds = new List<string> { inventory.Id };
+                created = await _repository.UpdateAsync(created) ?? created;
+            }
             return created;
         }
 

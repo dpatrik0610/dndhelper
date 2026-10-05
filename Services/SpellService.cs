@@ -17,7 +17,7 @@ namespace dndhelper.Services
         }
         public async Task<List<SpellNameResponse>> GetAllNamesAsync()
         {
-            return await _repository.GetAllNamesAsync();
+            return await _repository.GetAllNamesAsync(await ScopeFilterAsync());
         }
     }
 }

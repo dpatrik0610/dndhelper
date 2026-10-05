@@ -70,6 +70,12 @@ namespace dndhelper.Repositories
             await _collection.UpdateOneAsync(u => u.Id == userId, update);
         }
 
+        public async Task RemoveCharacterIdAsync(string userId, string characterId)
+        {
+            var update = Builders<User>.Update.Pull(u => u.CharacterIds, characterId);
+            await _collection.UpdateOneAsync(u => u.Id == userId, update);
+        }
+
         public async Task UpdateCharacterIds(User user, List<string> characterIds)
         {
             try

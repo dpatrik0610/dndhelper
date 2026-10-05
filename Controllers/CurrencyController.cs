@@ -35,7 +35,7 @@ namespace dndhelper.Controllers
                 var currencies = await _currencyService.GetCharacterCurrenciesAsync(characterId);
                 return Ok(new { data = currencies, message = "Currencies retrieved successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error getting currencies for character {CharacterId}", characterId);
                 return StatusCode(500, new { message = "An error occurred while fetching currencies." });
@@ -58,7 +58,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { message = "Currencies removed successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error removing currencies from character {CharacterId}", characterId);
                 return StatusCode(500, new { message = ex.Message });
@@ -81,7 +81,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { message = "Currencies transferred successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error transferring currencies to character {CharacterId}", targetId);
                 return StatusCode(500, new { message = ex.Message });
@@ -89,9 +89,13 @@ namespace dndhelper.Controllers
         }
 
         // PUT: api/currency/inventory/{inventoryId}
-        [Authorize(Roles = "Admin")]
+        // DM hands out money, so only the DM of the inventory's campaign (or the superadmin).
         [HttpPut("inventory/{inventoryId}")]
-        public async Task<IActionResult> AddCurrenciesToInventory(string inventoryId, [FromBody] List<Currency> currencies)
+        public async Task<IActionResult> AddCurrenciesToInventory(
+            string inventoryId,
+            [FromBody] List<Currency> currencies,
+            [FromServices] dndhelper.Authorization.CampaignAccess access,
+            [FromServices] dndhelper.Repositories.Interfaces.IInventoryRepository inventories)
         {
             if (string.IsNullOrWhiteSpace(inventoryId))
                 return BadRequest("Inventory ID is required.");
@@ -99,13 +103,18 @@ namespace dndhelper.Controllers
             if (currencies == null || currencies.Count == 0)
                 return BadRequest("Currency list is required.");
 
+            var inventory = await inventories.GetByIdAsync(inventoryId);
+            if (inventory == null) return NotFound("Inventory not found.");
+            if (inventory.CampaignId == null ? !access.IsSuperAdmin : !await access.IsDmAsync(inventory.CampaignId))
+                throw new dndhelper.Utils.ForbiddenException("Only the campaign's DM can give money.");
+
             try
             {
                 await _currencyService.AddCurrenciesToInventoryAndNotifyAsync(inventoryId, currencies);
 
                 return Ok(new { message = $"Added {currencies.Count} currencies to inventory {inventoryId}." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error adding currencies to inventory {InventoryId}", inventoryId);
                 return StatusCode(500, "An error occurred while adding currencies to inventory.");
@@ -128,7 +137,7 @@ namespace dndhelper.Controllers
 
                 return Ok(new { message = "Currencies transferred successfully." });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error transferring currencies from {FromId} to {ToId}", fromId, toId);
                 return StatusCode(500, new { message = ex.Message });
@@ -161,7 +170,7 @@ namespace dndhelper.Controllers
                     message = $"Claimed {currencies.Count} currencies from inventory {inventoryId} to character {characterId}."
                 });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(
                     ex,

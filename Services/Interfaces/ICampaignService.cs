@@ -16,6 +16,7 @@ namespace dndhelper.Services.Interfaces
         Task<List<Character>> GetCharactersAsync(string campaignId);
         Task<Campaign?> AddCharacterAsync(string campaignId, string characterId);
         Task<Campaign?> RemoveCharacterAsync(string campaignId, string characterId);
+        Task<Character> SetCharacterOwnersAsync(string campaignId, string characterId, List<string> ownerIds);
 
         Task<Campaign?> AddWorldAsync(string campaignId, string worldId);
         Task<Campaign?> RemoveWorldAsync(string campaignId, string worldId);
@@ -32,5 +33,13 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign?> SetCurrentSessionAsync(string campaignId, string sessionId);
         Task<Campaign?> SetActiveEncounterAsync(string campaignId, string? encounterId);
         Task<CampaignOverviewDto?> GetOverviewForCharacterAsync(string characterId);
+
+        Task<Campaign> JoinAsync(string inviteCode);
+        Task<List<CampaignSummaryDto>> GetOverviewOfAllAsync();
+        Task<List<CampaignMemberDto>> GetMembersAsync(string campaignId);
+        Task<Campaign> SetMemberRolesAsync(string campaignId, string userId, List<string> roles);
+        Task<Campaign> RemoveMemberAsync(string campaignId, string userId);
+        Task<Campaign> RegenerateInviteCodeAsync(string campaignId);
+        Task<Campaign> SetCoreImportsAsync(string campaignId, List<string> types);
     }
 }

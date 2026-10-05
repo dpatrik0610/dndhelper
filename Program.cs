@@ -14,7 +14,8 @@ builder.Host.UseSerilog();
 builder.Services.InjectServices(builder.Configuration);
 
 // 🔹 MVC + Swagger
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+    options.Filters.Add<dndhelper.Authorization.CampaignMembershipFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

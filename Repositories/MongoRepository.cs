@@ -2,6 +2,7 @@
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog;
 using System;
@@ -17,6 +18,7 @@ namespace dndhelper.Repositories
         protected readonly ILogger _logger;
         protected readonly IMemoryCache? _cache;
         protected readonly MemoryCacheEntryOptions _cacheOptions;
+        private static bool _campaignIndexCreated;
 
         public MongoRepository(ILogger logger, IMemoryCache cache, MongoDbContext context, string collectionName)
         {
@@ -28,6 +30,14 @@ namespace dndhelper.Repositories
             _cacheOptions = new MemoryCacheEntryOptions()
                 .SetSlidingExpiration(TimeSpan.FromMinutes(5))
                 .SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
+
+            if (!_campaignIndexCreated && typeof(ICampaignScoped).IsAssignableFrom(typeof(T)))
+            {
+                _collection.Indexes.CreateOne(new CreateIndexModel<T>(
+                    Builders<T>.IndexKeys.Ascending(nameof(ICampaignScoped.CampaignId)),
+                    new CreateIndexOptions { Name = "idx_campaignId" }));
+                _campaignIndexCreated = true;
+            }
         }
 
         // ------------------------
@@ -244,6 +254,27 @@ namespace dndhelper.Repositories
             }
         }
 
+        public async Task<List<T>> FindAsync(FilterDefinition<T> filter)
+        {
+            var notDeleted = Builders<T>.Filter.Ne(e => e.IsDeleted, true);
+            return await _collection.Find(notDeleted & filter).ToListAsync();
+        }
+
+        /// <summary>Moves an entity between campaigns (null = core). Normal updates never touch CampaignId.</summary>
+        public async Task<bool> SetCampaignAsync(string id, string? campaignId)
+        {
+            BsonValue value = campaignId == null ? BsonNull.Value : ObjectId.Parse(campaignId);
+            // Raw BsonDocument so the value is written as-is (ObjectId or null), independent of the member serializer.
+            var update = new BsonDocument("$set", new BsonDocument
+            {
+                { nameof(ICampaignScoped.CampaignId), value },
+                { nameof(IEntity.UpdatedAt), DateTime.UtcNow }
+            });
+            var result = await _collection.UpdateOneAsync(Builders<T>.Filter.Eq(e => e.Id, id), update);
+            RemoveFromCache(id);
+            return result.MatchedCount > 0;
+        }
+
         public async Task<T?> GetByIdAsync(string id)
         {
             try
@@ -309,7 +340,7 @@ namespace dndhelper.Repositories
                 foreach (var prop in properties)
                 {
                     // Skip nulls and immutable fields
-                    if (prop.Name is nameof(IEntity.Id) or "CreatedAt" or "IsDeleted")
+                    if (prop.Name is nameof(IEntity.Id) or "CreatedAt" or "IsDeleted" or nameof(ICampaignScoped.CampaignId))
                         continue;
 
                     var newValue = prop.GetValue(entity);

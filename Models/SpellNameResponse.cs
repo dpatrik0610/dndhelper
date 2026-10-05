@@ -8,6 +8,8 @@ namespace dndhelper.Models
         [BsonId]
         [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
         public string? Id { get; set; }
+        [BsonRepresentation(MongoDB.Bson.BsonType.ObjectId)]
+        public string? CampaignId { get; set; }
         [BsonElement("name")]
         public string? Name { get; set; } = null;
         [BsonElement("level")]

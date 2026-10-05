@@ -40,8 +40,8 @@ public class InventoryController : ControllerBase
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    // Scoped by the service: the current campaign's inventories the caller may see (DMs: all of them).
     [HttpGet("all")]
-    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAll()
     {
         var inventories = await _inventoryService.GetAllAsync();

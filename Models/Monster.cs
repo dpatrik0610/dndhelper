@@ -10,12 +10,14 @@ using System.Collections.Generic;
 namespace dndhelper.Models
 {
     [BsonIgnoreExtraElements]
-    public class Monster : IEntity, IOwnedResource
+    public class Monster : IEntity, IOwnedResource, ICampaignContent
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
         public bool IsDeleted { get; set; } = false;
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CampaignId { get; set; }
         [BsonElement("createdByUserId")] public string? CreatedByUserId { get; set; }
         [BsonElement("ownerId")] public List<string>? OwnerIds { get; set; } = new List<string>();
         [BsonElement("name")] public string? Name { get; set; }
@@ -73,7 +75,7 @@ namespace dndhelper.Models
             if (int.TryParse(PassivePerception, out var numeric))
                 return numeric;
 
-            // Example: "10 + (PB × 2)"
+            // Example: "10 + (PB ï¿½ 2)"
             if (PassivePerception.Contains("PB"))
             {
                 var pb = GetProficiencyBonusByCR((int)CR!);

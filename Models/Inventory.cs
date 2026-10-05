@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models
 {
-    public class Inventory : IEntity, IOwnedResource
+    public class Inventory : IEntity, IOwnedResource, ICampaignScoped
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]

@@ -2,8 +2,10 @@ using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
+using MongoDB.Driver;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -21,6 +23,11 @@ namespace dndhelper.Services
         protected readonly ILogger _logger;
         protected readonly IAuthorizationService _authorizationService;
         protected readonly ClaimsPrincipal _user;
+        private readonly HttpContext _httpContext;
+        private CampaignAccess? _access;
+
+        // Resolved per request; derived services don't need another constructor parameter.
+        protected CampaignAccess Access => _access ??= _httpContext.RequestServices.GetRequiredService<CampaignAccess>();
 
         public BaseService(
             TRepository repository,
@@ -31,7 +38,8 @@ namespace dndhelper.Services
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _authorizationService = authorizationService ?? throw new ArgumentNullException(nameof(authorizationService));
-            _user = httpContextAccessor?.HttpContext?.User ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _httpContext = httpContextAccessor?.HttpContext ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _user = _httpContext.User;
         }
 
         public virtual async Task<T?> CreateAsync(T entity)
@@ -41,6 +49,8 @@ namespace dndhelper.Services
             var userId = GetCurrentUserId();
             entity.CreatedAt = DateTime.UtcNow;
             AttachOwnerIfNeeded(entity, userId);
+            if (entity is ICampaignScoped scoped)
+                await Access.PrepareCreateAsync(scoped);
 
             _logger.Debug("Creating entity of type {EntityType}", typeof(T).Name);
             return await _repository.CreateAsync(entity);
@@ -58,6 +68,8 @@ namespace dndhelper.Services
             {
                 entity.CreatedAt = now;
                 AttachOwnerIfNeeded(entity, userId);
+                if (entity is ICampaignScoped scoped)
+                    await Access.PrepareCreateAsync(scoped);
             }
 
             _logger.Debug("Creating {Count} entities of type {EntityType}", entities.Count, typeof(T).Name);
@@ -70,8 +82,8 @@ namespace dndhelper.Services
                 throw new ArgumentNullException(nameof(id));
 
             var entity = await _repository.GetByIdAsync(id);
-            if (entity is IOwnedResource owned)
-                await EnsureOwnershipAccess(owned);
+            if (entity != null)
+                await EnsureReadAccess(entity);
 
             return entity;
         }
@@ -86,19 +98,13 @@ namespace dndhelper.Services
 
         public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
-            var entities = await _repository.GetAllAsync();
-            return await FilterOwnedResourcesAsync(entities);
+            return await FilterOwnedResourcesAsync(await GetAllInScopeAsync());
         }
 
         public virtual async Task<long> CountAsync()
         {
-            var all = await _repository.GetAllAsync();
-
-            if (typeof(IOwnedResource).IsAssignableFrom(typeof(T)))
-            {
-                var filtered = await FilterOwnedResourcesAsync(all);
-                return filtered.LongCount();
-            }
+            if (typeof(IOwnedResource).IsAssignableFrom(typeof(T)) || typeof(ICampaignScoped).IsAssignableFrom(typeof(T)))
+                return (await GetAllAsync()).LongCount();
 
             return await _repository.CountAsync();
         }
@@ -110,21 +116,16 @@ namespace dndhelper.Services
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null) return false;
 
-            if (entity is IOwnedResource owned)
-            {
-                var authorized = await _authorizationService.AuthorizeAsync(_user, owned, "OwnershipPolicy");
-                return authorized.Succeeded;
-            }
-
-            return true;
+            return await CanReadAsync(entity);
         }
 
         public virtual async Task<T?> UpdateAsync(T entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            if (entity is IOwnedResource owned)
-                await EnsureOwnershipAccess(owned);
+            // Authorize against the stored document, never the client-supplied one.
+            if (entity.Id != null && await _repository.GetByIdAsync(entity.Id) is T existing)
+                await EnsureWriteAccess(existing);
 
             entity.UpdatedAt = DateTime.UtcNow;
             return await _repository.UpdateAsync(entity);
@@ -136,8 +137,8 @@ namespace dndhelper.Services
                 throw new ArgumentNullException(nameof(id));
 
             var entity = await _repository.GetByIdAsync(id);
-            if (entity is IOwnedResource owned)
-                await EnsureOwnershipAccess(owned);
+            if (entity != null)
+                await EnsureWriteAccess(entity);
 
             return await _repository.DeleteAsync(id);
         }
@@ -148,8 +149,8 @@ namespace dndhelper.Services
                 throw new ArgumentNullException(nameof(id));
 
             var entity = await _repository.GetByIdAsync(id);
-            if (entity is IOwnedResource owned)
-                await EnsureOwnershipAccess(owned);
+            if (entity != null)
+                await EnsureWriteAccess(entity);
 
             return await _repository.LogicDeleteAsync(id);
         }
@@ -172,19 +173,54 @@ namespace dndhelper.Services
 
             foreach (var entity in entities)
             {
-                if (entity is IOwnedResource owned)
-                {
-                    var authResult = await _authorizationService.AuthorizeAsync(_user, owned, "OwnershipPolicy");
-                    if (authResult.Succeeded)
-                        result.Add(entity);
-                }
-                else
-                {
+                if (await CanReadAsync(entity))
                     result.Add(entity);
-                }
             }
 
             return result;
+        }
+
+        /// <summary>Repository query narrowed to the caller's campaign scope (all docs for non-scoped types).</summary>
+        protected async Task<IEnumerable<T>> GetAllInScopeAsync()
+        {
+            if (!typeof(ICampaignScoped).IsAssignableFrom(typeof(T)))
+                return await _repository.GetAllAsync();
+
+            return await _repository.FindAsync(await ScopeFilterAsync());
+        }
+
+        /// <summary>CampaignAccess.ReadFilterAsync for T (T is only known to be ICampaignScoped at runtime).</summary>
+        protected Task<FilterDefinition<T>> ScopeFilterAsync() =>
+            (Task<FilterDefinition<T>>)typeof(CampaignAccess)
+                .GetMethod(nameof(CampaignAccess.ReadFilterAsync))!
+                .MakeGenericMethod(typeof(T))
+                .Invoke(Access, null)!;
+
+        // Campaign content (spells, items, monsters, rules) is governed by campaign roles only;
+        // everything else additionally keeps its per-owner check.
+        protected async Task<bool> CanReadAsync(T entity)
+        {
+            if (entity is ICampaignScoped scoped && !await Access.CanReadAsync(scoped))
+                return false;
+            if (entity is IOwnedResource owned && entity is not ICampaignContent)
+                return (await _authorizationService.AuthorizeAsync(_user, owned, "OwnershipPolicy")).Succeeded;
+            return true;
+        }
+
+        protected async Task EnsureReadAccess(T entity)
+        {
+            if (entity is ICampaignScoped scoped)
+                await Access.EnsureCanReadAsync(scoped);
+            if (entity is IOwnedResource owned && entity is not ICampaignContent)
+                await EnsureOwnershipAccess(owned);
+        }
+
+        protected async Task EnsureWriteAccess(T entity)
+        {
+            if (entity is ICampaignScoped scoped)
+                await Access.EnsureCanWriteAsync(scoped);
+            if (entity is IOwnedResource owned && entity is not ICampaignContent)
+                await EnsureOwnershipAccess(owned);
         }
 
         #region Internal - No ownership checks

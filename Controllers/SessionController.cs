@@ -68,7 +68,7 @@ namespace dndhelper.Controllers
 
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error creating session");
                 return StatusCode(500, new { message = ex.Message });
@@ -94,7 +94,7 @@ namespace dndhelper.Controllers
 
                 return Ok(updated);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error updating session {SessionId}", id);
                 return StatusCode(500, new { message = ex.Message });
@@ -115,7 +115,7 @@ namespace dndhelper.Controllers
 
                 return NoContent();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error deleting session {SessionId}", id);
                 return StatusCode(500, new { message = ex.Message });

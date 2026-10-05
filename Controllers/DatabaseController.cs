@@ -1,4 +1,5 @@
 using dndhelper.Database;
+using dndhelper.Database.Migrations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
@@ -23,6 +24,23 @@ namespace dndhelper.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// One-shot move to campaign-scoped data. Defaults to a dry run that only reports counts.
+        /// Download a backup first. Safe to re-run: a second run reports zero changes.
+        /// </summary>
+        [HttpPost("migrate/campaign-scope")]
+        public async Task<ActionResult<Dictionary<string, long>>> MigrateCampaignScope(
+            [FromQuery] string targetCampaignId,
+            [FromServices] CampaignScopeMigration migration,
+            [FromServices] dndhelper.Services.Interfaces.ICacheService cache,
+            [FromQuery] bool dryRun = true)
+        {
+            var report = await migration.RunAsync(targetCampaignId, dryRun);
+            if (!dryRun)
+                cache.ClearAllFromCache(); // repositories cache entities without the new fields
+            return Ok(report);
+        }
+
         [HttpGet("collections")]
         public async Task<ActionResult<List<string>>> GetCollections(CancellationToken cancellationToken)
         {
@@ -31,7 +49,7 @@ namespace dndhelper.Controllers
                 var names = await _context.ListCollectionsAsync(cancellationToken);
                 return Ok(names);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Failed to list MongoDB collections for {DbName}", _context.DatabaseName);
                 return StatusCode(500, "Failed to list database collections.");

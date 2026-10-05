@@ -63,6 +63,15 @@ namespace dndhelper.Utils
         public AlreadyExistsException(string message) : base(message) { }
     }
 
+    /// <summary>
+    /// Authenticated but not allowed (403). Derives from UnauthorizedAccessException so
+    /// existing catch blocks keep handling it.
+    /// </summary>
+    public class ForbiddenException : UnauthorizedAccessException
+    {
+        public ForbiddenException(string message) : base(message) { }
+    }
+
     public class RateLimitException : Exception
     {
         public RateLimitException(string message) : base(message) { }

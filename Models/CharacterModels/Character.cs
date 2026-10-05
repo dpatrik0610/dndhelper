@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace dndhelper.Models.CharacterModels
 {
-    public class Character : IEntity, IOwnedResource
+    public class Character : IEntity, IOwnedResource, ICampaignScoped
     {
         #region METADATA
         [BsonId]

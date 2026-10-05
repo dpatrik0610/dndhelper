@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/rules")]
     public class RulesController : ControllerBase
@@ -22,7 +23,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet]
-        [AllowAnonymous]
         public async Task<ActionResult<RuleListResponse>> GetRules(
             [FromQuery] string? category,
             [FromQuery] string? tag,
@@ -54,7 +54,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("{slug}")]
-        [AllowAnonymous]
         public async Task<ActionResult<RuleDetailResponse>> GetRuleBySlug(string slug)
         {
             try
@@ -72,7 +71,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpGet("stats")]
-        [AllowAnonymous]
         public async Task<ActionResult<RuleStats>> GetStats()
         {
             var stats = await _ruleService.GetStatsAsync();
@@ -80,7 +78,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<RuleDetailResponse>> Create([FromBody] RuleDetailDto request)
         {
             try
@@ -98,7 +95,6 @@ namespace dndhelper.Controllers
         }
 
         [HttpPut("{slug}")]
-        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<RuleDetailResponse>> Update(string slug, [FromBody] RuleDetailDto request)
         {
             try

@@ -11,6 +11,7 @@ namespace dndhelper.Repositories.Interfaces
         Task UpdateCharacterIds(User user, List<string> characterIds);
         /// <summary>Atomically adds a character to the user's list (no-op if already there).</summary>
         Task AddCharacterIdAsync(string userId, string characterId);
+        Task RemoveCharacterIdAsync(string userId, string characterId);
         Task UpdateCampaignIds(User user, List<string> campaignIds);
         Task RefreshLastLogin(string username);
         Task LogicDeleteAsync(User user);

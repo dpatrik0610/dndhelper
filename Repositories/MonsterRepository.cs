@@ -17,7 +17,7 @@ namespace dndhelper.Repositories
         public MonsterRepository(MongoDbContext context, IMemoryCache cache, ILogger logger)
             : base(logger, cache, context, "Monsters") { }
 
-        public async Task<List<Monster>> FindByNamePhraseAsync(string namePhrase)
+        public async Task<List<Monster>> FindByNamePhraseAsync(string namePhrase, FilterDefinition<Monster> scope)
         {
             if (string.IsNullOrWhiteSpace(namePhrase))
                 throw new ArgumentException("Monster name phrase is null or empty.");
@@ -26,16 +26,16 @@ namespace dndhelper.Repositories
                 m => m.Name,
                 new BsonRegularExpression(namePhrase, "i"));
 
-            return await _collection.Find(filter).ToListAsync();
+            return await _collection.Find(filter & NotDeleted & scope).ToListAsync();
         }
 
-        public async Task<List<Monster>> GetPagedAsync(int page, int pageSize)
+        public async Task<List<Monster>> GetPagedAsync(FilterDefinition<Monster> scope, int page, int pageSize)
         {
             if (page <= 0 || pageSize <= 0)
                 throw new ArgumentException("Page and page size must be greater than zero.");
 
             var f = Builders<Monster>.Filter;
-            var filter = f.Ne(m => m.IsDeleted, true);
+            var filter = f.Ne(m => m.IsDeleted, true) & scope;
 
             return await _collection.Find(filter)
                 .Skip((page - 1) * pageSize)
@@ -43,12 +43,14 @@ namespace dndhelper.Repositories
                 .ToListAsync();
         }
 
-        public Task<long> GetCountAsync()
+        public Task<long> GetCountAsync(FilterDefinition<Monster> scope)
         {
-            return _collection.CountDocumentsAsync(_ => true);
+            return _collection.CountDocumentsAsync(NotDeleted & scope);
         }
 
-        public async Task<List<Monster>> SearchAsync(string query, int page, int pageSize)
+        private static FilterDefinition<Monster> NotDeleted => Builders<Monster>.Filter.Ne(m => m.IsDeleted, true);
+
+        public async Task<List<Monster>> SearchAsync(FilterDefinition<Monster> scope, string query, int page, int pageSize)
         {
             if (string.IsNullOrWhiteSpace(query))
                 throw new ArgumentException("Search query cannot be null or empty.");
@@ -59,28 +61,28 @@ namespace dndhelper.Repositories
                 m => m.Name,
                 new BsonRegularExpression(query, "i"));
 
-            return await _collection.Find(filter)
+            return await _collection.Find(filter & NotDeleted & scope)
                 .Skip((page - 1) * pageSize)
                 .Limit(pageSize)
                 .ToListAsync();
         }
 
-        public async Task<List<Monster>> FindByOwnerIdAsync(string ownerId)
+        public async Task<List<Monster>> FindByOwnerIdAsync(FilterDefinition<Monster> scope, string ownerId)
         {
             if (string.IsNullOrWhiteSpace(ownerId))
                 throw new ArgumentException("Owner ID cannot be null or empty.");
 
             var filter = Builders<Monster>.Filter.Eq(m => m.CreatedByUserId, ownerId);
-            return await _collection.Find(filter).ToListAsync();
+            return await _collection.Find(filter & NotDeleted & scope).ToListAsync();
         }
 
-        public async Task<List<Monster>> SearchAsync(MonsterSearchCriteria criteria)
+        public async Task<List<Monster>> SearchAsync(FilterDefinition<Monster> scope, MonsterSearchCriteria criteria)
         {
             if (criteria == null) throw new ArgumentNullException(nameof(criteria));
 
             _logger.Information("Starting monster search with criteria {@Criteria}", criteria);
 
-            var filter = BuildSearchFilter(criteria);
+            var filter = BuildSearchFilter(criteria) & scope;
             var sort = BuildSearchSort(criteria);
 
             var page = criteria.Page <= 0 ? 1 : criteria.Page;

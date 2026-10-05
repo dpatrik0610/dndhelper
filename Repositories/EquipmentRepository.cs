@@ -16,8 +16,10 @@ namespace dndhelper.Repositories
     {
         public EquipmentRepository(MongoDbContext context, ILogger logger, IMemoryCache cache) : base(logger, cache, context, "Equipment") { }
 
-        public async Task<Equipment?> GetByIndexAsync(string index) =>
-            await _collection.Find(e => e.Index == index).FirstOrDefaultAsync();
+        // Campaign copies win over core when both share an index (ObjectId sorts after null).
+        public async Task<Equipment?> GetByIndexAsync(string index, FilterDefinition<Equipment> scope) =>
+            await _collection.Find(Builders<Equipment>.Filter.Eq(e => e.Index, index) & Builders<Equipment>.Filter.Ne(e => e.IsDeleted, true) & scope)
+                .SortByDescending(e => e.CampaignId).FirstOrDefaultAsync();
 
         //public new async Task<Equipment> UpdateAsync(Equipment equipment)
         //{
@@ -37,12 +39,12 @@ namespace dndhelper.Repositories
                 throw new KeyNotFoundException($"Equipment with index '{index}' not found.");
         }
 
-        public async Task<PagedResult<Equipment>> GetAllPaginatedAsync(int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null)
+        public async Task<PagedResult<Equipment>> GetAllPaginatedAsync(FilterDefinition<Equipment> scope, int page, int pageSize, string? tag = null, string? tier = null, string? damageType = null, string? name = null)
         {
             try
             {
                 var builder = Builders<Equipment>.Filter;
-                var filter = builder.Eq(e => e.IsDeleted, false);
+                var filter = builder.Eq(e => e.IsDeleted, false) & scope;
 
                 if (!string.IsNullOrEmpty(tag)) filter &= builder.AnyEq(e => e.Tags!, tag);
                 if (!string.IsNullOrEmpty(tier)) filter &= builder.Eq(e => e.Tier, tier);

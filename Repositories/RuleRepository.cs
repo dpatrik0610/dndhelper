@@ -23,7 +23,8 @@ namespace dndhelper.Repositories
             EnsureIndexes();
         }
 
-        public async Task<Rule?> GetBySlugAsync(string slug)
+        // A campaign's own rule wins over a core rule with the same slug (ObjectId sorts after null).
+        public async Task<Rule?> GetBySlugAsync(string slug, FilterDefinition<Rule> scope)
         {
             if (string.IsNullOrWhiteSpace(slug))
                 throw new ArgumentNullException(nameof(slug));
@@ -31,17 +32,19 @@ namespace dndhelper.Repositories
             var filter = Builders<Rule>.Filter.And(
                 Builders<Rule>.Filter.Ne(r => r.IsDeleted, true),
                 Builders<Rule>.Filter.Eq(r => r.Slug, slug)
-            );
+            ) & scope;
 
-            return await _collection.Find(filter).FirstOrDefaultAsync();
+            return await _collection.Find(filter).SortByDescending(r => r.CampaignId).FirstOrDefaultAsync();
         }
 
-        public async Task<bool> SlugExistsAsync(string slug, string? excludeId = null)
+        /// <summary>Slugs are unique per campaign (core counts as its own campaign).</summary>
+        public async Task<bool> SlugExistsAsync(string slug, string? campaignId, string? excludeId = null)
         {
             if (string.IsNullOrWhiteSpace(slug))
                 return false;
 
-            var filter = Builders<Rule>.Filter.Eq(r => r.Slug, slug);
+            var filter = Builders<Rule>.Filter.Eq(r => r.Slug, slug)
+                & new BsonDocument("CampaignId", campaignId == null ? BsonNull.Value : ObjectId.Parse(campaignId));
 
             if (!string.IsNullOrWhiteSpace(excludeId))
             {
@@ -54,10 +57,10 @@ namespace dndhelper.Repositories
             return count > 0;
         }
 
-        public async Task<RuleQueryResult> QueryAsync(RuleQueryOptions options)
+        public async Task<RuleQueryResult> QueryAsync(RuleQueryOptions options, FilterDefinition<Rule> scope)
         {
             var normalizedLimit = NormalizeLimit(options.Limit);
-            var baseFilter = BuildBaseFilter(options);
+            var baseFilter = BuildBaseFilter(options) & scope;
             var cursorFilter = BuildCursorFilter(options.Cursor);
             var sort = Builders<Rule>.Sort
                 .Descending(r => r.UpdatedAt)
@@ -82,7 +85,7 @@ namespace dndhelper.Repositories
             catch (MongoCommandException ex) when (ex.CodeName == "IndexNotFound" || ex.Message.Contains("$text"))
             {
                 // Fallback to regex search when text index is unavailable
-                baseFilter = BuildBaseFilter(options, preferRegexSearch: true);
+                baseFilter = BuildBaseFilter(options, preferRegexSearch: true) & scope;
                 var total = await _collection.CountDocumentsAsync(baseFilter);
 
                 var items = await _collection.Find(baseFilter & cursorFilter)
@@ -99,9 +102,9 @@ namespace dndhelper.Repositories
             }
         }
 
-        public async Task<RuleStats> GetStatsAsync()
+        public async Task<RuleStats> GetStatsAsync(FilterDefinition<Rule> scope)
         {
-            var match = Builders<Rule>.Filter.Ne(r => r.IsDeleted, true);
+            var match = Builders<Rule>.Filter.Ne(r => r.IsDeleted, true) & scope;
 
             var byCategory = await _collection.Aggregate()
                 .Match(match)
@@ -110,16 +113,13 @@ namespace dndhelper.Repositories
                     g => new { Category = g.Key, Count = g.Count() })
                 .ToListAsync();
 
-            var tagsPipeline = new[]
-            {
-                new BsonDocument("$match", new BsonDocument("IsDeleted", new BsonDocument("$ne", true))),
-                new BsonDocument("$unwind", "$tags"),
-                new BsonDocument("$group", new BsonDocument { { "_id", "$tags" }, { "count", new BsonDocument("$sum", 1) } }),
-                new BsonDocument("$sort", new BsonDocument("count", -1)),
-                new BsonDocument("$limit", 20)
-            };
-
-            var topTagsRaw = await _collection.Aggregate<BsonDocument>(PipelineDefinition<Rule, BsonDocument>.Create(tagsPipeline)).ToListAsync();
+            var topTagsRaw = await _collection.Aggregate()
+                .Match(match)
+                .AppendStage<BsonDocument>(new BsonDocument("$unwind", "$tags"))
+                .AppendStage<BsonDocument>(new BsonDocument("$group", new BsonDocument { { "_id", "$tags" }, { "count", new BsonDocument("$sum", 1) } }))
+                .AppendStage<BsonDocument>(new BsonDocument("$sort", new BsonDocument("count", -1)))
+                .AppendStage<BsonDocument>(new BsonDocument("$limit", 20))
+                .ToListAsync();
             var topTags = topTagsRaw.Select(t => new RuleTagCount
             {
                 Tag = t.GetValue("_id", string.Empty).AsString,
@@ -141,11 +141,15 @@ namespace dndhelper.Repositories
             if (_indexesCreated)
                 return;
 
+            // Slugs used to be globally unique; now they are unique per campaign.
+            try { _collection.Indexes.DropOne("idx_rules_slug_unique"); }
+            catch (MongoCommandException) { /* already dropped */ }
+
             var indexModels = new List<CreateIndexModel<Rule>>
             {
                 new CreateIndexModel<Rule>(
-                    Builders<Rule>.IndexKeys.Ascending(r => r.Slug),
-                    new CreateIndexOptions { Name = "idx_rules_slug_unique", Unique = true }),
+                    Builders<Rule>.IndexKeys.Ascending(r => r.CampaignId).Ascending(r => r.Slug),
+                    new CreateIndexOptions { Name = "idx_rules_campaign_slug_unique", Unique = true }),
 
                 new CreateIndexModel<Rule>(
                     Builders<Rule>.IndexKeys.Ascending(r => r.Category),
@@ -166,7 +170,7 @@ namespace dndhelper.Repositories
 
             _collection.Indexes.CreateMany(indexModels);
             _indexesCreated = true;
-            _logger.Information("Rule indexes ensured (slug unique, category, tags, text).");
+            _logger.Information("Rule indexes ensured (campaign+slug unique, category, tags, text).");
         }
 
         private FilterDefinition<Rule> BuildBaseFilter(RuleQueryOptions options, bool preferRegexSearch = false)
