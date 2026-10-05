@@ -52,6 +52,8 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(session.CampaignId))
                 throw new ArgumentException("CampaignId is required to create a session.", nameof(session.CampaignId));
 
+            await Access.EnsureDmAsync(session.CampaignId); // sessions are a DM tool
+
             try
             {
                 var created = await CreateAsync(session);

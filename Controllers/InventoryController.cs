@@ -142,9 +142,25 @@ public class InventoryController : ControllerBase
     // Inventory Item Endpoints
     // ----------------------
 
+    /// <summary>
+    /// Every item endpoint checks access first: the inventory's owner, a DM of its campaign, or the superadmin
+    /// (enforced by GetByIdAsync). The item service methods themselves don't check.
+    /// </summary>
+    private async Task<Inventory> RequireInventoryAsync(string inventoryId) =>
+        await _inventoryService.GetByIdAsync(inventoryId)
+            ?? throw new dndhelper.Utils.NotFoundException("Inventory not found.");
+
+    /// <summary>Items only move between inventories of the same campaign.</summary>
+    private static void RequireSameCampaign(Inventory source, string? targetCampaignId)
+    {
+        if (source.CampaignId != targetCampaignId)
+            throw new dndhelper.Utils.ForbiddenException("Items can only be moved within one campaign.");
+    }
+
     [HttpGet("{inventoryId}/items")]
     public async Task<IActionResult> GetItems(string inventoryId)
     {
+        await RequireInventoryAsync(inventoryId);
         var items = await _inventoryService.GetItemsAsync(inventoryId);
         return Ok(items);
     }
@@ -152,6 +168,7 @@ public class InventoryController : ControllerBase
     [HttpGet("{inventoryId}/items/{equipmentId}")]
     public async Task<IActionResult> GetItem(string inventoryId, string equipmentId)
     {
+        await RequireInventoryAsync(inventoryId);
         var item = await _inventoryService.GetItemAsync(inventoryId, equipmentId);
         if (item == null) return NotFound();
         return Ok(item);
@@ -160,6 +177,7 @@ public class InventoryController : ControllerBase
     [HttpPost("{inventoryId}/additem")]
     public async Task<IActionResult> AddItem(string inventoryId, [FromBody] ModifyItemAmountRequest request)
     {
+        await RequireInventoryAsync(inventoryId);
         var response = await _inventoryService.AddOrIncrementItemAsync(
             inventoryId,
             request.EquipmentId,
@@ -176,6 +194,7 @@ public class InventoryController : ControllerBase
     [HttpPost("{inventoryId}/additem/new")]
     public async Task<IActionResult> AddNewItem(string inventoryId, Equipment equipment)
     {
+        await RequireInventoryAsync(inventoryId);
         var item = await _inventoryService.AddNewItemAsync(inventoryId, equipment);
 
         var inventory = await _inventoryService.GetByIdAsync(inventoryId);
@@ -192,6 +211,12 @@ public class InventoryController : ControllerBase
             string.IsNullOrWhiteSpace(request.TargetInventoryId) ||
             string.IsNullOrWhiteSpace(equipmentId))
             return BadRequest("Invalid inventory or equipment ID.");
+
+        // From an inventory you may use, into any inventory of the same campaign (e.g. the party stash).
+        var sourceInventory = await RequireInventoryAsync(sourceInventoryId);
+        var targetInventory = await _inventoryService.GetByIdInternalAsync(request.TargetInventoryId)
+            ?? throw new dndhelper.Utils.NotFoundException("Target inventory not found.");
+        RequireSameCampaign(sourceInventory, targetInventory.CampaignId);
 
         await _inventoryService.MoveItemAsync(
             sourceInventoryId,
@@ -226,6 +251,12 @@ public class InventoryController : ControllerBase
             string.IsNullOrWhiteSpace(characterId) ||
             string.IsNullOrWhiteSpace(equipmentId))
             return BadRequest("Invalid inventory, character, or equipment ID.");
+
+        // Giving an item: from an inventory you may use, to a character in the same campaign.
+        var sourceInventory = await RequireInventoryAsync(sourceInventoryId);
+        var targetCharacter = await _characterService.GetByIdInternalAsync(characterId);
+        if (targetCharacter == null) return NotFound("Character not found.");
+        RequireSameCampaign(sourceInventory, targetCharacter.CampaignId);
 
         string targetInventoryId;
         try
@@ -267,6 +298,7 @@ public class InventoryController : ControllerBase
         if (equipmentId != item.EquipmentId)
             return BadRequest("Equipment index mismatch.");
 
+        await RequireInventoryAsync(inventoryId);
         await _inventoryService.UpdateItemAsync(inventoryId, item);
 
         var inventory = await _inventoryService.GetByIdAsync(inventoryId);
@@ -279,6 +311,7 @@ public class InventoryController : ControllerBase
     [HttpDelete("{inventoryId}/items/{equipmentId}")]
     public async Task<IActionResult> DeleteItem(string inventoryId, string equipmentId)
     {
+        await RequireInventoryAsync(inventoryId);
         await _inventoryService.DeleteItemAsync(inventoryId, equipmentId);
 
         var inventory = await _inventoryService.GetByIdAsync(inventoryId);
@@ -299,6 +332,8 @@ public class InventoryController : ControllerBase
 
         if (request.Amount <= 0)
             return BadRequest("Decrement amount must be greater than zero.");
+
+        await RequireInventoryAsync(inventoryId);
 
         await _inventoryService.DecrementItemQuantityAsync(
             inventoryId,

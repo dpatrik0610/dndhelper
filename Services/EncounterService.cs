@@ -60,6 +60,7 @@ namespace dndhelper.Services
             Guard.NotNullOrWhiteSpace(encounter.CampaignId, nameof(encounter.CampaignId));
 
             await EnsureCampaignExistsAsync(encounter.CampaignId);
+            await Access.EnsureDmAsync(encounter.CampaignId); // encounters are a DM tool
             await EnsureSessionConsistencyAsync(encounter.CampaignId, encounter.SessionId);
 
             try

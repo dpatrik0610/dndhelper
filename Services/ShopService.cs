@@ -467,6 +467,7 @@ namespace dndhelper.Services
         {
             var shop = await _repository.GetByIdAsync(shopId);
             if (shop == null || string.IsNullOrEmpty(shop.InventoryId)) return new List<dndhelper.Models.DTOs.ShopItemResponse>();
+            await Access.EnsureMemberAsync(shop.CampaignId);
 
             var inventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId);
             if (inventory == null || inventory.Items == null || !inventory.Items.Any()) return new List<dndhelper.Models.DTOs.ShopItemResponse>();
