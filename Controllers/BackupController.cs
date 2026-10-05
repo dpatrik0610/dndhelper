@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class BackupController : ControllerBase
@@ -40,7 +40,7 @@ namespace dndhelper.Controllers
                 _logger.Warning(ex, "Backup failed for collection {Collection}", collectionName);
                 return NotFound(new { message = ex.Message });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error exporting collection {Collection}", collectionName);
                 return StatusCode(500, new { message = "Failed to export collection." });
@@ -56,7 +56,7 @@ namespace dndhelper.Controllers
                 var result = await _backupService.ExportAllCollectionsAsync(cancellationToken);
                 return File(result.Stream, result.ContentType, result.FileName);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error exporting all collections");
                 return StatusCode(500, new { message = "Failed to export all collections." });
@@ -86,7 +86,7 @@ namespace dndhelper.Controllers
                 _logger.Warning(ex, "Restore failed for collection {Collection}", collectionName);
                 return StatusCode(500, new { message = ex.Message });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
             {
                 _logger.Error(ex, "Error restoring collection {Collection}", collectionName);
                 return StatusCode(500, new { message = "Failed to restore collection." });

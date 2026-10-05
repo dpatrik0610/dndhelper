@@ -1,10 +1,15 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using System;
 using System.Threading.Tasks;
 
 namespace dndhelper.Core
 {
+    /// <summary>
+    /// Each connection joins only its own user group, taken from the JWT (never from the query string).
+    /// </summary>
+    [Authorize]
     public class NotificationHub : Hub
     {
         private readonly ILogger _logger;
@@ -16,8 +21,7 @@ namespace dndhelper.Core
 
         public override async Task OnConnectedAsync()
         {
-            var httpContext = Context.GetHttpContext();
-            var userId = httpContext?.Request.Query["userId"].ToString();
+            var userId = Context.UserIdentifier;
 
             if (!string.IsNullOrEmpty(userId))
             {
@@ -34,8 +38,7 @@ namespace dndhelper.Core
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var httpContext = Context.GetHttpContext();
-            var userId = httpContext?.Request.Query["userId"].ToString();
+            var userId = Context.UserIdentifier;
 
             if (!string.IsNullOrEmpty(userId))
             {
