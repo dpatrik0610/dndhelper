@@ -320,4 +320,7 @@ namespace dndhelper.Models
     public record TableCaller(string UserId, string Name, bool IsAdmin);
 
     public record TableContext(string TableId, string UserId, string Name, bool IsDm);
+
+    /// <summary>Someone connected to a table right now.</summary>
+    public record TableParticipant(string UserId, string Name, bool IsDm);
 }

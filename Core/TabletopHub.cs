@@ -19,10 +19,12 @@ namespace dndhelper.Core
     {
         private const string ContextKey = "tabletop";
         private readonly ITabletopService _service;
+        private readonly TablePresence _presence;
 
-        public TabletopHub(ITabletopService service)
+        public TabletopHub(ITabletopService service, TablePresence presence)
         {
             _service = service;
+            _presence = presence;
         }
 
         private TableCaller Caller => new(
@@ -30,8 +32,9 @@ namespace dndhelper.Core
             Context.User?.Identity?.Name ?? "Player",
             Context.User?.IsInRole("Admin") == true);
 
+        // A kicked connection keeps its context but loses its seat, so it can't act on the table any more.
         private TableContext Table =>
-            Context.Items.TryGetValue(ContextKey, out var value) && value is TableContext ctx
+            Context.Items.TryGetValue(ContextKey, out var value) && value is TableContext ctx && _presence.Contains(Context.ConnectionId, ctx.TableId)
                 ? ctx
                 : throw new HubException("Join a table first.");
 
@@ -43,13 +46,16 @@ namespace dndhelper.Core
             var result = await _service.JoinAsync(caller, code);
 
             if (Context.Items.TryGetValue(ContextKey, out var previous) && previous is TableContext old)
-                await LeaveGroups(old);
+                await Unseat(old);
 
             await Groups.AddToGroupAsync(Context.ConnectionId, TabletopGroups.All(result.TableId));
             await Groups.AddToGroupAsync(Context.ConnectionId,
                 result.IsDm ? TabletopGroups.Dm(result.TableId) : TabletopGroups.Players(result.TableId));
 
-            Context.Items[ContextKey] = new TableContext(result.TableId, caller.UserId, caller.Name, result.IsDm);
+            var ctx = new TableContext(result.TableId, caller.UserId, caller.Name, result.IsDm);
+            Context.Items[ContextKey] = ctx;
+            _presence.Add(Context.ConnectionId, ctx);
+            await SendParticipants(result.TableId);
             return result;
         }
 
@@ -57,11 +63,24 @@ namespace dndhelper.Core
         {
             if (Context.Items.TryGetValue(ContextKey, out var value) && value is TableContext ctx)
             {
-                await ClearMeasure(ctx);
-                await LeaveGroups(ctx);
+                await Unseat(ctx);
                 Context.Items.Remove(ContextKey);
             }
         }
+
+        /// <summary>
+        /// Removes a player from the table: all their tabs drop out and are told why.
+        /// They can come back with the room code, so a new code keeps them out.
+        /// </summary>
+        public async Task Kick(string userId)
+        {
+            var ctx = RequireDm();
+            if (await KickWhere(ctx.TableId, s => s.UserId == userId && !s.IsDm) == 0)
+                throw new HubException("They're not at the table (DMs can't be kicked).");
+        }
+
+        /// <summary>Kicks every player; DMs stay. Returns how many people left.</summary>
+        public Task<int> KickAll() => KickWhere(RequireDm().TableId, s => !s.IsDm);
 
         public Task MoveToken(string tokenId, double x, double y, int distanceFt) =>
             _service.MoveTokenAsync(Table, tokenId, x, y, distanceFt);
@@ -116,21 +135,59 @@ namespace dndhelper.Core
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            if (Context.Items.TryGetValue(ContextKey, out var value) && value is TableContext ctx)
+            // Groups clean themselves up on disconnect; the seat and any live ruler don't.
+            if (Context.Items.TryGetValue(ContextKey, out var value) && value is TableContext ctx && _presence.Contains(Context.ConnectionId, ctx.TableId))
+            {
+                _presence.Remove(Context.ConnectionId, ctx.TableId);
                 await ClearMeasure(ctx);
+                await SendParticipants(ctx.TableId);
+            }
 
             await base.OnDisconnectedAsync(exception);
         }
 
+        private TableContext RequireDm()
+        {
+            var ctx = Table;
+            if (!ctx.IsDm) throw new HubException("Only the DM can do that.");
+            return ctx;
+        }
+
+        private async Task<int> KickWhere(string tableId, Func<TableContext, bool> match)
+        {
+            var removed = _presence.RemoveWhere(tableId, match);
+            if (removed.Count == 0) return 0;
+
+            foreach (var (connectionId, _) in removed)
+                await LeaveGroups(connectionId, tableId);
+            await Clients.Clients(removed.Select(r => r.ConnectionId).ToList()).SendAsync("Kicked");
+            foreach (var seat in removed.Select(r => r.Seat).DistinctBy(s => s.UserId))
+                await ClearMeasure(seat);
+            await SendParticipants(tableId);
+            return removed.Select(r => r.Seat.UserId).Distinct().Count();
+        }
+
+        private async Task Unseat(TableContext ctx)
+        {
+            _presence.Remove(Context.ConnectionId, ctx.TableId);
+            await ClearMeasure(ctx);
+            await LeaveGroups(Context.ConnectionId, ctx.TableId);
+            await SendParticipants(ctx.TableId);
+        }
+
+        /// <summary>Only the DMs see who is connected.</summary>
+        private Task SendParticipants(string tableId) =>
+            Clients.Group(TabletopGroups.Dm(tableId)).SendAsync("Participants", _presence.Participants(tableId));
+
         private Task ClearMeasure(TableContext ctx) =>
-            Clients.OthersInGroup(TabletopGroups.All(ctx.TableId))
+            Clients.Group(TabletopGroups.All(ctx.TableId))
                 .SendAsync("Measure", new { userId = ctx.UserId, name = ctx.Name, points = (List<double>?)null });
 
-        private async Task LeaveGroups(TableContext ctx)
+        private async Task LeaveGroups(string connectionId, string tableId)
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, TabletopGroups.All(ctx.TableId));
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, TabletopGroups.Dm(ctx.TableId));
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, TabletopGroups.Players(ctx.TableId));
+            await Groups.RemoveFromGroupAsync(connectionId, TabletopGroups.All(tableId));
+            await Groups.RemoveFromGroupAsync(connectionId, TabletopGroups.Dm(tableId));
+            await Groups.RemoveFromGroupAsync(connectionId, TabletopGroups.Players(tableId));
         }
     }
 }

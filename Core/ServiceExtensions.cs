@@ -167,6 +167,7 @@ namespace dndhelper.Core
             services.AddScoped<IRuleService, RuleService>();
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
             services.AddScoped<ITabletopService, TabletopService>();
+            services.AddSingleton<TablePresence>();
             services.AddScoped<IShopService, ShopService>();
             services.AddScoped<IQuestService, QuestService>();
 
