@@ -48,8 +48,29 @@ namespace dndhelper.Models
             !Whisper || viewer.IsDm || UserId == viewer.UserId || ToUserId == viewer.UserId;
     }
 
-    /// <summary>Who sends or reads chat, as already authorised by the transport (hub, controller).</summary>
+    /// <summary>The signed-in user, before campaign membership is checked.</summary>
+    public record ChatCaller(string UserId, string Name, bool IsAdmin);
+
+    /// <summary>A member of one campaign's chat: its DM (or an admin), or a player with a character in it.</summary>
     public record ChatMember(string UserId, string Name, bool IsDm);
+
+    /// <summary>A campaign the caller can chat in.</summary>
+    public record ChatCampaign(string Id, string Name, bool IsDm);
+
+    /// <summary>A player the DM can whisper to; Name lists their characters in the campaign.</summary>
+    public record ChatPlayer(string UserId, string Name);
+
+    /// <summary>A character the member can speak as.</summary>
+    public record ChatSpeaker(string Id, string Name);
+
+    /// <summary>Everything a chat screen needs when it opens a campaign's chat.</summary>
+    public record ChatRoom(
+        string CampaignId,
+        string CampaignName,
+        bool IsDm,
+        ChatPage Page,
+        List<ChatPlayer> Players,
+        List<ChatSpeaker> Characters);
 
     /// <summary>ToUserId is for DM whispers only; a player's whisper always goes to the DMs.</summary>
     public record ChatSendRequest(string Text, string? CharacterId, bool Whisper, string? ToUserId);

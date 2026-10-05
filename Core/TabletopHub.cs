@@ -20,13 +20,11 @@ namespace dndhelper.Core
         private const string ContextKey = "tabletop";
         private readonly ITabletopService _service;
         private readonly TablePresence _presence;
-        private readonly IChatService _chat;
 
-        public TabletopHub(ITabletopService service, TablePresence presence, IChatService chat)
+        public TabletopHub(ITabletopService service, TablePresence presence)
         {
             _service = service;
             _presence = presence;
-            _chat = chat;
         }
 
         private TableCaller Caller => new(
@@ -54,11 +52,11 @@ namespace dndhelper.Core
             await Groups.AddToGroupAsync(Context.ConnectionId,
                 result.IsDm ? TabletopGroups.Dm(result.TableId) : TabletopGroups.Players(result.TableId));
 
-            var ctx = new TableContext(result.TableId, result.CampaignId, caller.UserId, caller.Name, result.IsDm);
+            var ctx = new TableContext(result.TableId, caller.UserId, caller.Name, result.IsDm);
             Context.Items[ContextKey] = ctx;
             _presence.Add(Context.ConnectionId, ctx);
             await SendParticipants(result.TableId);
-            return result with { Chat = await _chat.PageAsync(Member(ctx), result.CampaignId, null) };
+            return result;
         }
 
         public async Task Leave()
@@ -115,36 +113,6 @@ namespace dndhelper.Core
 
         /// <summary>Returns the entry so the roller can animate the real dice.</summary>
         public Task<TableLogEntry> Roll(TableRollRequest request) => _service.RollAsync(Table, request);
-        // ── Campaign chat: everyone at the table, whispers only to who may read them ──
-
-        public async Task SendChat(ChatSendRequest request)
-        {
-            var ctx = Table;
-            var message = await Chat(() => _chat.SendAsync(Member(ctx), ctx.CampaignId, request));
-            await ToAudience(ctx, message).SendAsync("ChatAdded", message);
-        }
-
-        public async Task EditChat(string messageId, string text)
-        {
-            var ctx = Table;
-            var message = await Chat(() => _chat.EditAsync(Member(ctx), ctx.CampaignId, messageId, text));
-            await ToAudience(ctx, message).SendAsync("ChatUpdated", message);
-        }
-
-        public async Task DeleteChat(string messageId)
-        {
-            var ctx = Table;
-            var message = await Chat(() => _chat.DeleteAsync(Member(ctx), ctx.CampaignId, messageId));
-            await ToAudience(ctx, message).SendAsync("ChatRemoved", message.Id);
-        }
-
-        /// <summary>The page of messages before the given one.</summary>
-        public Task<ChatPage> ChatHistory(string beforeId)
-        {
-            var ctx = Table;
-            return Chat(() => _chat.PageAsync(Member(ctx), ctx.CampaignId, beforeId));
-        }
-
         public Task<int> InvitePlayers() => _service.InvitePlayersAsync(Table);
 
         public Task<List<TableEncounterSummary>> ListEncounters() => _service.ListEncountersAsync(Table);
@@ -176,26 +144,6 @@ namespace dndhelper.Core
             }
 
             await base.OnDisconnectedAsync(exception);
-        }
-
-        private static ChatMember Member(TableContext ctx) => new(ctx.UserId, ctx.Name, ctx.IsDm);
-
-        private IClientProxy ToAudience(TableContext ctx, ChatMessage message) =>
-            message.Whisper
-                ? Clients.Clients(_presence.Connections(ctx.TableId, s => message.VisibleTo(Member(s))))
-                : Clients.Group(TabletopGroups.All(ctx.TableId));
-
-        /// <summary>Chat rule violations reach the caller as their message.</summary>
-        private static async Task<T> Chat<T>(Func<Task<T>> action)
-        {
-            try
-            {
-                return await action();
-            }
-            catch (ArgumentException ex)
-            {
-                throw new HubException(ex.Message);
-            }
         }
 
         private TableContext RequireDm()

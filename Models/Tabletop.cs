@@ -314,16 +314,12 @@ namespace dndhelper.Models
         TableSnapshot State,
         List<TableStroke> Strokes,
         FogState Fog,
-        List<TableLogEntry> Log)
-    {
-        /// <summary>The newest page of the campaign's chat this person may see, filled in by the hub.</summary>
-        public ChatPage Chat { get; init; } = new(new(), false);
-    }
+        List<TableLogEntry> Log);
 
     /// <summary>Who is calling and which table their connection joined.</summary>
     public record TableCaller(string UserId, string Name, bool IsAdmin);
 
-    public record TableContext(string TableId, string CampaignId, string UserId, string Name, bool IsDm);
+    public record TableContext(string TableId, string UserId, string Name, bool IsDm);
 
     /// <summary>Someone connected to a table right now.</summary>
     public record TableParticipant(string UserId, string Name, bool IsDm);

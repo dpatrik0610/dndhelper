@@ -1,9 +1,12 @@
 using dndhelper.Models;
+using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using MongoDB.Bson;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -19,38 +22,75 @@ namespace dndhelper.Services
         private static readonly Regex BlankRun = new(@"\n[^\S\n]*(\n[^\S\n]*){2,}", RegexOptions.Compiled);
 
         private readonly IChatRepository _repository;
+        private readonly ICampaignRepository _campaigns;
         private readonly ICharacterRepository _characters;
-        private readonly IUserRepository _users;
 
-        public ChatService(IChatRepository repository, ICharacterRepository characters, IUserRepository users)
+        public ChatService(IChatRepository repository, ICampaignRepository campaigns, ICharacterRepository characters)
         {
             _repository = Guard.NotNull(repository, nameof(repository));
+            _campaigns = Guard.NotNull(campaigns, nameof(campaigns));
             _characters = Guard.NotNull(characters, nameof(characters));
-            _users = Guard.NotNull(users, nameof(users));
+        }
+
+        public async Task<List<ChatCampaign>> CampaignsAsync(ChatCaller caller)
+        {
+            var playing = (await _characters.GetByOwnerIdAsync(caller.UserId))
+                .Where(c => !c.IsDeleted && c.Id != null)
+                .Select(c => c.Id!)
+                .ToHashSet();
+
+            // ponytail: scans every campaign; add an owner/character index query if campaigns run into the thousands.
+            var campaigns = await _campaigns.GetAllAsync();
+            return campaigns
+                .Where(c => IsOwner(c, caller.UserId) || (c.CharacterIds?.Any(playing.Contains) ?? false))
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(c => new ChatCampaign(c.Id, c.Name, IsDm(c, caller)))
+                .ToList();
+        }
+
+        public async Task<(ChatMember Member, ChatRoom Room)> OpenAsync(ChatCaller caller, string campaignId)
+        {
+            var campaign = await LoadCampaign(campaignId);
+            var characters = await CampaignCharacters(campaign);
+            var isDm = IsDm(campaign, caller);
+            var mine = characters.Where(c => Owns(c, caller.UserId)).ToList();
+            if (!isDm && mine.Count == 0) throw new ArgumentException("You're not in this campaign.");
+
+            var member = new ChatMember(caller.UserId, caller.Name, isDm);
+            var room = new ChatRoom(
+                campaign.Id,
+                campaign.Name,
+                isDm,
+                await PageAsync(member, campaign.Id, null),
+                isDm ? Players(campaign, characters) : new List<ChatPlayer>(),
+                isDm ? new List<ChatSpeaker>() : mine.Select(c => new ChatSpeaker(c.Id!, c.Name ?? "Unnamed")).ToList());
+            return (member, room);
         }
 
         public async Task<ChatMessage> SendAsync(ChatMember author, string campaignId, ChatSendRequest request)
         {
             var text = CleanText(request?.Text);
+            var campaign = await LoadCampaign(campaignId);
+            var characters = await CampaignCharacters(campaign);
+
             var name = author.Name;
             var characterId = string.IsNullOrEmpty(request!.CharacterId) ? null : request.CharacterId;
             if (characterId != null)
             {
                 // Speak as your own character from this campaign; the DM may speak as any of them.
-                var character = ValidId(characterId) ? await _characters.GetByIdAsync(characterId) : null;
-                if (character == null || character.IsDeleted || character.CampaignId != campaignId
-                    || !(author.IsDm || (character.OwnerIds?.Contains(author.UserId) ?? false)))
+                var character = characters.FirstOrDefault(c => c.Id == characterId);
+                if (character == null || !(author.IsDm || Owns(character, author.UserId)))
                     throw new ArgumentException("You can't speak as that character.");
                 name = character.Name ?? name;
             }
 
-            // Players whisper to the DMs; a DM whispers to one player.
+            // Players whisper to the DMs; a DM whispers to one of the campaign's players.
             string? toUserId = null, toName = null;
             if (request.Whisper && author.IsDm)
             {
-                var to = ValidId(request.ToUserId) ? await _users.GetByIdAsync(request.ToUserId!) : null;
-                if (to == null || to.IsDeleted) throw new ArgumentException("Pick who to whisper to.");
-                (toUserId, toName) = (to.Id, to.Username);
+                var to = Players(campaign, characters).FirstOrDefault(p => p.UserId == request.ToUserId)
+                    ?? throw new ArgumentException("Pick a player to whisper to.");
+                (toUserId, toName) = (to.UserId, to.Name);
             }
 
             var message = new ChatMessage
@@ -103,6 +143,33 @@ namespace dndhelper.Services
             newestFirst.Reverse();
             return new ChatPage(newestFirst, hasMore);
         }
+
+        private async Task<Campaign> LoadCampaign(string campaignId)
+        {
+            var campaign = ValidId(campaignId) ? await _campaigns.GetByIdAsync(campaignId) : null;
+            if (campaign == null || campaign.IsDeleted) throw new ArgumentException("Campaign not found.");
+            return campaign;
+        }
+
+        /// <summary>The campaign's character list is the membership list.</summary>
+        private async Task<List<Character>> CampaignCharacters(Campaign campaign) =>
+            (await _characters.GetByIdsAsync(campaign.CharacterIds ?? new List<string>()))
+                .Where(c => !c.IsDeleted && c.Id != null)
+                .ToList();
+
+        /// <summary>Character owners who aren't the campaign's DMs, named after their characters.</summary>
+        private static List<ChatPlayer> Players(Campaign campaign, List<Character> characters) =>
+            characters
+                .SelectMany(c => (c.OwnerIds ?? new List<string>()).Select(owner => (Owner: owner, Name: c.Name ?? "Unnamed")))
+                .Where(p => !IsOwner(campaign, p.Owner))
+                .GroupBy(p => p.Owner)
+                .Select(g => new ChatPlayer(g.Key, string.Join(", ", g.Select(p => p.Name))))
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+        private static bool IsOwner(Campaign campaign, string userId) => campaign.OwnerIds?.Contains(userId) ?? false;
+        private static bool IsDm(Campaign campaign, ChatCaller caller) => caller.IsAdmin || IsOwner(campaign, caller.UserId);
+        private static bool Owns(Character character, string userId) => character.OwnerIds?.Contains(userId) ?? false;
 
         private async Task<ChatMessage> Find(string campaignId, string messageId)
         {
