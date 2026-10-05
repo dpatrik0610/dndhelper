@@ -80,6 +80,34 @@ namespace dndhelper.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// The reverse of promote: hands a core (or misplaced) spell/item/monster/rule to one campaign.
+        /// type: Spells | Equipment | Monsters | Rules (case-insensitive).
+        /// </summary>
+        [HttpPost("{type}/{id}/move-to/{campaignId}")]
+        public async Task<IActionResult> MoveToCampaign(string type, string id, string campaignId)
+        {
+            if (await _campaigns.GetByIdAsync(campaignId) == null)
+                return NotFound(new { message = "Campaign not found." });
+
+            bool moved;
+            switch (type.ToLowerInvariant())
+            {
+                case "spells": moved = await _spells.SetCampaignAsync(id, campaignId); break;
+                case "equipment": moved = await _equipment.SetCampaignAsync(id, campaignId); break;
+                case "monsters": moved = await _monsters.SetCampaignAsync(id, campaignId); break;
+                case "rules":
+                    var rule = await _rules.GetByIdAsync(id) ?? throw Missing(id);
+                    if (await _rules.SlugExistsAsync(rule.Slug, campaignId, rule.Id))
+                        return Conflict(new { message = $"That campaign already has a rule with slug '{rule.Slug}'." });
+                    moved = await _rules.SetCampaignAsync(id, campaignId);
+                    break;
+                default:
+                    return BadRequest(new { message = $"Unknown core type '{type}'." });
+            }
+            return moved ? NoContent() : NotFound(new { message = $"Nothing found with id {id}." });
+        }
+
         private static NotFoundException Missing(string id) => new($"Nothing found with id {id}.");
     }
 }

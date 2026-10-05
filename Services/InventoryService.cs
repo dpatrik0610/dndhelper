@@ -379,6 +379,16 @@ namespace dndhelper.Services
             Guard.NotNull(equipment, nameof(equipment));
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
 
+            // A brand-new item is homebrew of the inventory's campaign, made by that campaign's DM.
+            // The client can't pick the campaign, and it never becomes core content by accident.
+            var inventory = await _repository.GetByIdAsync(inventoryId)
+                ?? throw new NotFoundException("Inventory not found.");
+            if (inventory.CampaignId == null ? !Access.IsSuperAdmin : !await Access.IsDmAsync(inventory.CampaignId))
+                throw new ForbiddenException("Only the campaign's DM can create new items.");
+
+            equipment.Id = null;
+            equipment.CampaignId = inventory.CampaignId;
+            equipment.IsCustom = true;
             var newItem = await _equipmentRepo.CreateAsync(equipment);
             _logger.Information("Creating new item from " + newItem.Id);
 
