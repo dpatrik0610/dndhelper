@@ -1,4 +1,5 @@
 ﻿using dndhelper.Authentication;
+using dndhelper.Models.DTOs;
 using dndhelper.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -86,50 +87,30 @@ namespace dndhelper.Controllers
             return Ok(response);
         }
 
-        // GET: api/user
+        // GET: api/user (superadmin user manager: every user with characters and campaigns)
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<List<User>>> GetAll()
-        {
-            var users = await _userService.GetAllAsync();
-            return Ok(users);
-        }
+        public async Task<ActionResult<List<AdminUserDto>>> GetAll() =>
+            Ok(await _userService.GetAdminOverviewAsync());
 
-        // GET: api/user/{id}
-        [HttpGet("{id}")]
+        // POST: api/user
+        [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<User>> GetById(string id)
-        {
-            var user = await _userService.GetByIdAsync(id);
-            if (user == null) return NotFound();
-            return Ok(user);
-        }
+        public async Task<ActionResult<AdminUserDto>> Create([FromBody] AdminUserRequest request) =>
+            Ok(await _userService.AdminCreateAsync(request));
 
-        // PUT: api/user/{id}
-        [HttpPut("{id}")]
+        // PATCH: api/user/{id} (only the sent fields change; a password resets it)
+        [HttpPatch("{id}")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<User>> Update(string id, [FromBody] User user)
-        {
-            if (id != user.Id) return BadRequest("User ID mismatch");
-            var updatedUser = await _userService.UpdateAsync(user);
-            return Ok(updatedUser);
-        }
-
-        // PATCH: api/user/{id}/status
-        [HttpPatch("{id}/status")]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<User>> UpdateStatus(string id, [FromQuery] UserStatus status)
-        {
-            var updatedUser = await _userService.UpdateStatusAsync(id, status);
-            return Ok(updatedUser);
-        }
+        public async Task<ActionResult<AdminUserDto>> Update(string id, [FromBody] AdminUserRequest request) =>
+            Ok(await _userService.AdminUpdateAsync(id, request));
 
         // DELETE: api/user/{id}
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(string id)
         {
-            var result = await _userService.DeleteAsync(id);
+            var result = await _userService.AdminDeleteAsync(id);
             if (!result) return NotFound();
             return NoContent();
         }
