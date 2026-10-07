@@ -153,6 +153,7 @@ namespace dndhelper.Core
             services.AddScoped<IShopRepository, ShopRepository>();
             services.AddScoped<ISellRequestRepository, SellRequestRepository>();
             services.AddScoped<IQuestRepository, QuestRepository>();
+            services.AddScoped<IPollRepository, PollRepository>();
             #endregion
 
             #region Services
@@ -180,6 +181,7 @@ namespace dndhelper.Core
             services.AddScoped<IChatService, ChatService>();
             services.AddScoped<IShopService, ShopService>();
             services.AddScoped<IQuestService, QuestService>();
+            services.AddScoped<IPollService, PollService>();
 
             // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
