@@ -178,6 +178,10 @@ namespace dndhelper.Models
         public int Ac { get; set; }
         public int Speed { get; set; } = 30;
 
+        /// <summary>Aura reach in ft beyond the token's edge; 0 = no aura. Drawn under tokens and moves with the token.</summary>
+        public int AuraFt { get; set; }
+        public string AuraColor { get; set; } = "#facc15";
+
         public List<TableEffect> Effects { get; set; } = new();
         public TurnEconomy Economy { get; set; } = new();
     }

@@ -164,6 +164,8 @@ namespace dndhelper.Services
                 token.TempHp = Math.Clamp(input.TempHp, 0, 999);
                 token.Ac = Math.Clamp(input.Ac, 0, 50);
                 token.Speed = Math.Clamp(input.Speed, 0, 300);
+                token.AuraFt = Math.Clamp(input.AuraFt, 0, 300);
+                token.AuraColor = Color(input.AuraColor, "#facc15");
                 token.Effects = (input.Effects ?? new())
                     .Take(20)
                     .Select(e => new TableEffect
@@ -291,7 +293,7 @@ namespace dndhelper.Services
             var next = new GridSettings
             {
                 Type = grid.Type,
-                CellSize = Math.Clamp(grid.CellSize, 20, 200),
+                CellSize = Math.Clamp(grid.CellSize, 20, 500),
                 Color = Color(grid.Color, "#ffffff33"),
             };
             return Change(ctx.TableId, t => t.Grid = next);
