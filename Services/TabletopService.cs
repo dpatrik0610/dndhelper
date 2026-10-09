@@ -136,6 +136,8 @@ namespace dndhelper.Services
                     template.X = token.X;
                     template.Y = token.Y;
                 }
+                foreach (var template in t.Templates.Where(tp => tp.TargetTokenId != null && (tp.TokenId == token.Id || tp.TargetTokenId == token.Id)))
+                    if (t.Tokens.FirstOrDefault(x => x.Id == template.TargetTokenId) is { } target) AimAt(t, template, target);
                 if (IsTurnOf(t, token))
                     token.Economy.MovedFt = Math.Min(token.Economy.MovedFt + Math.Clamp(distanceFt, 0, 10_000), 100_000);
             });
@@ -215,7 +217,11 @@ namespace dndhelper.Services
                 var token = FindToken(t, tokenId);
                 t.Tokens.Remove(token);
                 // Pinned templates stay where the token was.
-                foreach (var template in t.Templates.Where(tp => tp.TokenId == token.Id)) template.TokenId = null;
+                foreach (var template in t.Templates.Where(tp => tp.TokenId == token.Id || tp.TargetTokenId == token.Id))
+                {
+                    if (template.TokenId == token.Id) template.TokenId = null;
+                    template.TargetTokenId = null;
+                }
             });
         }
 
@@ -467,6 +473,9 @@ namespace dndhelper.Services
                 WidthFt = Math.Clamp(input.WidthFt, 5, 100),
                 Centered = input.Kind == AoeKind.Cube && input.Centered,
                 TokenId = string.IsNullOrWhiteSpace(input.TokenId) ? null : input.TokenId,
+                TargetTokenId = input.Kind == AoeKind.Line && !string.IsNullOrWhiteSpace(input.TokenId) && !string.IsNullOrWhiteSpace(input.TargetTokenId)
+                    ? input.TargetTokenId
+                    : null,
                 Angle = Finite(input.Angle, 0) % 360,
                 Color = Color(input.Color, "#f97316"),
                 Remaining = input.Remaining is int r ? Math.Clamp(r, 1, 100) : null,
@@ -481,6 +490,13 @@ namespace dndhelper.Services
                     if (token.Layer == TableLayer.Dm && !ctx.IsDm) throw Fail("Token not found.");
                     template.X = token.X;
                     template.Y = token.Y;
+                }
+                if (template.TargetTokenId != null)
+                {
+                    var target = FindToken(t, template.TargetTokenId);
+                    if (target.Layer == TableLayer.Dm && !ctx.IsDm) throw Fail("Token not found.");
+                    if (target.Id == template.TokenId) template.TargetTokenId = null;
+                    else AimAt(t, template, target);
                 }
                 t.Templates.Add(template);
             });
@@ -991,14 +1007,16 @@ namespace dndhelper.Services
             foreach (var token in t.Tokens) token.Health = HealthOf(token);
             if (isDm) return new(t.Grid, t.Map, t.Tokens, t.Turn, t.Templates, t.Encounter);
 
-            // The DM layer stays DM-only, and so do templates pinned to DM-layer tokens (they'd give the position away).
+            // The DM layer stays DM-only, and so do templates pinned to or aimed at DM-layer tokens (they'd give the position away).
             var dmOnly = t.Tokens.Where(x => x.Layer == TableLayer.Dm).Select(x => x.Id).ToHashSet();
             return new(
                 t.Grid,
                 t.Map,
                 t.Tokens.Where(x => x.Layer != TableLayer.Dm).Select(ForPlayers).ToList(),
                 t.Turn,
-                t.Templates.Where(x => x.Layer != TableLayer.Dm && (x.TokenId == null || !dmOnly.Contains(x.TokenId))).ToList(),
+                t.Templates.Where(x => x.Layer != TableLayer.Dm
+                    && (x.TokenId == null || !dmOnly.Contains(x.TokenId))
+                    && (x.TargetTokenId == null || !dmOnly.Contains(x.TargetTokenId))).ToList(),
                 t.Encounter);
         }
 
@@ -1057,6 +1075,15 @@ namespace dndhelper.Services
             if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
                 return value;
             throw Fail("Images must be uploaded or use an http(s) URL.");
+        }
+
+        /// <summary>Points a line from its origin at the target token's centre and stretches it to reach.</summary>
+        private static void AimAt(Tabletop t, AoeTemplate template, TableToken target)
+        {
+            var dx = target.X - template.X;
+            var dy = target.Y - template.Y;
+            template.Angle = Math.Atan2(dy, dx) * 180 / Math.PI;
+            template.SizeFt = Math.Clamp((int)Math.Round(Math.Sqrt(dx * dx + dy * dy) / Math.Max(1, t.Grid.CellSize) * 5), 5, 500);
         }
 
         private static double Finite(double value, double fallback) =>

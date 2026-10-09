@@ -246,6 +246,8 @@ namespace dndhelper.Models
         public bool Centered { get; set; }
         /// <summary>Token the template is pinned to; it moves with that token.</summary>
         public string? TokenId { get; set; }
+        /// <summary>Lines pinned to a token can aim at a second one: the line runs between them as either moves.</summary>
+        public string? TargetTokenId { get; set; }
         /// <summary>Direction in degrees (cone/line/cube).</summary>
         public double Angle { get; set; }
         public string Color { get; set; } = "#f97316";
