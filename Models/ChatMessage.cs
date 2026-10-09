@@ -42,6 +42,10 @@ namespace dndhelper.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? ToUserId { get; set; }
 
+        /// <summary>The message this one answers. Only the id is kept: readers resolve it from what they can see.</summary>
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? ReplyToId { get; set; }
+
         public DateTime? EditedAt { get; set; }
 
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
@@ -80,7 +84,7 @@ namespace dndhelper.Models
         Dictionary<string, string> Avatars);
 
     /// <summary>ToCharacterId is for DM whispers only; a player's whisper always goes to the DMs.</summary>
-    public record ChatSendRequest(string Text, string? CharacterId, bool Whisper, string? ToCharacterId);
+    public record ChatSendRequest(string Text, string? CharacterId, bool Whisper, string? ToCharacterId, string? ReplyToId = null);
 
     /// <summary>Messages oldest first, and whether older ones exist.</summary>
     public record ChatPage(List<ChatMessage> Messages, bool HasMore);

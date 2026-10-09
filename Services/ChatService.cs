@@ -91,6 +91,15 @@ namespace dndhelper.Services
                 to = WhisperTargets(campaign, characters).FirstOrDefault(c => c.Id == request.ToCharacterId)
                     ?? throw new ArgumentException("Pick a character to whisper to.");
 
+            // Answer only what you can read, so a reply can't be used to probe for whispers.
+            var replyTo = string.IsNullOrEmpty(request.ReplyToId) ? null : request.ReplyToId;
+            if (replyTo != null)
+            {
+                var original = ValidId(replyTo) ? await _repository.GetAsync(replyTo) : null;
+                if (original == null || original.IsDeleted || original.CampaignId != campaignId || !original.VisibleTo(author))
+                    throw new ArgumentException("That message is gone.");
+            }
+
             var message = new ChatMessage
             {
                 CampaignId = campaignId,
@@ -103,6 +112,7 @@ namespace dndhelper.Services
                 ToCharacterId = to?.Id,
                 ToUserIds = to == null ? new List<string>() : PlayerOwners(campaign, to),
                 ToName = to?.Name,
+                ReplyToId = replyTo,
                 CreatedAt = DateTime.UtcNow,
             };
             await _repository.AddAsync(message);
