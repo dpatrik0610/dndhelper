@@ -14,11 +14,14 @@ using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Services.SignalR;
 using dndhelper.Utils;
+using Amazon.Runtime;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson.Serialization.Conventions;
 using Serilog;
@@ -162,6 +165,7 @@ namespace dndhelper.Core
             services.AddScoped<ISellRequestRepository, SellRequestRepository>();
             services.AddScoped<IQuestRepository, QuestRepository>();
             services.AddScoped<IPollRepository, PollRepository>();
+            services.AddScoped<IStoredFileRepository, StoredFileRepository>();
             #endregion
 
             #region Services
@@ -200,6 +204,28 @@ namespace dndhelper.Core
             #endregion
 
             services.Configure<DiceRollOptions>(config.GetSection("DiceRoll"));
+
+            #region File storage (Cloudflare R2)
+            services.Configure<R2Options>(config.GetSection("R2"));
+            // Built on first use, so the app still starts without R2 configured; uploads then fail with this message.
+            services.AddSingleton<IAmazonS3>(sp =>
+            {
+                var o = sp.GetRequiredService<IOptions<R2Options>>().Value;
+                if (string.IsNullOrWhiteSpace(o.Endpoint) || string.IsNullOrWhiteSpace(o.AccessKeyId)
+                    || string.IsNullOrWhiteSpace(o.SecretAccessKey) || string.IsNullOrWhiteSpace(o.BucketName))
+                    throw new InvalidOperationException("R2 storage isn't configured (R2__Endpoint, R2__AccessKeyId, R2__SecretAccessKey, R2__BucketName).");
+
+                return new AmazonS3Client(new BasicAWSCredentials(o.AccessKeyId, o.SecretAccessKey), new AmazonS3Config
+                {
+                    ServiceURL = o.Endpoint,
+                    AuthenticationRegion = "auto",
+                    // R2 rejects the SDK's newer default checksum headers
+                    RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
+                    ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
+                });
+            });
+            services.AddScoped<IFileStorageService, FileStorageService>();
+            #endregion
 
             var dndApiUrl = config.GetValue<string>("DndApi:BaseUrl") ?? throw CustomExceptions.ThrowArgumentNullException(logger, "Logger");
             services.AddHttpClient<IPublicDndApiClient, PublicDndApiClient>(client =>
