@@ -38,10 +38,13 @@ public class ExceptionMiddleware
                 ForbiddenException => (HttpStatusCode.Forbidden, ex.Message),
                 UnauthorizedAccessException => (HttpStatusCode.Unauthorized, ex.Message),
                 AlreadyExistsException => (HttpStatusCode.Conflict, ex.Message),
+                RateLimitException => (HttpStatusCode.TooManyRequests, ex.Message),
                 _ => (HttpStatusCode.InternalServerError, $"An unexpected error occurred: {ex.Message} ")
             };
 
             context.Response.StatusCode = (int)status;
+            if (ex is RateLimitException { RetryAfter: { } retryAfter })
+                context.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
 
             var response = JsonConvert.SerializeObject(new { Message = message });
             await context.Response.WriteAsync(response);

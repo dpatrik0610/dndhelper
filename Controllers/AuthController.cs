@@ -1,7 +1,8 @@
-﻿using dndhelper.Authentication;
+using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -19,6 +20,7 @@ namespace dndhelper.Controllers
         }
 
         [HttpPost("register")]
+        [EnableRateLimiting(AuthRateLimits.Register)]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             await _authService.RegisterAsync(request.Username, request.Password);
@@ -28,6 +30,7 @@ namespace dndhelper.Controllers
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting(AuthRateLimits.Login)]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var token = await _authService.AuthenticateAsync(request.Username, request.Password);
@@ -48,6 +51,7 @@ namespace dndhelper.Controllers
 
         [HttpPost("change-password")]
         [Authorize]
+        [EnableRateLimiting(AuthRateLimits.Login)] // it checks the current password, so it's a guessing target too
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
             await _authService.ChangePasswordAsync(request.CurrentPassword, request.NewPassword);

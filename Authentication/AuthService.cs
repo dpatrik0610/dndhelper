@@ -1,4 +1,4 @@
-﻿using dndhelper.Authentication.Interfaces;
+using dndhelper.Authentication.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Http;
@@ -23,10 +23,15 @@ namespace dndhelper.Authentication
         private readonly IUserService _userService;
         private readonly IConfiguration _config;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly LoginThrottle _throttle;
         private readonly ILogger _logger;
 
-        public AuthService(IUserService userService, IConfiguration config, IHttpContextAccessor httpContextAccessor, ILogger logger)
+        // Checked when the username doesn't exist, so a miss takes as long as a wrong password (no timing-based account discovery).
+        private static readonly string DummyHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString());
+
+        public AuthService(IUserService userService, IConfiguration config, IHttpContextAccessor httpContextAccessor, LoginThrottle throttle, ILogger logger)
         {
+            _throttle = throttle ?? throw new ArgumentNullException(nameof(throttle));
             _logger = logger ?? throw CustomExceptions.ThrowArgumentNullException(Log.Logger, nameof(logger));
             _config = config ?? throw CustomExceptions.ThrowArgumentNullException(_logger, nameof(config));
             _userService = userService ?? throw CustomExceptions.ThrowArgumentNullException(_logger, nameof(userService));
@@ -40,15 +45,41 @@ namespace dndhelper.Authentication
         {
             ValidateCredentials(username, password);
 
-            var user = await _userService.GetByUsernameAsync(username);
+            var lockedFor = _throttle.LockedFor(username);
+            if (lockedFor != null)
+            {
+                _logger.Warning($"Sign-in blocked for locked username: {username}");
+                throw new RateLimitException($"Too many failed sign-ins. Try again in {Math.Ceiling(lockedFor.Value.TotalMinutes)} minutes.")
+                {
+                    RetryAfter = lockedFor,
+                };
+            }
+
+            User? user;
+            try
+            {
+                user = await _userService.GetByUsernameAsync(username);
+            }
+            catch (NotFoundException)
+            {
+                user = null; // same 401 as a wrong password, so sign-in never reveals whether an account exists
+            }
 
             if (user == null)
             {
+                BCrypt.Net.BCrypt.Verify(password, DummyHash);
+                _throttle.Failed(username);
                 _logger.Warning($"User not found with username: {username}");
                 CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(username));
             }
 
-            if (!IsValidUser(user, password)) CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(username));
+            if (!IsValidUser(user, password))
+            {
+                _throttle.Failed(username);
+                CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(username));
+            }
+
+            _throttle.Succeeded(username);
 
             if (user!.IsActive != UserStatus.Active)
             {

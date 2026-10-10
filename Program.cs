@@ -90,6 +90,7 @@ if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DOTN
 
 app.UseSerilogRequestLogging();
 app.UseCors(MyAllowSpecificOrigins);
+app.UseRateLimiter(); // after CORS, so the browser can read a 429
 app.UseAuthentication();
 app.UseAuthorization();
 

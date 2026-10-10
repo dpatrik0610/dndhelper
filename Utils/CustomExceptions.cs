@@ -1,4 +1,4 @@
-﻿using Serilog;
+using Serilog;
 using System;
 
 namespace dndhelper.Utils
@@ -75,5 +75,8 @@ namespace dndhelper.Utils
     public class RateLimitException : Exception
     {
         public RateLimitException(string message) : base(message) { }
+
+        /// <summary>Sent as the Retry-After header when set.</summary>
+        public TimeSpan? RetryAfter { get; init; }
     }
 }

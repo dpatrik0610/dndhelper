@@ -101,6 +101,8 @@ namespace dndhelper.Core
             services.AddHttpContextAccessor();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddSingleton<LoginThrottle>();
+            services.AddAuthRateLimits();
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
