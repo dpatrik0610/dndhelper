@@ -82,6 +82,8 @@ namespace dndhelper.Models.CharacterModels
             new SpellSlot {Level = 9, Current = 0, Max = 0},
         };
 
+        public List<ClassResource>? ClassResources { get; set; } = new List<ClassResource>();
+
         public int? DeathSavesSuccesses { get; set; } = 0;
         public int? DeathSavesFailures { get; set; } = 0;
 

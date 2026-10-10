@@ -136,6 +136,12 @@ namespace dndhelper.Services
                 slot.Current = slot.Max;
             }
 
+            // Short-rest pools also refill on a long rest
+            foreach (var resource in character.ClassResources ?? new List<ClassResource>())
+            {
+                if (resource.Recharge != "none") resource.Current = resource.Max;
+            }
+
             if (character.Conditions.IsNullOrEmpty())
             {
                 character.Conditions!.Clear();
