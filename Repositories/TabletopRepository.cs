@@ -71,16 +71,7 @@ namespace dndhelper.Repositories
         public Task ReplaceAsync(Tabletop table) =>
             _collection.ReplaceOneAsync(t => t.Id == table.Id, table);
 
-        // ── Images (GridFS) ──
-
-        public async Task<string> UploadImageAsync(string fileName, Stream content, string contentType)
-        {
-            var id = await _images.UploadFromStreamAsync(fileName, content, new GridFSUploadOptions
-            {
-                Metadata = new BsonDocument("contentType", contentType)
-            });
-            return id.ToString();
-        }
+        // ── Images (GridFS, legacy: new uploads go to R2) ──
 
         public async Task<(Stream Content, string ContentType)?> OpenImageAsync(string id)
         {

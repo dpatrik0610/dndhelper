@@ -51,7 +51,7 @@ namespace dndhelper.Services.Interfaces
         /// <summary>Pushes character sheet changes (HP, AC, conditions...) onto its tokens.</summary>
         Task SyncCharacterAsync(Character character);
 
-        Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName);
+        Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName, StorageFolder folder);
         Task<(Stream Content, string ContentType)?> OpenImageAsync(string imageId);
     }
 }

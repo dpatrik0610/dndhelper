@@ -25,11 +25,14 @@ namespace dndhelper.Controllers
             _service = service;
         }
 
-        /// <summary>DM uploads a map or token image; returns the URL to put on the map/token.</summary>
+        /// <summary>DM uploads a map or token image (kind = "map" | "token"); returns the URL to put on the map/token.</summary>
         [HttpPost("{tableId}/images")]
         [RequestSizeLimit(MaxImageBytes + 1024 * 1024)]
-        public async Task<IActionResult> UploadImage(string tableId, IFormFile? file)
+        public async Task<IActionResult> UploadImage(string tableId, IFormFile? file, [FromQuery] string kind = "map")
         {
+            StorageFolder? folder = kind switch { "map" => StorageFolder.Maps, "token" => StorageFolder.Tokens, _ => null };
+            if (folder == null)
+                return BadRequest(new { message = "kind must be map or token." });
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "Choose an image to upload." });
             if (file.Length > MaxImageBytes)
@@ -44,7 +47,7 @@ namespace dndhelper.Controllers
             await file.CopyToAsync(buffer);
             buffer.Position = 0;
 
-            var url = await _service.UploadImageAsync(tableId, caller, buffer, file.FileName);
+            var url = await _service.UploadImageAsync(tableId, caller, buffer, file.FileName, folder.Value);
             return Ok(new { url });
         }
 

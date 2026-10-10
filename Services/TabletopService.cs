@@ -59,6 +59,7 @@ namespace dndhelper.Services
         private readonly IDiceRollService _dice;
         private readonly IEntitySyncService _entitySync;
         private readonly IHubContext<TabletopHub> _hub;
+        private readonly IFileStorageService _storage;
         private readonly ILogger _logger;
 
         public TabletopService(
@@ -69,6 +70,7 @@ namespace dndhelper.Services
             IDiceRollService dice,
             IEntitySyncService entitySync,
             IHubContext<TabletopHub> hub,
+            IFileStorageService storage,
             ILogger logger)
         {
             _repository = Guard.NotNull(repository, nameof(repository));
@@ -78,6 +80,7 @@ namespace dndhelper.Services
             _dice = Guard.NotNull(dice, nameof(dice));
             _entitySync = Guard.NotNull(entitySync, nameof(entitySync));
             _hub = Guard.NotNull(hub, nameof(hub));
+            _storage = Guard.NotNull(storage, nameof(storage));
             _logger = Guard.NotNull(logger, nameof(logger));
         }
 
@@ -320,7 +323,7 @@ namespace dndhelper.Services
             };
 
             // ponytail: replaced uploads are kept because stored encounter boards may still show them.
-            // Orphans pile up in GridFS; sweep images no table or encounter references if that ever matters.
+            // Orphans pile up in R2; sweep images no table or encounter references if that ever matters.
             return Change(ctx.TableId, t => t.Map = next);
         }
 
@@ -930,38 +933,28 @@ namespace dndhelper.Services
         // Images
         // ──────────────────────────────────────────────
 
-        public async Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName)
+        public async Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName, StorageFolder folder)
         {
+            if (folder is not (StorageFolder.Maps or StorageFolder.Tokens))
+                throw new ArgumentException("Table images are maps or tokens.");
+
             var table = await _repository.GetByIdAsync(tableId) ?? throw new NotFoundException("Table not found.");
             var campaign = await _campaigns.GetByIdAsync(table.CampaignId);
             if (campaign == null || !IsDm(campaign, caller))
                 throw new UnauthorizedAccessException("Only the DM can upload table images.");
 
-            var contentType = SniffImageType(content)
-                ?? throw new ArgumentException("Only PNG, JPEG, WebP or GIF images are allowed.");
+            // Type and size are checked from the bytes by the storage service.
+            var file = await _storage.UploadAsync(content, folder, caller.UserId, fileName);
+            if (file.Url != null) return file.Url;
 
-            var id = await _repository.UploadImageAsync(Text(fileName, 100, "image"), content, contentType);
-            return ImagePathPrefix + id;
+            // The board shows images via <img>/<image>, which can't use signed headers, so a public domain is required.
+            await _storage.DeleteAsync(file.Id!);
+            throw new InvalidOperationException("Table images need a public R2 domain (R2__PublicBaseUrl).");
         }
 
+        /// <summary>Legacy: images uploaded before R2 still live in GridFS and keep their /api/tabletop/images/{id} URLs.</summary>
         public Task<(Stream Content, string ContentType)?> OpenImageAsync(string imageId) =>
             _repository.OpenImageAsync(imageId);
-
-        /// <summary>Trust the bytes, not the client's content type (SVG and HTML stay out).</summary>
-        private static string? SniffImageType(Stream content)
-        {
-            Span<byte> head = stackalloc byte[12];
-            var read = content.Read(head);
-            content.Position = 0;
-            if (read < 12) return null;
-
-            if (head[0] == 0x89 && head[1] == 0x50 && head[2] == 0x4E && head[3] == 0x47) return "image/png";
-            if (head[0] == 0xFF && head[1] == 0xD8 && head[2] == 0xFF) return "image/jpeg";
-            if (head[0] == 'G' && head[1] == 'I' && head[2] == 'F' && head[3] == '8') return "image/gif";
-            if (head[0] == 'R' && head[1] == 'I' && head[2] == 'F' && head[3] == 'F'
-                && head[8] == 'W' && head[9] == 'E' && head[10] == 'B' && head[11] == 'P') return "image/webp";
-            return null;
-        }
 
         // ──────────────────────────────────────────────
         // Plumbing
