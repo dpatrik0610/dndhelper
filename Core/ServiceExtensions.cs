@@ -86,6 +86,14 @@ namespace dndhelper.Core
             #endregion
 
             #region Auth
+            // Secret: only from the environment (Jwt__Key), never from appsettings. HS256 needs at least 256 bits.
+            var jwtKey = config["Jwt:Key"];
+            if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+            {
+                logger.Error("JWT signing key is missing or shorter than 32 bytes. Set the Jwt__Key environment variable.");
+                throw new InvalidOperationException("JWT signing key not configured (Jwt__Key).");
+            }
+
             // Authentication
             services.AddHttpContextAccessor();
             services.AddScoped<IUserRepository, UserRepository>();
@@ -120,7 +128,7 @@ namespace dndhelper.Core
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = config["Jwt:Issuer"],
                     ValidAudience = config["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
                 };
             });
 

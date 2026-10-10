@@ -4,3 +4,4 @@ obj/
 .git/
 .gitignore
 Dockerfile
+.env

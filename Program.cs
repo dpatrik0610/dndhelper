@@ -5,6 +5,23 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using System;
+using System.IO;
+
+// Local runs (Visual Studio, dotnet run) take secrets from .env; Docker passes it with --env-file.
+// Variables already set in the real environment win.
+var envFile = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (File.Exists(envFile))
+{
+    foreach (var raw in File.ReadAllLines(envFile))
+    {
+        var line = raw.Trim();
+        var eq = line.IndexOf('=');
+        if (line.StartsWith('#') || eq <= 0) continue;
+        var key = line[..eq].Trim();
+        if (Environment.GetEnvironmentVariable(key) == null)
+            Environment.SetEnvironmentVariable(key, line[(eq + 1)..].Trim().Trim('"'));
+    }
+}
 
 var builder = WebApplication.CreateBuilder(args);
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
