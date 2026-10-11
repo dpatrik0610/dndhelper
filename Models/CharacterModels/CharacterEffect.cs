@@ -25,7 +25,7 @@ namespace dndhelper.Models.CharacterModels
     {
         /// <summary>e.g. "con", "save:dex", "saves", "skill:Stealth", "checks", "attack", "ac", "speed", "initiative", "maxHp".</summary>
         public string Target { get; set; } = string.Empty;
-        /// <summary>bonus | set | min | advantage | disadvantage | note</summary>
+        /// <summary>bonus | set | min | advantage | disadvantage | proficiency | note</summary>
         public string Type { get; set; } = "bonus";
         public int? Value { get; set; }
         public string? Text { get; set; }
