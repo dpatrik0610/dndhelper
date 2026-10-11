@@ -45,6 +45,9 @@ namespace dndhelper.Repositories
         public async Task<Tabletop?> GetByJoinCodeAsync(string joinCode) =>
             await _collection.Find(t => t.JoinCode == joinCode && !t.IsDeleted).FirstOrDefaultAsync();
 
+        public Task<bool> AnyUsesMapAsync(string imageUrl) =>
+            _collection.Find(t => t.Map.ImageUrl == imageUrl && !t.IsDeleted).AnyAsync();
+
         public async Task<Tabletop?> GetByCampaignIdAsync(string campaignId) =>
             await _collection.Find(t => t.CampaignId == campaignId && !t.IsDeleted).FirstOrDefaultAsync();
 

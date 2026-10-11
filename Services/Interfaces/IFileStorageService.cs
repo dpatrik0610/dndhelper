@@ -1,5 +1,6 @@
 using dndhelper.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +25,12 @@ namespace dndhelper.Services.Interfaces
             Func<StoredFile, Task> attach, string? fileName = null, CancellationToken ct = default);
 
         Task<StoredFile?> GetAsync(string fileId);
+
+        /// <summary>Live files the user owns in a folder, for per-feature quotas.</summary>
+        Task<long> CountAsync(string ownerId, StorageFolder folder);
+
+        /// <summary>Live files the user owns in a folder, newest first.</summary>
+        Task<List<StoredFile>> ListAsync(string ownerId, StorageFolder folder);
 
         /// <summary>Short-lived read URL, for a private bucket.</summary>
         Task<string> GetSignedUrlAsync(StoredFile file, TimeSpan lifetime);

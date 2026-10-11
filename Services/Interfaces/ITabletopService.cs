@@ -53,5 +53,7 @@ namespace dndhelper.Services.Interfaces
 
         Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName, StorageFolder folder);
         Task<(Stream Content, string ContentType)?> OpenImageAsync(string imageId);
+        Task<MapLibrary> ListMapsAsync(TableCaller caller);
+        Task DeleteMapAsync(TableCaller caller, string fileId);
     }
 }

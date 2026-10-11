@@ -325,6 +325,12 @@ namespace dndhelper.Models
     /// <summary>Who is calling and which table their connection joined.</summary>
     public record TableCaller(string UserId, string Name, bool IsAdmin);
 
+    /// <summary>A map the DM uploaded, for reuse or deletion.</summary>
+    public record MapUpload(string Id, string Url, string? Name, long Size, DateTime? CreatedAt);
+
+    /// <summary>The caller's uploaded maps, newest first; Limit is null for superadmins.</summary>
+    public record MapLibrary(List<MapUpload> Maps, int? Limit);
+
     public record TableContext(string TableId, string UserId, string Name, bool IsDm);
 
     /// <summary>Someone connected to a table right now.</summary>

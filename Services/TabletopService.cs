@@ -9,6 +9,7 @@ using dndhelper.Utils;
 using Microsoft.AspNetCore.SignalR;
 using MongoDB.Bson;
 using Serilog;
+using MongoDB.Driver;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -34,6 +35,8 @@ namespace dndhelper.Services
     public class TabletopService : ITabletopService
     {
         public const string ImagePathPrefix = "/api/tabletop/images/";
+        /// <summary>Uploaded maps a DM may keep; superadmins are exempt. Tokens have no count limit, only a 5 MB file cap.</summary>
+        public const int MaxMapsPerDm = 10;
 
         private const int MaxTokens = 200;
         private const int MaxStrokes = 300;
@@ -943,6 +946,11 @@ namespace dndhelper.Services
             if (campaign == null || !IsDm(campaign, caller))
                 throw new UnauthorizedAccessException("Only the DM can upload table images.");
 
+            // ponytail: count-then-upload can let two simultaneous uploads both take the last slot; fine for a soft quota.
+            if (folder == StorageFolder.Maps && !caller.IsAdmin
+                && await _storage.CountAsync(caller.UserId, StorageFolder.Maps) >= MaxMapsPerDm)
+                throw new InvalidOperationException($"You can have up to {MaxMapsPerDm} uploaded maps.");
+
             // Type and size are checked from the bytes by the storage service.
             var file = await _storage.UploadAsync(content, folder, caller.UserId, fileName);
             if (file.Url != null) return file.Url;
@@ -950,6 +958,35 @@ namespace dndhelper.Services
             // The board shows images via <img>/<image>, which can't use signed headers, so a public domain is required.
             await _storage.DeleteAsync(file.Id!);
             throw new InvalidOperationException("Table images need a public R2 domain (R2__PublicBaseUrl).");
+        }
+
+        public async Task<MapLibrary> ListMapsAsync(TableCaller caller)
+        {
+            var files = await _storage.ListAsync(caller.UserId, StorageFolder.Maps);
+            var maps = files
+                .Where(f => f.Id != null && f.Url != null)
+                .Select(f => new MapUpload(f.Id!, f.Url!, f.OriginalName, f.Size, f.CreatedAt))
+                .ToList();
+            return new MapLibrary(maps, caller.IsAdmin ? null : MaxMapsPerDm);
+        }
+
+        /// <summary>Frees a map slot. Refused while a table or saved encounter still shows the map, so nothing goes blank.</summary>
+        public async Task DeleteMapAsync(TableCaller caller, string fileId)
+        {
+            var file = await _storage.GetAsync(fileId);
+            // Another user's file reads as missing, so ids can't be probed.
+            if (file == null || file.Folder != StorageFolder.Maps || (file.OwnerId != caller.UserId && !caller.IsAdmin))
+                throw new NotFoundException("Map not found.");
+
+            if (file.Url != null)
+            {
+                var inUse = await _repository.AnyUsesMapAsync(file.Url)
+                    || (await _encounters.FindAsync(Builders<Encounter>.Filter.Eq("Board.Map.ImageUrl", file.Url))).Count > 0;
+                if (inUse)
+                    throw new InvalidOperationException("This map is still on a table or a saved encounter. Switch those to another map first.");
+            }
+
+            await _storage.DeleteAsync(fileId);
         }
 
         /// <summary>Legacy: images uploaded before R2 still live in GridFS and keep their /api/tabletop/images/{id} URLs.</summary>

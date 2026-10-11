@@ -38,18 +38,29 @@ namespace dndhelper.Controllers
             if (file.Length > MaxImageBytes)
                 return BadRequest(new { message = "Images can be at most 15 MB." });
 
-            var caller = new TableCaller(
-                User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
-                User.Identity?.Name ?? "Player",
-                User.IsInRole("Admin"));
-
             await using var buffer = new MemoryStream();
             await file.CopyToAsync(buffer);
             buffer.Position = 0;
 
-            var url = await _service.UploadImageAsync(tableId, caller, buffer, file.FileName, folder.Value);
+            var url = await _service.UploadImageAsync(tableId, Caller, buffer, file.FileName, folder.Value);
             return Ok(new { url });
         }
+
+        /// <summary>The caller's uploaded maps, to reuse or delete (frees a slot of the per-DM limit).</summary>
+        [HttpGet("maps")]
+        public async Task<IActionResult> ListMaps() => Ok(await _service.ListMapsAsync(Caller));
+
+        [HttpDelete("maps/{fileId}")]
+        public async Task<IActionResult> DeleteMap(string fileId)
+        {
+            await _service.DeleteMapAsync(Caller, fileId);
+            return NoContent();
+        }
+
+        private TableCaller Caller => new(
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+            User.Identity?.Name ?? "Player",
+            User.IsInRole("Admin"));
 
         /// <summary>
         /// Anonymous because SVG &lt;image&gt; can't send the bearer token. ObjectIds are not secret,

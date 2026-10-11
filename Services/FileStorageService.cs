@@ -28,7 +28,7 @@ namespace dndhelper.Services
         {
             [StorageFolder.Images] = ("images", 15 * 1024 * 1024, FileSniffer.Image),
             [StorageFolder.Maps] = ("images/maps", 15 * 1024 * 1024, FileSniffer.Image),
-            [StorageFolder.Tokens] = ("images/tokens", 15 * 1024 * 1024, FileSniffer.Image),
+            [StorageFolder.Tokens] = ("images/tokens", 5 * 1024 * 1024, FileSniffer.Image),
             [StorageFolder.Music] = ("music", 50 * 1024 * 1024, FileSniffer.Audio),
             [StorageFolder.Docs] = ("docs", 25 * 1024 * 1024, FileSniffer.Document),
         };
@@ -123,6 +123,10 @@ namespace dndhelper.Services
         }
 
         public Task<StoredFile?> GetAsync(string fileId) => _files.GetByIdAsync(fileId);
+
+        public Task<long> CountAsync(string ownerId, StorageFolder folder) => _files.CountAsync(ownerId, folder);
+
+        public Task<List<StoredFile>> ListAsync(string ownerId, StorageFolder folder) => _files.ListAsync(ownerId, folder);
 
         public Task<string> GetSignedUrlAsync(StoredFile file, TimeSpan lifetime) =>
             _s3.GetPreSignedURLAsync(new GetPreSignedUrlRequest
