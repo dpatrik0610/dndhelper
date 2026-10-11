@@ -83,6 +83,11 @@ namespace dndhelper.Models.CharacterModels
         };
 
         public List<ClassResource>? ClassResources { get; set; } = new List<ClassResource>();
+        public List<CharacterEffect>? Effects { get; set; } = new List<CharacterEffect>();
+        /// <summary>Inventory whose items are worn. "none" = chose to wear nothing; null = not chosen, guessed from the name.</summary>
+        public string? EquipmentInventoryId { get; set; }
+        /// <summary>Situations happening right now ("Swamp", "Raging"); turn on the modifiers marked When with them.</summary>
+        public List<string>? ActiveSituations { get; set; } = new List<string>();
 
         public int? DeathSavesSuccesses { get; set; } = 0;
         public int? DeathSavesFailures { get; set; } = 0;
