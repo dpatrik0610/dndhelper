@@ -226,6 +226,7 @@ namespace dndhelper.Core
                     ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
                 });
             });
+            services.AddSingleton(sp => new Lazy<IAmazonS3>(sp.GetRequiredService<IAmazonS3>));
             services.AddScoped<IFileStorageService, FileStorageService>();
             #endregion
 

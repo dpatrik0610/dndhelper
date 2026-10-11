@@ -35,12 +35,14 @@ namespace dndhelper.Services
 
         private static readonly TimeSpan MaxSignedUrlLifetime = TimeSpan.FromDays(7); // SigV4 limit
 
-        private readonly IAmazonS3 _s3;
+        // Lazy: the client is only built (and R2 settings checked) on first use, so services that merely
+        // depend on storage still work when R2 isn't configured.
+        private readonly Lazy<IAmazonS3> _s3;
         private readonly IStoredFileRepository _files;
         private readonly R2Options _options;
         private readonly ILogger _logger;
 
-        public FileStorageService(IAmazonS3 s3, IStoredFileRepository files, IOptions<R2Options> options, ILogger logger)
+        public FileStorageService(Lazy<IAmazonS3> s3, IStoredFileRepository files, IOptions<R2Options> options, ILogger logger)
         {
             _s3 = s3;
             _files = files;
@@ -75,7 +77,7 @@ namespace dndhelper.Services
             if (folder == StorageFolder.Docs)
                 put.Headers.ContentDisposition = $"attachment; filename=\"{name ?? "document" + detected.Extension}\"";
 
-            await _s3.PutObjectAsync(put, ct);
+            await _s3.Value.PutObjectAsync(put, ct);
 
             var file = new StoredFile
             {
@@ -129,7 +131,7 @@ namespace dndhelper.Services
         public Task<List<StoredFile>> ListAsync(string ownerId, StorageFolder folder) => _files.ListAsync(ownerId, folder);
 
         public Task<string> GetSignedUrlAsync(StoredFile file, TimeSpan lifetime) =>
-            _s3.GetPreSignedURLAsync(new GetPreSignedUrlRequest
+            _s3.Value.GetPreSignedURLAsync(new GetPreSignedUrlRequest
             {
                 BucketName = _options.BucketName,
                 Key = file.Key,
@@ -143,7 +145,7 @@ namespace dndhelper.Services
             var file = await _files.GetByIdAsync(fileId);
             if (file == null) return false;
 
-            await _s3.DeleteObjectAsync(_options.BucketName, file.Key, ct);
+            await _s3.Value.DeleteObjectAsync(_options.BucketName, file.Key, ct);
             return await _files.LogicDeleteAsync(fileId);
         }
 
@@ -196,7 +198,7 @@ namespace dndhelper.Services
         {
             try
             {
-                await _s3.DeleteObjectAsync(_options.BucketName, key);
+                await _s3.Value.DeleteObjectAsync(_options.BucketName, key);
             }
             catch (Exception ex)
             {
