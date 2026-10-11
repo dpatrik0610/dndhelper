@@ -1,4 +1,4 @@
-﻿using dndhelper.Authentication;
+using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -6,6 +6,7 @@ using dndhelper.Services.Interfaces;
 using dndhelper.Services.SignalR;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -88,6 +89,20 @@ public class CharacterController : ControllerBase
         return Ok(updated);
     }
 
+
+    /// <summary>Token art for the character; stored on the CDN under images/tokens, max 5 MB.</summary>
+    [HttpPost("{id}/image")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<IActionResult> UploadImage(string id, IFormFile? file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "Choose an image to upload." });
+
+        await using var content = file.OpenReadStream();
+        var updated = await _characterService.UploadImageAsync(id, content, file.FileName);
+        await BroadcastCharacterChangeAsync(updated, "updated", updated);
+        return Ok(updated);
+    }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)

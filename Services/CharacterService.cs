@@ -1,4 +1,4 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -20,14 +20,36 @@ namespace dndhelper.Services
         private readonly ITabletopService _tabletop;
         private readonly IUserRepository _users;
         private readonly IInventoryRepository _inventories;
+        private readonly IFileStorageService _storage;
 
         public CharacterService(ICharacterRepository repository, ILogger logger, IAuthorizationService authorizationService,
-        IHttpContextAccessor httpContextAccessor, ITabletopService tabletop, IUserRepository users, IInventoryRepository inventories)
+        IHttpContextAccessor httpContextAccessor, ITabletopService tabletop, IUserRepository users, IInventoryRepository inventories,
+        IFileStorageService storage)
             : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _tabletop = tabletop;
             _users = users;
             _inventories = inventories;
+            _storage = storage;
+        }
+
+        /// <summary>
+        /// Old uploads are kept: saved encounter boards may still show them. If saving the character fails,
+        /// the new upload is removed again (ReplaceAsync), so nothing is left unreferenced.
+        /// </summary>
+        public async Task<Character> UploadImageAsync(string characterId, System.IO.Stream content, string fileName)
+        {
+            var character = await _repository.GetByIdAsync(characterId) ?? throw new NotFoundException("Character not found.");
+            await EnsureWriteAccess(character);
+            var userId = GetCurrentUserId() ?? throw new UnauthorizedAccessException("Not signed in.");
+
+            Character? saved = null;
+            await _storage.ReplaceAsync(null, content, StorageFolder.Tokens, userId, async file =>
+            {
+                character.ImageUrl = file.Url ?? throw new InvalidOperationException("Token images need a public R2 domain (R2__PublicBaseUrl).");
+                saved = await UpdateAsync(character) ?? throw new InvalidOperationException("Could not save the character.");
+            }, fileName);
+            return saved!;
         }
 
         /// <summary>
