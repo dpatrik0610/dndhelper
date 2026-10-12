@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +15,7 @@ namespace dndhelper.Authentication
     {
         public const string Login = "auth-login";
         public const string Register = "auth-register";
+        public const string CritterCatch = "critter-catch";
 
         public static IServiceCollection AddAuthRateLimits(this IServiceCollection services) =>
             services.AddRateLimiter(options =>
@@ -44,6 +45,17 @@ namespace dndhelper.Authentication
                     {
                         PermitLimit = 10,
                         Window = TimeSpan.FromHours(1),
+                        QueueLimit = 0,
+                    }));
+
+                // Critter catches feed the scoreboard: a critter shows up every few minutes, so 6 a minute per IP
+                // covers a whole table of players and stops a script from flooding it. (Per IP, not per user: this
+                // middleware runs before authentication.)
+                options.AddPolicy(CritterCatch, http => RateLimitPartition.GetFixedWindowLimiter(ClientIp(http),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 6,
+                        Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                     }));
             });

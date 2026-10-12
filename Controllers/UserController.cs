@@ -1,8 +1,11 @@
 ﻿using dndhelper.Authentication;
+using dndhelper.Core;
 using dndhelper.Models.DTOs;
 using dndhelper.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -18,11 +21,13 @@ namespace dndhelper.Controllers
     {
         private readonly IUserService _userService;
         private readonly ILogger _logger;
+        private readonly IHubContext<NotificationHub> _hub;
 
-        public UserController(IUserService userService, ILogger logger)
+        public UserController(IUserService userService, ILogger logger, IHubContext<NotificationHub> hub)
         {
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _hub = hub ?? throw new ArgumentNullException(nameof(hub));
         }
 
         // GET: api/user/me
@@ -86,6 +91,25 @@ namespace dndhelper.Controllers
 
             return Ok(response);
         }
+
+        // POST: api/user/me/critters/{critter} (a theme critter was caught; returns the user's new score row)
+        [HttpPost("me/critters/{critter}")]
+        [EnableRateLimiting(AuthRateLimits.CritterCatch)]
+        public async Task<ActionResult<CritterScoreDto>> CatchCritter(string critter)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+            var score = await _userService.RecordCritterCatchAsync(userId, critter);
+            // Every signed-in client is on this hub: open scoreboards update live.
+            await _hub.Clients.All.SendAsync("CritterScoreChanged", score);
+            return Ok(score);
+        }
+
+        // GET: api/user/critters/scoreboard (everyone's catches, most first)
+        [HttpGet("critters/scoreboard")]
+        public async Task<ActionResult<List<CritterScoreDto>>> CritterScoreboard() =>
+            Ok(await _userService.GetCritterScoreboardAsync());
 
         // GET: api/user (superadmin user manager: every user with characters and campaigns)
         [HttpGet]

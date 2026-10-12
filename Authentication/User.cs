@@ -43,6 +43,8 @@ namespace dndhelper.Authentication
         public List<string>? CampaignIds { get; set; } = new List<string>();
         public UserStatus IsActive { get; set; } = UserStatus.Active;
         public Dictionary<string, string>? Settings { get; set; } = new Dictionary<string, string>();
+        /// <summary>Theme critters caught: critter name → count. Never null ($inc can't add a key to null).</summary>
+        public Dictionary<string, int> CrittersCaught { get; set; } = new Dictionary<string, int>();
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;

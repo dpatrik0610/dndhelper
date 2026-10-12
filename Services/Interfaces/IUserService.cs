@@ -1,4 +1,4 @@
-using dndhelper.Authentication;
+﻿using dndhelper.Authentication;
 using dndhelper.Models.DTOs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -19,6 +19,10 @@ namespace dndhelper.Services.Interfaces
         Task<User?> UpdateCampaignIds(User user, List<string> campaignIds);
         Task<User?> RefreshLastLogin(string username);
         Task<User?> UpdateSettingsForUser(User user, Dictionary<string, string> settings);
+
+        // Theme critters
+        Task<CritterScoreDto> RecordCritterCatchAsync(string userId, string critter);
+        Task<List<CritterScoreDto>> GetCritterScoreboardAsync();
 
         // Superadmin user management
         Task<List<AdminUserDto>> GetAdminOverviewAsync();

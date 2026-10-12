@@ -15,5 +15,9 @@ namespace dndhelper.Repositories.Interfaces
         Task UpdateCampaignIds(User user, List<string> campaignIds);
         Task RefreshLastLogin(string username);
         Task LogicDeleteAsync(User user);
+        /// <summary>Atomically adds one catch of a critter; returns the user (username + counts only).</summary>
+        Task<User> IncrementCritterAsync(string userId, string critter);
+        /// <summary>Active users with at least one catch (username + counts only).</summary>
+        Task<List<User>> GetCritterCatchersAsync();
     }
 }

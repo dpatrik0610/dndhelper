@@ -227,6 +227,40 @@ namespace dndhelper.Services
             return null;
         }
 
+        // ------------------------
+        // THEME CRITTERS
+        // ------------------------
+
+        // The critters in the frontend's ThemeCritter.tsx; keep the two lists in step. The name becomes a Mongo
+        // field path, so anything else is refused.
+        private static readonly HashSet<string> Critters = new HashSet<string>
+        {
+            "Moth", "Wisp", "Bat", "Snowflake", "Butterfly", "Spore", "Watcher",
+            "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll",
+        };
+
+        public async Task<CritterScoreDto> RecordCritterCatchAsync(string userId, string critter)
+        {
+            Guard.NotNullOrWhiteSpace(userId, nameof(userId));
+            if (string.IsNullOrEmpty(critter) || !Critters.Contains(critter))
+                throw CustomExceptions.ThrowArgumentException(_logger, nameof(critter));
+            return ToCritterScore(await _repository.IncrementCritterAsync(userId, critter));
+        }
+
+        public async Task<List<CritterScoreDto>> GetCritterScoreboardAsync()
+        {
+            var users = await _repository.GetCritterCatchersAsync();
+            return users
+                .Select(ToCritterScore)
+                .Where(s => s.Total > 0)
+                .OrderByDescending(s => s.Total)
+                .ThenBy(s => s.Username, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static CritterScoreDto ToCritterScore(User u) =>
+            new CritterScoreDto { Username = u.Username, Caught = u.CrittersCaught, Total = u.CrittersCaught.Values.Sum() };
+
         public async Task<User?> UpdateCampaignIds(User user, List<string> campaignIds)
         {
             if (user == null || string.IsNullOrWhiteSpace(user.Id))

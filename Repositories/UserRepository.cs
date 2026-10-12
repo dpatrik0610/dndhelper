@@ -2,6 +2,7 @@
 using dndhelper.Database;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Utils;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog;
 using System;
@@ -71,6 +72,34 @@ namespace dndhelper.Repositories
                 _logger.Error(ex, "Error logic deleting user: {Id}", user.Id);
                 throw;
             }
+        }
+
+        public async Task<User> IncrementCritterAsync(string userId, string critter)
+        {
+            // $inc on one key: catches arriving together can't overwrite each other. The service only passes
+            // known critter names, since the name becomes part of the field path.
+            var update = Builders<User>.Update.Inc($"{nameof(User.CrittersCaught)}.{critter}", 1);
+            var options = new FindOneAndUpdateOptions<User>
+            {
+                ReturnDocument = ReturnDocument.After,
+                Projection = Builders<User>.Projection.Include(u => u.Username).Include(u => u.CrittersCaught),
+            };
+            var user = await _collection.FindOneAndUpdateAsync<User>(u => u.Id == userId, update, options);
+            if (user == null)
+                throw CustomExceptions.ThrowNotFoundException(_logger, nameof(userId));
+            return user;
+        }
+
+        public async Task<List<User>> GetCritterCatchersAsync()
+        {
+            var f = Builders<User>.Filter;
+            var filter = f.Ne(u => u.IsDeleted, true)
+                & f.Ne(u => u.IsActive, UserStatus.LogicDeleted)
+                & f.Exists(nameof(User.CrittersCaught))
+                & f.Ne(nameof(User.CrittersCaught), new BsonDocument());
+            return await _collection.Find(filter)
+                .Project<User>(Builders<User>.Projection.Include(u => u.Username).Include(u => u.CrittersCaught))
+                .ToListAsync();
         }
 
         public async Task AddCharacterIdAsync(string userId, string characterId)
