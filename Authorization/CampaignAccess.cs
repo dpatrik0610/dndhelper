@@ -86,6 +86,10 @@ namespace dndhelper.Authorization
         public async Task<List<string>> MyCampaignIdsAsync() =>
             _myCampaignIds ??= (await _campaigns.GetForMemberAsync(UserId ?? string.Empty)).Select(c => c.Id).ToList();
 
+        /// <summary>Ids of the campaigns the current user is a DM of.</summary>
+        public async Task<List<string>> MyDmCampaignIdsAsync() =>
+            (await _campaigns.GetForMemberAsync(UserId ?? string.Empty)).Where(c => c.IsDm(UserId)).Select(c => c.Id).ToList();
+
         public async Task<bool> CanReadAsync(ICampaignScoped entity)
         {
             if (IsSuperAdmin) return true;

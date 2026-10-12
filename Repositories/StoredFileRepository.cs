@@ -23,5 +23,8 @@ namespace dndhelper.Repositories
             _collection.Find(f => f.OwnerId == ownerId && f.Folder == folder && !f.IsDeleted)
                 .SortByDescending(f => f.CreatedAt)
                 .ToListAsync();
+
+        public async Task<StoredFile?> GetByUrlAsync(string url) =>
+            await _collection.Find(f => f.Url == url && !f.IsDeleted).FirstOrDefaultAsync();
     }
 }

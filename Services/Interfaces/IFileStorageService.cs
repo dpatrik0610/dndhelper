@@ -24,6 +24,9 @@ namespace dndhelper.Services.Interfaces
         Task<StoredFile> ReplaceAsync(string? oldFileId, Stream content, StorageFolder folder, string ownerId,
             Func<StoredFile, Task> attach, string? fileName = null, CancellationToken ct = default);
 
+        /// <summary>The live file behind one of our public URLs; null for anything else.</summary>
+        Task<StoredFile?> GetByUrlAsync(string url);
+
         Task<StoredFile?> GetAsync(string fileId);
 
         /// <summary>Live files the user owns in a folder, for per-feature quotas.</summary>

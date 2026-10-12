@@ -49,6 +49,8 @@ namespace dndhelper.Controllers
         public async Task<IActionResult> Update(string id, [FromBody] Monster monster)
         {
             if (id != monster.Id) return BadRequest("ID mismatch.");
+            if (await _monsters.GetByIdAsync(id) is not Monster existing) return NotFound();
+            monster.ImageUrl = existing.ImageUrl; // art only through the upload endpoint
             return await _monsters.UpdateAsync(monster) is Monster m ? Ok(m) : NotFound();
         }
 

@@ -127,6 +127,8 @@ namespace dndhelper.Services
 
         public Task<StoredFile?> GetAsync(string fileId) => _files.GetByIdAsync(fileId);
 
+        public Task<StoredFile?> GetByUrlAsync(string url) => _files.GetByUrlAsync(url);
+
         public Task<long> CountAsync(string ownerId, StorageFolder folder) => _files.CountAsync(ownerId, folder);
 
         public Task<List<StoredFile>> ListAsync(string ownerId, StorageFolder folder) => _files.ListAsync(ownerId, folder);

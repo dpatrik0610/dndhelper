@@ -12,6 +12,7 @@ namespace dndhelper.Repositories.Interfaces
         Task<Tabletop> GetOrCreateForCampaignAsync(string campaignId);
         Task ReplaceAsync(Tabletop table);
         Task<bool> AnyUsesMapAsync(string imageUrl);
+        Task<bool> AnyUsesTokenImageAsync(string imageUrl);
 
         Task<(Stream Content, string ContentType)?> OpenImageAsync(string id);
         Task DeleteImageAsync(string id);

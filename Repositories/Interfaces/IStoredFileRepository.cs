@@ -11,5 +11,8 @@ namespace dndhelper.Repositories.Interfaces
 
         /// <summary>Live files the user owns in one folder, newest first.</summary>
         Task<List<StoredFile>> ListAsync(string ownerId, StorageFolder folder);
+
+        /// <summary>The live file behind a public URL, if it is one of ours.</summary>
+        Task<StoredFile?> GetByUrlAsync(string url);
     }
 }

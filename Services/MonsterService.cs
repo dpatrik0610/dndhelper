@@ -5,6 +5,7 @@ using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
+using MongoDB.Driver;
 using Newtonsoft.Json.Linq;
 using Serilog;
 using System;
@@ -21,33 +22,68 @@ namespace dndhelper.Services
         public const int MaxImportBatch = 20;
         private static readonly Regex SrdIndex = new("^[a-z0-9-]{1,100}$");
 
+        private const string DmOnly = "Monsters are for the campaign's DM.";
+
         private readonly IFileStorageService _storage;
         private readonly IPublicDndApiClient _srd;
         private readonly IMemoryCache _cache;
+        private readonly ITabletopRepository _tables;
+        private readonly IEncounterRepository _encounters;
 
         public MonsterService(IMonsterRepository repository, ILogger logger, IAuthorizationService authorizationService,
-            IHttpContextAccessor httpContextAccessor, IFileStorageService storage, IPublicDndApiClient srd, IMemoryCache cache)
+            IHttpContextAccessor httpContextAccessor, IFileStorageService storage, IPublicDndApiClient srd, IMemoryCache cache,
+            ITabletopRepository tables, IEncounterRepository encounters)
             : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _storage = storage;
             _srd = srd;
             _cache = cache;
+            _tables = tables;
+            _encounters = encounters;
         }
 
+        // Monsters are DM material: players never read stat blocks, and 5etools book content stays with its DM.
+
         public async Task<(List<Monster> Items, long Total)> SearchAsync(MonsterSearchCriteria criteria) =>
-            await _repository.SearchAsync(await ScopeFilterAsync(), criteria);
+            await _repository.SearchAsync(await DmScopeAsync(), criteria);
 
-        public async Task<List<string>> GetTypesAsync() => await _repository.GetTypesAsync(await ScopeFilterAsync());
+        public async Task<List<string>> GetTypesAsync() => await _repository.GetTypesAsync(await DmScopeAsync());
 
-        /// <summary>Old uploads are kept: tokens already on a board may still show them (same as character art).</summary>
+        public override async Task<Monster?> GetByIdAsync(string id)
+        {
+            var monster = await base.GetByIdAsync(id);
+            if (monster != null && !Access.IsSuperAdmin)
+                await Access.EnsureDmAsync(monster.CampaignId ?? Access.CurrentCampaignId ?? throw new ForbiddenException(DmOnly));
+            return monster;
+        }
+
+        /// <summary>The usual read scope, narrowed to campaigns the caller is DM of.</summary>
+        private async Task<FilterDefinition<Monster>> DmScopeAsync()
+        {
+            var scope = await ScopeFilterAsync();
+            if (Access.IsSuperAdmin) return scope;
+            if (Access.CurrentCampaignId is string current)
+            {
+                await Access.EnsureDmAsync(current);
+                return scope;
+            }
+            // No campaign picked: only the campaigns this user runs.
+            return scope & Builders<Monster>.Filter.In(m => m.CampaignId, await Access.MyDmCampaignIdsAsync());
+        }
+
+        /// <summary>
+        /// The old art is deleted once nothing else shows it. SRD imports share one image across same-name monsters,
+        /// and tokens (on a table or saved in an encounter) keep the URL they were placed with.
+        /// </summary>
         public async Task<Monster> UploadImageAsync(string monsterId, Stream content, string fileName)
         {
             var monster = await _repository.GetByIdAsync(monsterId) ?? throw new NotFoundException("Monster not found.");
             await EnsureWriteAccess(monster);
             var userId = GetCurrentUserId() ?? throw new UnauthorizedAccessException("Not signed in.");
+            var oldFileId = await UnusedArtAsync(monster);
 
             Monster? saved = null;
-            await _storage.ReplaceAsync(null, content, StorageFolder.Monsters, userId, async file =>
+            await _storage.ReplaceAsync(oldFileId, content, StorageFolder.Monsters, userId, async file =>
             {
                 monster.ImageUrl = PublicUrl(file);
                 saved = await UpdateAsync(monster) ?? throw new InvalidOperationException("Could not save the monster.");
@@ -145,6 +181,19 @@ namespace dndhelper.Services
 
             _logger.Information("SRD {Ruleset} monster import: {@Result}", ruleset, result);
             return result;
+        }
+
+        /// <summary>The stored file behind this monster's art, if no other monster or token uses it; else null (keep it).</summary>
+        private async Task<string?> UnusedArtAsync(Monster monster)
+        {
+            if (monster.ImageUrl is not string url) return null;
+            var file = await _storage.GetByUrlAsync(url);
+            if (file?.Id == null || file.Folder != StorageFolder.Monsters) return null;
+
+            var shared = (await _repository.FindAsync(Builders<Monster>.Filter.Eq(m => m.ImageUrl, url))).Any(m => m.Id != monster.Id)
+                || await _tables.AnyUsesTokenImageAsync(url)
+                || (await _encounters.FindAsync(Builders<Encounter>.Filter.Eq("Board.Tokens.ImageUrl", url))).Count > 0;
+            return shared ? null : file.Id;
         }
 
         private async Task<string?> StoreImageAsync(byte[] image, string userId, string key)

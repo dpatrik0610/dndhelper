@@ -7,6 +7,7 @@ using MongoDB.Driver.GridFS;
 using Serilog;
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace dndhelper.Repositories
@@ -47,6 +48,9 @@ namespace dndhelper.Repositories
 
         public Task<bool> AnyUsesMapAsync(string imageUrl) =>
             _collection.Find(t => t.Map.ImageUrl == imageUrl && !t.IsDeleted).AnyAsync();
+
+        public Task<bool> AnyUsesTokenImageAsync(string imageUrl) =>
+            _collection.Find(t => t.Tokens.Any(k => k.ImageUrl == imageUrl) && !t.IsDeleted).AnyAsync();
 
         public async Task<Tabletop?> GetByCampaignIdAsync(string campaignId) =>
             await _collection.Find(t => t.CampaignId == campaignId && !t.IsDeleted).FirstOrDefaultAsync();
