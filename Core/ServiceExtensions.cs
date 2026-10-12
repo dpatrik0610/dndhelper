@@ -34,8 +34,9 @@ namespace dndhelper.Core
     {
         public static IServiceCollection InjectServices(this IServiceCollection services, IConfiguration config)
         {
-            services.AddSingleton(CustomLogger.CreateLogger());
-            var logger = services.BuildServiceProvider().GetRequiredService<ILogger>();
+            // One logger for everything: injected ILogger, static Log.* and UseSerilog() (which reads Log.Logger).
+            var logger = Log.Logger = CustomLogger.CreateLogger();
+            services.AddSingleton(logger);
 
             #region Caching
             services.AddMemoryCache();

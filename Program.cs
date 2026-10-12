@@ -1,4 +1,6 @@
 using dndhelper.Core;
+using dndhelper.Database;
+using dndhelper.Repositories.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using System;
 using System.IO;
+using System.Linq;
 
 // Local runs (Visual Studio, dotnet run) take secrets from .env; Docker passes it with --env-file.
 // Variables already set in the real environment win.
@@ -68,7 +71,32 @@ builder.Services.AddCors(options =>
 });
 
 
+var repositoryTypes = builder.Services
+    .Where(d => d.ServiceType.Namespace == typeof(IUserRepository).Namespace)
+    .Select(d => d.ServiceType)
+    .Distinct()
+    .ToList();
+
 var app = builder.Build();
+
+// Warm-up: connect to Mongo, seed, and build every repository (which creates its indexes) now,
+// so the first requests after a restart don't pay for it. A failure here only logs; that repository retries on first use.
+using (var scope = app.Services.CreateScope())
+{
+    var mongo = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
+    if (await mongo.IsHealthyAsync())
+    {
+        foreach (var type in repositoryTypes)
+        {
+            try { scope.ServiceProvider.GetRequiredService(type); }
+            catch (Exception ex) { Log.Warning(ex, "Warm-up failed for {Repository}", type.Name); }
+        }
+    }
+    else
+    {
+        Log.Warning("MongoDB unreachable at startup; repositories will connect on first use.");
+    }
+}
 
 Log.Information("🚀 Application started");
 
