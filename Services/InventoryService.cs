@@ -1,4 +1,4 @@
-﻿using dndhelper.Authorization;
+using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -186,22 +186,40 @@ namespace dndhelper.Services
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
+            var existing = await _repository.GetByIdAsync(entity.Id!);
+            return await SaveWithCharacterLinksAsync(entity, existing?.CharacterIds?.ToList() ?? new List<string>());
+        }
+
+        /// <summary>
+        /// Replaces the inventory's characters and keeps each character's InventoryIds in step,
+        /// so clients never write the two sides of the link themselves.
+        /// </summary>
+        public async Task<Inventory?> SetCharactersAsync(string inventoryId, List<string> characterIds)
+        {
+            Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+
+            var inventory = await _repository.GetByIdAsync(inventoryId);
+            if (inventory == null) return null;
+            await EnsureOwnershipAccess(inventory);
+
+            // The repository hands out its cached instance, so snapshot before mutating.
+            var oldCharIds = inventory.CharacterIds?.ToList() ?? new List<string>();
+            inventory.CharacterIds = characterIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+            return await SaveWithCharacterLinksAsync(inventory, oldCharIds);
+        }
+
+        private async Task<Inventory?> SaveWithCharacterLinksAsync(Inventory entity, List<string> oldCharIds)
+        {
             if (entity is IOwnedResource owned)
                 await EnsureOwnershipAccess(owned);
 
-            // Get existing before updating to see link differences
-            var existing = await _repository.GetByIdAsync(entity.Id!);
-            var oldCharIds = existing?.CharacterIds ?? new List<string>();
             var newCharIds = entity.CharacterIds ?? new List<string>();
-
             var addedCharIds = newCharIds.Except(oldCharIds).ToList();
             var removedCharIds = oldCharIds.Except(newCharIds).ToList();
 
             var characterOwners = await ResolveOwnerIdsFromCharacterIdsAsync(entity.CharacterIds);
 
-            entity.OwnerIds ??= new List<string>();
-
-            entity.OwnerIds = entity.OwnerIds
+            entity.OwnerIds = (entity.OwnerIds ?? new List<string>())
                 .Concat(characterOwners)
                 .Distinct()
                 .ToList();
@@ -209,37 +227,23 @@ namespace dndhelper.Services
             entity.UpdatedAt = DateTime.UtcNow;
 
             var updated = await _repository.UpdateAsync(entity);
+            if (updated == null) return null;
 
-            if (updated != null)
+            foreach (var charId in addedCharIds)
             {
-                // Sync newly added characters
-                foreach (var charId in addedCharIds)
-                {
-                    var character = await _characterService.GetByIdAsync(charId);
-                    if (character != null)
-                    {
-                        character.InventoryIds ??= new List<string>();
-                        if (!character.InventoryIds.Contains(updated.Id!))
-                        {
-                            character.InventoryIds.Add(updated.Id!);
-                            await _characterService.UpdateInternalAsync(character);
-                        }
-                    }
-                }
+                var character = await _characterService.GetByIdAsync(charId);
+                if (character == null) continue;
+                character.InventoryIds ??= new List<string>();
+                if (character.InventoryIds.Contains(updated.Id!)) continue;
+                character.InventoryIds.Add(updated.Id!);
+                await _characterService.UpdateInternalAsync(character);
+            }
 
-                // Sync newly removed characters
-                foreach (var charId in removedCharIds)
-                {
-                    var character = await _characterService.GetByIdAsync(charId);
-                    if (character != null && character.InventoryIds != null)
-                    {
-                        if (character.InventoryIds.Contains(updated.Id!))
-                        {
-                            character.InventoryIds.Remove(updated.Id!);
-                            await _characterService.UpdateInternalAsync(character);
-                        }
-                    }
-                }
+            foreach (var charId in removedCharIds)
+            {
+                var character = await _characterService.GetByIdAsync(charId);
+                if (character?.InventoryIds == null || !character.InventoryIds.Remove(updated.Id!)) continue;
+                await _characterService.UpdateInternalAsync(character);
             }
 
             return updated;

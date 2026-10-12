@@ -1,4 +1,4 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -8,6 +8,7 @@ namespace dndhelper.Services.Interfaces
     {
         // Inventories
         Task<bool> IsShopInventoryAsync(string inventoryId);
+        Task<Inventory?> SetCharactersAsync(string inventoryId, List<string> characterIds);
         Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId);
         Task<IEnumerable<Inventory>> GetFromCharacterInventoryIdsAsync(string characterId);
         Task<IEnumerable<Inventory>> AddInventoryToCharacter(string characterId, string inventoryId);

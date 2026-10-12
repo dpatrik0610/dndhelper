@@ -103,6 +103,26 @@ public class InventoryController : ControllerBase
         return Ok(updated);
     }
 
+    [HttpPut("{id}/characters")]
+    public async Task<IActionResult> SetCharacters(string id, [FromBody] List<string> characterIds)
+    {
+        var before = (await _inventoryService.GetByIdAsync(id))?.CharacterIds?.ToList() ?? new List<string>();
+
+        var updated = await _inventoryService.SetCharactersAsync(id, characterIds ?? new List<string>());
+        if (updated == null)
+            return NotFound();
+
+        await BroadcastInventoryChangeAsync(updated, "updated", updated);
+
+        // Both sides of the link changed; push the touched characters so their stores stay current.
+        var after = updated.CharacterIds ?? new List<string>();
+        var touched = before.Except(after).Concat(after.Except(before)).ToList();
+        foreach (var character in await _characterService.GetByIdsAsync(touched))
+            await BroadcastCharacterChangeAsync(character, "updated", character);
+
+        return Ok(updated);
+    }
+
     [HttpPatch("{inventoryId}/assign-to/{characterId}")]
     public async Task<IActionResult> AddInventoryToCharacter(string characterId, string inventoryId)
     {
