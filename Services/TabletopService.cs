@@ -1,4 +1,4 @@
-using dndhelper.Core;
+﻿using dndhelper.Core;
 using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
 using dndhelper.Models.RollModels;
@@ -880,6 +880,7 @@ namespace dndhelper.Services
             token.MaxHp = character.MaxHitPoints ?? 0;
             token.TempHp = character.TemporaryHitPoints ?? 0;
             token.Ac = character.ArmorClass ?? 10;
+            token.EffectiveAc = EffectiveAc(character);
             token.Speed = character.Speed ?? 30;
             token.OwnerIds = character.OwnerIds?.ToList() ?? new List<string>();
 
@@ -893,6 +894,33 @@ namespace dndhelper.Services
                 .Take(20)
                 .Select(label => known.TryGetValue(label, out var effect) ? effect : new TableEffect { Label = Text(label, 40, "Effect") })
                 .ToList();
+        }
+
+        /// <summary>
+        /// The sheet's AC with the active "ac" modifiers, resolved like computeEffects in the frontend's utils/effects.ts
+        /// (keep the two in step): "min" raises the floor and bonuses add up in order, then the last "set" wins, with
+        /// only its own effect's bonuses stacked on top.
+        /// </summary>
+        private static int EffectiveAc(Character c)
+        {
+            var situations = new HashSet<string>((c.ActiveSituations ?? new List<string>()).Select(s => s.Trim()), StringComparer.OrdinalIgnoreCase);
+            var mods = (c.Effects ?? new List<CharacterEffect>())
+                .Where(e => e.Active)
+                .SelectMany(e => (e.Modifiers ?? new List<StatModifier>())
+                    .Where(m => m.Target == "ac" && m.Value != null
+                        && (string.IsNullOrWhiteSpace(m.When) || situations.Contains(m.When.Trim())))
+                    .Select(m => (Effect: e.Id, m.Type, Value: m.Value!.Value)))
+                .ToList();
+
+            var ac = c.ArmorClass ?? 10;
+            foreach (var m in mods)
+                if (m.Type == "min") ac = Math.Max(ac, m.Value);
+                else if (m.Type == "bonus") ac += m.Value;
+
+            var set = mods.LastOrDefault(m => m.Type == "set");
+            if (set.Type != null)
+                ac = set.Value + mods.Where(m => m.Type == "bonus" && m.Effect == set.Effect).Sum(m => m.Value);
+            return ac;
         }
 
         /// <summary>The token fields that live on the character sheet.</summary>
@@ -909,6 +937,7 @@ namespace dndhelper.Services
             character.MaxHitPoints = token.MaxHp;
             character.TemporaryHitPoints = token.TempHp;
             character.ArmorClass = token.Ac;
+            token.EffectiveAc = EffectiveAc(character);
             character.Conditions = token.Effects.Select(e => e.Label).ToList();
             character.UpdatedAt = DateTime.UtcNow;
             await _characters.UpdateAsync(character);

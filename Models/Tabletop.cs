@@ -175,7 +175,10 @@ namespace dndhelper.Models
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public int TempHp { get; set; }
+        /// <summary>The base AC; for a character token, the sheet's value (DM edits are written back to it).</summary>
         public int Ac { get; set; }
+        /// <summary>Character tokens only: Ac with the character's active effects (shield, ring of protection...). Display only.</summary>
+        public int? EffectiveAc { get; set; }
         public int Speed { get; set; } = 30;
 
         /// <summary>Aura reach in ft beyond the token's edge; 0 = no aura. Drawn under tokens and moves with the token.</summary>
