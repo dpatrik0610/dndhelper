@@ -54,6 +54,9 @@ namespace dndhelper.Services
         // ponytail: in-process per-table lock, fine for the single API instance (SignalR has no backplane either).
         // Scaling out needs a Redis backplane plus a version field on the document instead.
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
+        // Every write goes through ChangeAsync under the lock, so the last saved copy is the truth and a change
+        // costs one Mongo write instead of a full read + write. ponytail: never evicted, same ceiling as Locks.
+        private static readonly ConcurrentDictionary<string, Tabletop> Tables = new();
 
         private readonly ITabletopRepository _repository;
         private readonly ICampaignRepository _campaigns;
@@ -1010,10 +1013,22 @@ namespace dndhelper.Services
             await gate.WaitAsync();
             try
             {
-                var table = await _repository.GetByIdAsync(tableId) ?? throw Fail("This table no longer exists.");
-                await apply(table);
-                table.UpdatedAt = DateTime.UtcNow;
-                await _repository.ReplaceAsync(table);
+                var table = Tables.TryGetValue(tableId, out var cached)
+                    ? cached
+                    : await _repository.GetByIdAsync(tableId) ?? throw Fail("This table no longer exists.");
+                try
+                {
+                    await apply(table);
+                    table.UpdatedAt = DateTime.UtcNow;
+                    await _repository.ReplaceAsync(table);
+                    Tables[tableId] = table;
+                }
+                catch
+                {
+                    // apply may have half-mutated the copy before failing; reload from Mongo next time.
+                    Tables.TryRemove(tableId, out _);
+                    throw;
+                }
                 await (announce ?? BroadcastStateAsync)(table);
                 return table;
             }

@@ -34,6 +34,8 @@ namespace dndhelper.Services.SignalR
             _logger = logger;
         }
 
+        private static string UserGroup(string userId) => $"user_{userId}";
+
         // Centralized internal helper
         private Task BroadcastEntityChangedInternalAsync<T>(
             string entityType,
@@ -54,17 +56,17 @@ namespace dndhelper.Services.SignalR
 
             if (!string.IsNullOrEmpty(targetUserId))
             {
-                _logger.Information(
+                _logger.Debug(
                     "📤 Broadcasting {EntityType} ({EntityId}) {Action} to user {UserId}",
                     entityType, entityId, action, targetUserId
                 );
 
                 return _hubContext.Clients
-                    .Group($"user_{targetUserId}")
+                    .Group(UserGroup(targetUserId))
                     .SendAsync("EntityChanged", payload);
             }
 
-            _logger.Information(
+            _logger.Debug(
                 "📤 Broadcasting {EntityType} ({EntityId}) {Action} to all users",
                 entityType, entityId, action
             );
@@ -142,7 +144,7 @@ namespace dndhelper.Services.SignalR
             List<string> userIds,
             string? excludeUserId = null)
         {
-            return BroadcastToUsers(eventName, data, (IEnumerable<string>)userIds);
+            return BroadcastToUsers(eventName, data, (IEnumerable<string>)userIds, excludeUserId);
         }
 
         /// <summary>
@@ -162,20 +164,17 @@ namespace dndhelper.Services.SignalR
             if (distinct.Count == 0)
                 return Task.CompletedTask;
 
-            _logger.Information(
+            _logger.Debug(
                 "📤 Broadcasting {EventName} to {Count} users (excluded: {Excluded})",
                 eventName,
                 distinct.Count,
                 excludeUserId
             );
 
-            var tasks = distinct.Select(userId =>
-                _hubContext.Clients
-                    .Group($"user_{userId}")
-                    .SendAsync(eventName, data)
-            );
-
-            return Task.WhenAll(tasks);
+            // One send serializes the payload once, instead of once per user.
+            return _hubContext.Clients
+                .Groups(distinct.Select(UserGroup).ToList())
+                .SendAsync(eventName, data);
         }
 
 
@@ -206,7 +205,7 @@ namespace dndhelper.Services.SignalR
                 changeList
             );
 
-            _logger.Information(
+            _logger.Debug(
                 "📤 Broadcasting batch {CorrelationId} with {ChangeCount} changes to {UserCount} users (excluded: {Excluded})",
                 batch.CorrelationId,
                 changeList.Count,
@@ -214,13 +213,9 @@ namespace dndhelper.Services.SignalR
                 excludeUserId
             );
 
-            var tasks = distinctUsers.Select(userId =>
-                _hubContext.Clients
-                    .Group($"user_{userId}")
-                    .SendAsync("EntityBatchChanged", batch)
-            );
-
-            return Task.WhenAll(tasks);
+            return _hubContext.Clients
+                .Groups(distinctUsers.Select(UserGroup).ToList())
+                .SendAsync("EntityBatchChanged", batch);
         }
 
 
@@ -241,7 +236,7 @@ namespace dndhelper.Services.SignalR
                 changeList
             );
 
-            _logger.Information(
+            _logger.Debug(
                 "📤 Broadcasting batch {CorrelationId} with {ChangeCount} changes to all users",
                 batch.CorrelationId,
                 changeList.Count
