@@ -10,7 +10,8 @@ namespace dndhelper.Services.Interfaces
         Task<List<Currency>> GetCharacterCurrenciesAsync(string characterId);
         Task TransferManyToCharacter(string targetId, List<Currency> currencies);
         Task RemoveCurrencyFromCharacter(string characterId, List<Currency> currencies);
-        Task AddCurrencyToInventory(string inventoryId, Currency currency);
+        Task AddCurrenciesToInventory(string inventoryId, List<Currency> currencies);
+        Task RemoveCurrenciesFromInventory(string inventoryId, List<Currency> currencies);
         Task TransferBetweenCharacters(string fromId, string toId, List<Currency> currencies);
         Task ClaimFromInventory(string characterId, string inventoryId, List<Currency> currencies);
 
@@ -18,6 +19,7 @@ namespace dndhelper.Services.Interfaces
         Task RemoveCurrencyFromCharacterAndNotifyAsync(string characterId, List<Currency> currencies);
         Task TransferManyToCharacterAndNotifyAsync(string targetId, List<Currency> currencies);
         Task AddCurrenciesToInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies);
+        Task RemoveCurrenciesFromInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies);
         Task TransferBetweenCharactersAndNotifyAsync(string fromId, string toId, List<Currency> currencies);
         Task ClaimFromInventoryAndNotifyAsync(string characterId, string inventoryId, List<Currency> currencies);
 

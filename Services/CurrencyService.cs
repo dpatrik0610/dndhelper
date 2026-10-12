@@ -48,11 +48,7 @@ namespace dndhelper.Services
 
         public async Task<List<Currency>> GetCharacterCurrenciesAsync(string characterId)
         {
-            if (string.IsNullOrWhiteSpace(characterId))
-            {
-                _logger.Warning("GetCharacterCurrenciesAsync called with empty characterId.");
-                return new List<Currency>();
-            }
+            Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
 
             var character = await _characterService.GetByIdAsync(characterId)
                 ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
@@ -63,30 +59,15 @@ namespace dndhelper.Services
         public async Task RemoveCurrencyFromCharacter(string characterId, List<Currency> currencies)
         {
             Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
-            Guard.That(currencies != null && currencies.Count > 0, "No currencies provided.", nameof(currencies));
+            var coins = Normalize(currencies);
 
-            try
-            {
-                var character = await _characterService.GetByIdAsync(characterId);
-                if (character?.Currencies == null)
-                {
-                    _logger.Warning("RemoveCurrencyFromCharacter: character {CharacterId} has no currencies.", characterId);
-                    return;
-                }
+            var character = await _characterService.GetByIdAsync(characterId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
 
-                foreach (var currency in currencies)
-                    UpdateCurrencyList(character.Currencies, currency, isAddition: false);
+            Subtract(character.Currencies ??= new List<Currency>(), coins, character.Name ?? "Character");
+            await _characterService.UpdateAsync(character);
 
-                character.Currencies.RemoveAll(c => c.Amount <= 0);
-                await _characterService.UpdateAsync(character);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex,
-                    "Error removing currencies from character {CharacterId}. Requested: {Currencies}",
-                    characterId, BuildCurrencySummary(currencies));
-                throw;
-            }
+            _logger.Information("Removed {Currencies} from character {CharacterId}", Summary(coins), characterId);
         }
 
         public async Task RemoveCurrencyFromCharacterAndNotifyAsync(string characterId, List<Currency> currencies)
@@ -95,37 +76,21 @@ namespace dndhelper.Services
 
             var character = await _characterService.GetByIdAsync(characterId);
             if (character != null)
-            {
                 await BroadcastCharacterChangeAsync(character, "updated", character);
-            }
         }
 
         public async Task TransferManyToCharacter(string targetId, List<Currency> currencies)
         {
             Guard.NotNullOrWhiteSpace(targetId, nameof(targetId));
-            Guard.That(currencies != null && currencies.Count > 0, "No currencies provided.", nameof(currencies));
+            var coins = Normalize(currencies);
 
-            try
-            {
-                var character = await _characterService.GetByIdAsync(targetId)
-                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Target character not found.");
+            var character = await _characterService.GetByIdAsync(targetId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Target character not found.");
 
-                character.Currencies ??= new List<Currency>();
-                character.Currencies = MergeCurrencies(character.Currencies, currencies);
+            Add(character.Currencies ??= new List<Currency>(), coins);
+            await _characterService.UpdateAsync(character);
 
-                _logger.Information(
-                    "TransferManyToCharacter: Added currencies to {CharacterId}. {Currencies}",
-                    targetId, BuildCurrencySummary(currencies));
-
-                await _characterService.UpdateAsync(character);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex,
-                    "Error transferring currencies to character {CharacterId}. Requested: {Currencies}",
-                    targetId, BuildCurrencySummary(currencies));
-                throw;
-            }
+            _logger.Information("Added {Currencies} to character {CharacterId}", Summary(coins), targetId);
         }
 
         public async Task TransferManyToCharacterAndNotifyAsync(string targetId, List<Currency> currencies)
@@ -134,51 +99,29 @@ namespace dndhelper.Services
 
             var target = await _characterService.GetByIdAsync(targetId);
             if (target != null)
-            {
                 await BroadcastCharacterChangeAsync(target, "updated", target);
-            }
         }
 
         public async Task TransferBetweenCharacters(string fromId, string toId, List<Currency> currencies)
         {
             Guard.NotNullOrWhiteSpace(fromId, nameof(fromId));
             Guard.NotNullOrWhiteSpace(toId, nameof(toId));
-            Guard.That(currencies != null && currencies.Count > 0, "No currencies provided.", nameof(currencies));
+            Guard.That(fromId != toId, "Cannot transfer to the same character.", nameof(toId));
+            var coins = Normalize(currencies);
 
-            try
-            {
-                var source = await _characterService.GetByIdAsync(fromId)
-                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Source character not found.");
+            var source = await _characterService.GetByIdAsync(fromId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Source character not found.");
 
-                var target = await _characterInternalService.GetByIdInternalAsync(toId)
-                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Target character not found.");
+            var target = await _characterInternalService.GetByIdInternalAsync(toId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Target character not found.");
 
-                source.Currencies ??= new List<Currency>();
-                target.Currencies ??= new List<Currency>();
+            Subtract(source.Currencies ??= new List<Currency>(), coins, source.Name ?? "Source character");
+            Add(target.Currencies ??= new List<Currency>(), coins);
 
-                ValidateSourceHasCurrencies(source, currencies);
+            await _characterService.UpdateAsync(source);
+            await _characterInternalService.UpdateInternalAsync(target);
 
-                foreach (var currency in currencies)
-                    UpdateCurrencyList(source.Currencies, currency, isAddition: false);
-
-                source.Currencies.RemoveAll(c => c.Amount <= 0);
-                target.Currencies = MergeCurrencies(target.Currencies, currencies);
-
-                var summary = BuildCurrencySummary(currencies);
-                _logger.Information(
-                    "Currency transfer between characters: {FromId} -> {ToId} | {Summary}",
-                    fromId, toId, summary);
-
-                await _characterService.UpdateAsync(source);
-                await _characterInternalService.UpdateInternalAsync(target);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex,
-                    "Error transferring currencies from {FromId} to {ToId}. Requested: {Currencies}",
-                    fromId, toId, BuildCurrencySummary(currencies));
-                throw;
-            }
+            _logger.Information("Transferred {Currencies} from {FromId} to {ToId}", Summary(coins), fromId, toId);
         }
 
         public async Task TransferBetweenCharactersAndNotifyAsync(string fromId, string toId, List<Currency> currencies)
@@ -198,85 +141,67 @@ namespace dndhelper.Services
         #endregion
 
         #region Inventory Methods
-        public async Task AddCurrencyToInventory(string inventoryId, Currency currency)
+
+        public async Task AddCurrenciesToInventory(string inventoryId, List<Currency> currencies)
         {
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
+            var coins = Normalize(currencies);
 
-            try
-            {
-                var inventory = await _inventoryService.GetByIdAsync(inventoryId)
-                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
+            var inventory = await _inventoryService.GetByIdAsync(inventoryId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
 
-                inventory.Currencies ??= new List<Currency>();
-                inventory.Currencies = MergeCurrencies(inventory.Currencies, new[] { currency });
+            Add(inventory.Currencies ??= new List<Currency>(), coins);
+            await _inventoryService.UpdateAsync(inventory);
 
-                await _inventoryService.UpdateAsync(inventory);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex,
-                    "Error adding currency to inventory {InventoryId}. Currency: {CurrencyType}, Amount: {Amount}",
-                    inventoryId, currency?.Type, currency?.Amount);
-                throw;
-            }
+            _logger.Information("Added {Currencies} to inventory {InventoryId}", Summary(coins), inventoryId);
         }
 
         public async Task AddCurrenciesToInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies)
         {
+            await AddCurrenciesToInventory(inventoryId, currencies);
+            await BroadcastInventoryAsync(inventoryId);
+        }
+
+        public async Task RemoveCurrenciesFromInventory(string inventoryId, List<Currency> currencies)
+        {
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
-            Guard.That(currencies != null && currencies.Count > 0, "No currencies provided.", nameof(currencies));
+            var coins = Normalize(currencies);
 
-            foreach (var currency in currencies)
-            {
-                await AddCurrencyToInventory(inventoryId, currency);
-            }
+            var inventory = await _inventoryService.GetByIdAsync(inventoryId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
 
-            var inventory = await _inventoryService.GetByIdAsync(inventoryId);
-            if (inventory != null)
-            {
-                await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
-            }
+            Subtract(inventory.Currencies ??= new List<Currency>(), coins, inventory.Name);
+            await _inventoryService.UpdateAsync(inventory);
+
+            _logger.Information("Removed {Currencies} from inventory {InventoryId}", Summary(coins), inventoryId);
+        }
+
+        public async Task RemoveCurrenciesFromInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies)
+        {
+            await RemoveCurrenciesFromInventory(inventoryId, currencies);
+            await BroadcastInventoryAsync(inventoryId);
         }
 
         public async Task ClaimFromInventory(string characterId, string inventoryId, List<Currency> currencies)
         {
             Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
-            Guard.That(currencies != null && currencies.Count > 0, "No currencies provided.", nameof(currencies));
+            var coins = Normalize(currencies);
 
-            try
-            {
-                var character = await _characterService.GetByIdAsync(characterId)
-                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
+            var character = await _characterService.GetByIdAsync(characterId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Character not found.");
 
-                var inventory = await _inventoryInternalService.GetByIdInternalAsync(inventoryId)
-                    ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
+            var inventory = await _inventoryInternalService.GetByIdInternalAsync(inventoryId)
+                ?? throw CustomExceptions.ThrowNotFoundException(_logger, "Inventory not found.");
 
-                inventory.Currencies ??= new List<Currency>();
-                character.Currencies ??= new List<Currency>();
+            Subtract(inventory.Currencies ??= new List<Currency>(), coins, inventory.Name);
+            Add(character.Currencies ??= new List<Currency>(), coins);
 
-                ValidateInventoryHasCurrencies(inventory, currencies);
+            await _inventoryInternalService.UpdateInternalAsync(inventory);
+            await _characterService.UpdateAsync(character);
 
-                foreach (var currency in currencies)
-                    UpdateCurrencyList(inventory.Currencies, currency, isAddition: false);
-
-                inventory.Currencies.RemoveAll(c => c.Amount <= 0);
-                character.Currencies = MergeCurrencies(character.Currencies, currencies);
-
-                _logger.Information(
-                    "ClaimFromInventory: {CharacterId} claimed from {InventoryId}. {Currencies}",
-                    characterId, inventoryId, BuildCurrencySummary(currencies));
-
-                await _inventoryInternalService.UpdateInternalAsync(inventory);
-                await _characterService.UpdateAsync(character);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex,
-                    "Error claiming currencies from inventory {InventoryId} to character {CharacterId}. Requested: {Currencies}",
-                    inventoryId, characterId, BuildCurrencySummary(currencies));
-                throw;
-            }
+            _logger.Information("{CharacterId} claimed {Currencies} from inventory {InventoryId}",
+                characterId, Summary(coins), inventoryId);
         }
 
         public async Task ClaimFromInventoryAndNotifyAsync(string characterId, string inventoryId, List<Currency> currencies)
@@ -284,50 +209,17 @@ namespace dndhelper.Services
             await ClaimFromInventory(characterId, inventoryId, currencies);
 
             var character = await _characterService.GetByIdAsync(characterId);
-            var inventory = await _inventoryService.GetByIdAsync(inventoryId);
-
             if (character != null)
                 await BroadcastCharacterChangeAsync(character, "updated", character);
 
+            await BroadcastInventoryAsync(inventoryId);
+        }
+
+        private async Task BroadcastInventoryAsync(string inventoryId)
+        {
+            var inventory = await _inventoryService.GetByIdAsync(inventoryId);
             if (inventory != null)
                 await BroadcastInventoryChangeAsync(inventory, "updated", inventory);
-        }
-
-        #endregion
-
-        #region Validation
-        private void ValidateSourceHasCurrencies(Character source, IEnumerable<Currency> currencies)
-        {
-            foreach (var currency in currencies)
-            {
-                var existing = source.Currencies.FirstOrDefault(c => c.Type == currency.Type);
-
-                if (existing == null)
-                    throw CustomExceptions.ThrowNotFoundException(
-                        _logger, $"Source missing currency '{currency.Type}'.");
-
-                if (existing.Amount < currency.Amount)
-                    throw CustomExceptions.ThrowInvalidOperationException(
-                        _logger,
-                        $"Not enough {currency.Type}. Needed {currency.Amount}, has {existing.Amount}.");
-            }
-        }
-
-        private void ValidateInventoryHasCurrencies(Inventory inventory, IEnumerable<Currency> currencies)
-        {
-            foreach (var currency in currencies)
-            {
-                var inv = inventory.Currencies.FirstOrDefault(c => c.Type == currency.Type);
-
-                if (inv == null)
-                    throw CustomExceptions.ThrowNotFoundException(
-                        _logger, $"Inventory missing currency '{currency.Type}'.");
-
-                if (inv.Amount < currency.Amount)
-                    throw CustomExceptions.ThrowInvalidOperationException(
-                        _logger,
-                        $"Inventory has only {inv.Amount} {currency.Type}.");
-            }
         }
 
         #endregion
@@ -420,69 +312,69 @@ namespace dndhelper.Services
         #endregion
 
         #region Mutation
-        private void UpdateCurrencyList(List<Currency> list, Currency currency, bool isAddition)
+
+        private static bool IsType(Currency c, string type) =>
+            string.Equals(c.Type, type, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Validates a request's coins (trust boundary): trims types, rejects blank types and
+        /// non-positive amounts, folds case-variant duplicates ("GP" + "gp") into one entry.
+        /// </summary>
+        private static List<Currency> Normalize(IEnumerable<Currency>? currencies)
         {
-            list = Guard.NotNull(list, nameof(list));
-            currency = Guard.NotNull(currency, nameof(currency));
-
-            var existing = list.FirstOrDefault(x => x.Type == currency.Type);
-
-            if (isAddition)
-                AddCurrency(list, currency, existing);
-            else
-                RemoveCurrency(list, currency, existing);
-        }
-
-        private void AddCurrency(List<Currency> list, Currency currency, Currency? existing)
-        {
-            if (existing == null)
+            var result = new List<Currency>();
+            foreach (var c in currencies ?? Enumerable.Empty<Currency>())
             {
-                list.Add(new Currency
-                {
-                    Type = currency.Type,
-                    Amount = currency.Amount,
-                    CurrencyCode = currency.CurrencyCode
-                });
-                return;
+                var type = c?.Type?.Trim();
+                if (string.IsNullOrEmpty(type))
+                    throw new ArgumentException("Currency type is required.");
+                if (type.Length > 32)
+                    throw new ArgumentException("Currency type must be 32 characters or fewer.");
+                if (c!.Amount <= 0)
+                    throw new ArgumentException($"Amount of {type} must be greater than zero.");
+
+                var existing = result.FirstOrDefault(x => IsType(x, type));
+                if (existing != null) existing.Amount = checked(existing.Amount + c.Amount);
+                else result.Add(new Currency { Type = type, Amount = c.Amount });
             }
 
-            existing.Amount += currency.Amount;
+            if (result.Count == 0)
+                throw new ArgumentException("No currencies provided.");
+            return result;
         }
 
-        private void RemoveCurrency(List<Currency> list, Currency currency, Currency? existing)
+        private static void Add(List<Currency> wallet, IEnumerable<Currency> coins)
         {
-            if (existing == null)
-                throw CustomExceptions.ThrowNotFoundException(
-                    _logger, $"Currency '{currency.Type}' not found.");
-
-            if (existing.Amount < currency.Amount)
-                throw CustomExceptions.ThrowInvalidOperationException(
-                    _logger,
-                    $"Not enough {currency.Type} to remove {currency.Amount}. Available: {existing.Amount}");
-
-            existing.Amount -= currency.Amount;
+            foreach (var coin in coins)
+            {
+                var existing = wallet.FirstOrDefault(c => IsType(c, coin.Type));
+                if (existing != null) existing.Amount = checked(existing.Amount + coin.Amount);
+                else wallet.Add(new Currency { Type = coin.Type, Amount = coin.Amount });
+            }
         }
 
-        private static List<Currency> MergeCurrencies(IEnumerable<Currency> existing, IEnumerable<Currency> incoming)
+        /// <summary>Checks every coin first so a short balance never leaves a half-applied removal.</summary>
+        private static void Subtract(List<Currency> wallet, IReadOnlyCollection<Currency> coins, string owner)
         {
-            return existing
-                .Concat(incoming)
-                .GroupBy(c => c.CurrencyCode)
-                .Select(g => new Currency
-                {
-                    Type = g.First().Type,
-                    CurrencyCode = g.First().CurrencyCode,
-                    Amount = g.Sum(x => x.Amount)
-                })
-                .Where(c => c.Amount > 0)
-                .ToList();
+            foreach (var coin in coins)
+            {
+                var has = wallet.FirstOrDefault(c => IsType(c, coin.Type))?.Amount ?? 0;
+                if (has < coin.Amount)
+                    throw new InvalidOperationException($"{owner} has only {has} {coin.Type}, needs {coin.Amount}.");
+            }
+
+            foreach (var coin in coins)
+                wallet.First(c => IsType(c, coin.Type)).Amount -= coin.Amount;
+
+            wallet.RemoveAll(c => c.Amount == 0);
         }
 
-        private static string BuildCurrencySummary(IEnumerable<Currency> currencies)
-        {
-            if (currencies == null) return string.Empty;
-            return string.Join(", ", currencies.Select(c => $"{c.Amount} {c.Type} ({c.CurrencyCode})"));
-        }
+        private static string Summary(IEnumerable<Currency> coins) =>
+            string.Join(", ", coins.Select(c => $"{c.Amount} {c.Type}"));
+
+        #endregion
+
+        #region Shop wallet (gp/sp only, 1 gp = 100 sp)
 
         public void ValidateCharacterHasFunds(Character character, int costInSp)
         {
@@ -505,12 +397,8 @@ namespace dndhelper.Services
 
             character.Currencies ??= new List<Currency>();
 
-            // Get current gold and silver balances
-            var gpCurrency = character.Currencies.FirstOrDefault(c => c.Type == "gp");
-            var spCurrency = character.Currencies.FirstOrDefault(c => c.Type == "sp");
-
-            int currentGp = gpCurrency?.Amount ?? 0;
-            int currentSp = spCurrency?.Amount ?? 0;
+            int currentGp = character.Currencies.Where(c => IsType(c, "gp")).Sum(c => c.Amount);
+            int currentSp = character.Currencies.Where(c => IsType(c, "sp")).Sum(c => c.Amount);
 
             int costGp = costInSp / 100;
             int costSp = costInSp % 100;
@@ -539,36 +427,19 @@ namespace dndhelper.Services
             // Step 4: Deduct gold cost
             currentGp -= costGp;
 
-            // Step 5: Update the character's currencies list in place
-            character.Currencies.Clear();
-            if (currentGp > 0)
-            {
-                character.Currencies.Add(new Currency { Type = "gp", Amount = currentGp, CurrencyCode = "gp" });
-            }
-            if (currentSp > 0)
-            {
-                character.Currencies.Add(new Currency { Type = "sp", Amount = currentSp, CurrencyCode = "sp" });
-            }
-
-            if (currentGp == 0 && currentSp == 0)
-            {
-                character.Currencies.Add(new Currency { Type = "gp", Amount = 0, CurrencyCode = "gp" });
-                character.Currencies.Add(new Currency { Type = "sp", Amount = 0, CurrencyCode = "sp" });
-            }
+            SetGoldAndSilver(character.Currencies, currentGp, currentSp);
         }
 
         public void AddAndConsolidateCurrency(Character character, int amountInSp)
         {
             int totalWalletSp = GetTotalSilverValue(character.Currencies);
-            int remainingSp = totalWalletSp + amountInSp;
-            ConsolidateWallet(character.Currencies ??= new List<Currency>(), remainingSp);
+            ConsolidateWallet(character.Currencies ??= new List<Currency>(), totalWalletSp + amountInSp);
         }
 
         public void AddCurrencyToInventory(Inventory inventory, int amountInSp)
         {
             int totalSp = GetTotalSilverValue(inventory.Currencies);
-            int finalSp = totalSp + amountInSp;
-            ConsolidateWallet(inventory.Currencies ??= new List<Currency>(), finalSp);
+            ConsolidateWallet(inventory.Currencies ??= new List<Currency>(), totalSp + amountInSp);
         }
 
         public void RemoveCurrencyFromInventory(Inventory inventory, int amountInSp, bool allowNegative = true)
@@ -578,38 +449,26 @@ namespace dndhelper.Services
             {
                 throw new InvalidOperationException("Insufficient inventory funds.");
             }
-            int finalSp = totalSp - amountInSp;
-            ConsolidateWallet(inventory.Currencies ??= new List<Currency>(), finalSp);
+            ConsolidateWallet(inventory.Currencies ??= new List<Currency>(), totalSp - amountInSp);
         }
 
-        private int GetTotalSilverValue(List<Currency>? currencies)
+        private static int GetTotalSilverValue(List<Currency>? currencies)
         {
             if (currencies == null) return 0;
-            int gp = currencies.FirstOrDefault(c => c.Type == "gp")?.Amount ?? 0;
-            int sp = currencies.FirstOrDefault(c => c.Type == "sp")?.Amount ?? 0;
+            int gp = currencies.Where(c => IsType(c, "gp")).Sum(c => c.Amount);
+            int sp = currencies.Where(c => IsType(c, "sp")).Sum(c => c.Amount);
             return (gp * 100) + sp;
         }
 
-        private void ConsolidateWallet(List<Currency> currencies, int totalSp)
-        {
-            currencies.Clear();
-            int gp = totalSp / 100;
-            int sp = totalSp % 100;
+        private static void ConsolidateWallet(List<Currency> currencies, int totalSp) =>
+            SetGoldAndSilver(currencies, totalSp / 100, totalSp % 100);
 
-            if (gp != 0)
-            {
-                currencies.Add(new Currency { Type = "gp", Amount = gp, CurrencyCode = "gp" });
-            }
-            if (sp != 0)
-            {
-                currencies.Add(new Currency { Type = "sp", Amount = sp, CurrencyCode = "sp" });
-            }
-            
-            if (gp == 0 && sp == 0)
-            {
-                currencies.Add(new Currency { Type = "gp", Amount = 0, CurrencyCode = "gp" });
-                currencies.Add(new Currency { Type = "sp", Amount = 0, CurrencyCode = "sp" });
-            }
+        /// <summary>Rewrites only the gp/sp entries; every other coin (pp, cp, custom) is left untouched.</summary>
+        private static void SetGoldAndSilver(List<Currency> currencies, int gp, int sp)
+        {
+            currencies.RemoveAll(c => IsType(c, "gp") || IsType(c, "sp"));
+            if (gp != 0) currencies.Add(new Currency { Type = "gp", Amount = gp });
+            if (sp != 0) currencies.Add(new Currency { Type = "sp", Amount = sp });
         }
 
         #endregion

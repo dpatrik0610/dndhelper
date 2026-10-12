@@ -72,8 +72,8 @@ namespace dndhelper.Services
                 OwnerIds = shop.OwnerIds.ToList(),
                 Currencies = new List<Currency>
                 {
-                    new Currency { Type = "gp", Amount = 100, CurrencyCode = "gp" },
-                    new Currency { Type = "sp", Amount = 100, CurrencyCode = "sp" }
+                    new Currency { Type = "gp", Amount = 100 },
+                    new Currency { Type = "sp", Amount = 100 }
                 }
             };
 

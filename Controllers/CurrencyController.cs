@@ -1,91 +1,51 @@
+using dndhelper.Authorization;
 using dndhelper.Models;
+using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
+using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Serilog;
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
 {
+    // Validation, not-found, insufficient-funds and access errors are thrown by the service
+    // and mapped to 400/403/404 by ExceptionMiddleware.
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class CurrencyController : ControllerBase
     {
         private readonly ICurrencyService _currencyService;
-        private readonly ILogger _logger;
 
-        public CurrencyController(ICurrencyService currencyService, ILogger logger)
+        public CurrencyController(ICurrencyService currencyService)
         {
             _currencyService = currencyService;
-            _logger = logger;
         }
 
         // GET: api/currency/{characterId}
         [HttpGet("{characterId}")]
         public async Task<IActionResult> GetCharacterCurrencies(string characterId)
         {
-            if (string.IsNullOrWhiteSpace(characterId))
-                return BadRequest(new { message = "Character ID is required." });
-
-            try
-            {
-                var currencies = await _currencyService.GetCharacterCurrenciesAsync(characterId);
-                return Ok(new { data = currencies, message = "Currencies retrieved successfully." });
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error getting currencies for character {CharacterId}", characterId);
-                return StatusCode(500, new { message = "An error occurred while fetching currencies." });
-            }
+            var currencies = await _currencyService.GetCharacterCurrenciesAsync(characterId);
+            return Ok(new { data = currencies, message = "Currencies retrieved successfully." });
         }
 
         // PUT: api/currency/remove/{characterId}
         [HttpPut("remove/{characterId}")]
         public async Task<IActionResult> RemoveCurrencies(string characterId, [FromBody] List<Currency> currencies)
         {
-            if (string.IsNullOrWhiteSpace(characterId))
-                return BadRequest(new { message = "Character ID is required." });
-
-            if (currencies == null || currencies.Count == 0)
-                return BadRequest(new { message = "No currencies provided." });
-
-            try
-            {
-                await _currencyService.RemoveCurrencyFromCharacterAndNotifyAsync(characterId, currencies);
-
-                return Ok(new { message = "Currencies removed successfully." });
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error removing currencies from character {CharacterId}", characterId);
-                return StatusCode(500, new { message = ex.Message });
-            }
+            await _currencyService.RemoveCurrencyFromCharacterAndNotifyAsync(characterId, currencies);
+            return Ok(new { message = "Currencies removed successfully." });
         }
 
         // PUT: api/currency/transfer/{targetId}
         [HttpPut("transfer/{targetId}")]
         public async Task<IActionResult> TransferCurrencies(string targetId, [FromBody] List<Currency> currencies)
         {
-            if (string.IsNullOrWhiteSpace(targetId))
-                return BadRequest(new { message = "Target ID is required." });
-
-            if (currencies == null || currencies.Count == 0)
-                return BadRequest(new { message = "No currencies provided." });
-
-            try
-            {
-                await _currencyService.TransferManyToCharacterAndNotifyAsync(targetId, currencies);
-
-                return Ok(new { message = "Currencies transferred successfully." });
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error transferring currencies to character {CharacterId}", targetId);
-                return StatusCode(500, new { message = ex.Message });
-            }
+            await _currencyService.TransferManyToCharacterAndNotifyAsync(targetId, currencies);
+            return Ok(new { message = "Currencies transferred successfully." });
         }
 
         // PUT: api/currency/inventory/{inventoryId}
@@ -94,92 +54,51 @@ namespace dndhelper.Controllers
         public async Task<IActionResult> AddCurrenciesToInventory(
             string inventoryId,
             [FromBody] List<Currency> currencies,
-            [FromServices] dndhelper.Authorization.CampaignAccess access,
-            [FromServices] dndhelper.Repositories.Interfaces.IInventoryRepository inventories)
+            [FromServices] CampaignAccess access,
+            [FromServices] IInventoryRepository inventories)
         {
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                return BadRequest("Inventory ID is required.");
-
-            if (currencies == null || currencies.Count == 0)
-                return BadRequest("Currency list is required.");
-
-            var inventory = await inventories.GetByIdAsync(inventoryId);
-            if (inventory == null) return NotFound("Inventory not found.");
-            if (inventory.CampaignId == null ? !access.IsSuperAdmin : !await access.IsDmAsync(inventory.CampaignId))
-                throw new dndhelper.Utils.ForbiddenException("Only the campaign's DM can give money.");
-
-            try
-            {
-                await _currencyService.AddCurrenciesToInventoryAndNotifyAsync(inventoryId, currencies);
-
-                return Ok(new { message = $"Added {currencies.Count} currencies to inventory {inventoryId}." });
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error adding currencies to inventory {InventoryId}", inventoryId);
-                return StatusCode(500, "An error occurred while adding currencies to inventory.");
-            }
+            await EnsureInventoryDmAsync(inventoryId, access, inventories);
+            await _currencyService.AddCurrenciesToInventoryAndNotifyAsync(inventoryId, currencies);
+            return Ok(new { message = "Currencies added to inventory." });
         }
 
+        // PUT: api/currency/inventory/{inventoryId}/remove
+        [HttpPut("inventory/{inventoryId}/remove")]
+        public async Task<IActionResult> RemoveCurrenciesFromInventory(
+            string inventoryId,
+            [FromBody] List<Currency> currencies,
+            [FromServices] CampaignAccess access,
+            [FromServices] IInventoryRepository inventories)
+        {
+            await EnsureInventoryDmAsync(inventoryId, access, inventories);
+            await _currencyService.RemoveCurrenciesFromInventoryAndNotifyAsync(inventoryId, currencies);
+            return Ok(new { message = "Currencies removed from inventory." });
+        }
+
+        // PUT: api/currency/transfer-between/{fromId}/{toId}
         [Authorize(Roles = "Admin, User")]
         [HttpPut("transfer-between/{fromId}/{toId}")]
         public async Task<IActionResult> TransferBetweenCharacters(string fromId, string toId, [FromBody] List<Currency> currencies)
         {
-            if (string.IsNullOrWhiteSpace(fromId) || string.IsNullOrWhiteSpace(toId))
-                return BadRequest(new { message = "Source and target IDs are required." });
-
-            if (currencies == null || currencies.Count == 0)
-                return BadRequest(new { message = "No currencies provided." });
-
-            try
-            {
-                await _currencyService.TransferBetweenCharactersAndNotifyAsync(fromId, toId, currencies);
-
-                return Ok(new { message = "Currencies transferred successfully." });
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error transferring currencies from {FromId} to {ToId}", fromId, toId);
-                return StatusCode(500, new { message = ex.Message });
-            }
+            await _currencyService.TransferBetweenCharactersAndNotifyAsync(fromId, toId, currencies);
+            return Ok(new { message = "Currencies transferred successfully." });
         }
 
         // PUT: api/currency/claim/{characterId}/{inventoryId}
         [Authorize(Roles = "Admin, User")]
         [HttpPut("claim/{characterId}/{inventoryId}")]
-        public async Task<IActionResult> ClaimFromInventory(
-            string characterId,
-            string inventoryId,
-            [FromBody] List<Currency> currencies)
+        public async Task<IActionResult> ClaimFromInventory(string characterId, string inventoryId, [FromBody] List<Currency> currencies)
         {
-            if (string.IsNullOrWhiteSpace(characterId))
-                return BadRequest(new { message = "Character ID is required." });
+            await _currencyService.ClaimFromInventoryAndNotifyAsync(characterId, inventoryId, currencies);
+            return Ok(new { message = "Currencies claimed successfully." });
+        }
 
-            if (string.IsNullOrWhiteSpace(inventoryId))
-                return BadRequest(new { message = "Inventory ID is required." });
-
-            if (currencies == null || currencies.Count == 0)
-                return BadRequest(new { message = "No currencies provided." });
-
-            try
-            {
-                await _currencyService.ClaimFromInventoryAndNotifyAsync(characterId, inventoryId, currencies);
-
-                return Ok(new
-                {
-                    message = $"Claimed {currencies.Count} currencies from inventory {inventoryId} to character {characterId}."
-                });
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(
-                    ex,
-                    "Error claiming currencies from inventory {InventoryId} to character {CharacterId}",
-                    inventoryId,
-                    characterId);
-
-                return StatusCode(500, new { message = ex.Message });
-            }
+        private static async Task EnsureInventoryDmAsync(string inventoryId, CampaignAccess access, IInventoryRepository inventories)
+        {
+            var inventory = await inventories.GetByIdAsync(inventoryId)
+                ?? throw new NotFoundException("Inventory not found.");
+            if (inventory.CampaignId == null ? !access.IsSuperAdmin : !await access.IsDmAsync(inventory.CampaignId))
+                throw new ForbiddenException("Only the campaign's DM can change an inventory's money.");
         }
     }
 }

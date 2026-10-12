@@ -28,8 +28,8 @@ namespace dndhelper.Models
         public bool IsDeleted { get; set; } = false;
 
         public List<Currency>? Currencies { get; set; } = new List<Currency>() {
-            new Currency() {Type = "gp", Amount = 0, CurrencyCode = "gp"},
-            new Currency() {Type = "sp", Amount = 0, CurrencyCode = "sp"},
+            new Currency() {Type = "gp", Amount = 0 },
+            new Currency() {Type = "sp", Amount = 0 },
         };
     }
 
