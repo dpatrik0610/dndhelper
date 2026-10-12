@@ -1,7 +1,9 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -49,6 +51,31 @@ public class PublicDndApiClient : IPublicDndApiClient
         var json = await response.Content.ReadAsStringAsync();
         var equipment = JsonConvert.DeserializeObject<Equipment>(json);
         return equipment;
+    }
+
+    public async Task<List<(string Index, string Name)>> GetMonsterIndexAsync(string ruleset)
+    {
+        var json = JObject.Parse(await _httpClient.GetStringAsync($"{ruleset}/monsters"));
+        return (json["results"] as JArray ?? new JArray())
+            .Select(r => ((string)r["index"]!, (string)r["name"]!))
+            .ToList();
+    }
+
+    public async Task<JObject?> GetMonsterAsync(string ruleset, string index)
+    {
+        var response = await _httpClient.GetAsync($"{ruleset}/monsters/{Uri.EscapeDataString(index)}");
+        if (!response.IsSuccessStatusCode) return null;
+        return JObject.Parse(await response.Content.ReadAsStringAsync());
+    }
+
+    public async Task<byte[]?> GetImageAsync(string path)
+    {
+        // Only follow paths on the API's own host: the path comes from the API response.
+        var url = new Uri(_httpClient.BaseAddress!, path);
+        if (url.Host != _httpClient.BaseAddress!.Host) return null;
+
+        var response = await _httpClient.GetAsync(url);
+        return response.IsSuccessStatusCode ? await response.Content.ReadAsByteArrayAsync() : null;
     }
 }
 

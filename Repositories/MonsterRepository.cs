@@ -5,149 +5,60 @@ using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Serilog;
-using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace dndhelper.Repositories
 {
     public class MonsterRepository : MongoRepository<Monster>, IMonsterRepository
     {
+        // Case-insensitive equality, so "goblin" finds "Goblin".
+        private static readonly Collation IgnoreCase = new("en", strength: CollationStrength.Secondary);
+
         public MonsterRepository(MongoDbContext context, IMemoryCache cache, ILogger logger)
             : base(logger, cache, context, "Monsters") { }
 
-        public async Task<List<Monster>> FindByNamePhraseAsync(string namePhrase, FilterDefinition<Monster> scope)
-        {
-            if (string.IsNullOrWhiteSpace(namePhrase))
-                throw new ArgumentException("Monster name phrase is null or empty.");
-
-            var filter = Builders<Monster>.Filter.Regex(
-                m => m.Name,
-                new BsonRegularExpression(namePhrase, "i"));
-
-            return await _collection.Find(filter & NotDeleted & scope).ToListAsync();
-        }
-
-        public async Task<List<Monster>> GetPagedAsync(FilterDefinition<Monster> scope, int page, int pageSize)
-        {
-            if (page <= 0 || pageSize <= 0)
-                throw new ArgumentException("Page and page size must be greater than zero.");
-
-            var f = Builders<Monster>.Filter;
-            var filter = f.Ne(m => m.IsDeleted, true) & scope;
-
-            return await _collection.Find(filter)
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .ToListAsync();
-        }
-
-        public Task<long> GetCountAsync(FilterDefinition<Monster> scope)
-        {
-            return _collection.CountDocumentsAsync(NotDeleted & scope);
-        }
-
         private static FilterDefinition<Monster> NotDeleted => Builders<Monster>.Filter.Ne(m => m.IsDeleted, true);
 
-        public async Task<List<Monster>> SearchAsync(FilterDefinition<Monster> scope, string query, int page, int pageSize)
-        {
-            if (string.IsNullOrWhiteSpace(query))
-                throw new ArgumentException("Search query cannot be null or empty.");
-            if (page <= 0 || pageSize <= 0)
-                throw new ArgumentException("Page and page size must be greater than zero.");
-
-            var filter = Builders<Monster>.Filter.Regex(
-                m => m.Name,
-                new BsonRegularExpression(query, "i"));
-
-            return await _collection.Find(filter & NotDeleted & scope)
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .ToListAsync();
-        }
-
-        public async Task<List<Monster>> FindByOwnerIdAsync(FilterDefinition<Monster> scope, string ownerId)
-        {
-            if (string.IsNullOrWhiteSpace(ownerId))
-                throw new ArgumentException("Owner ID cannot be null or empty.");
-
-            var filter = Builders<Monster>.Filter.Eq(m => m.CreatedByUserId, ownerId);
-            return await _collection.Find(filter & NotDeleted & scope).ToListAsync();
-        }
-
-        public async Task<List<Monster>> SearchAsync(FilterDefinition<Monster> scope, MonsterSearchCriteria criteria)
-        {
-            if (criteria == null) throw new ArgumentNullException(nameof(criteria));
-
-            _logger.Information("Starting monster search with criteria {@Criteria}", criteria);
-
-            var filter = BuildSearchFilter(criteria) & scope;
-            var sort = BuildSearchSort(criteria);
-
-            var page = criteria.Page <= 0 ? 1 : criteria.Page;
-            var pageSize = criteria.PageSize <= 0 ? 10 : criteria.PageSize;
-
-            var monsters = await _collection
-                .Find(filter)
-                .Sort(sort)
-                .Skip((page - 1) * pageSize)
-                .Limit(pageSize)
-                .ToListAsync();
-
-            _logger.Information("Completed monster search, returning {Count} results", monsters.Count);
-            return monsters;
-        }
-
-        private FilterDefinition<Monster> BuildSearchFilter(MonsterSearchCriteria criteria)
+        public async Task<(List<Monster> Items, long Total)> SearchAsync(FilterDefinition<Monster> scope, MonsterSearchCriteria c)
         {
             var f = Builders<Monster>.Filter;
+            var filter = NotDeleted & scope;
 
-            var filter = f.Ne(m => m.IsDeleted, true);
-
-            if (!string.IsNullOrWhiteSpace(criteria.Name))
+            if (!string.IsNullOrWhiteSpace(c.Query))
             {
-                filter &= f.Regex(
-                    m => m.Name,
-                    new BsonRegularExpression(criteria.Name, "i"));
+                var rx = new BsonRegularExpression(Regex.Escape(c.Query.Trim()), "i");
+                filter &= f.Regex(m => m.Name, rx) | f.Regex(m => m.Type, rx) | f.Regex("Tags", rx);
             }
+            if (!string.IsNullOrWhiteSpace(c.Type))
+                filter &= f.Regex(m => m.Type, new BsonRegularExpression($"^{Regex.Escape(c.Type.Trim())}$", "i"));
+            if (c.MinCr.HasValue) filter &= f.Gte(m => m.ChallengeRating, c.MinCr.Value);
+            if (c.MaxCr.HasValue) filter &= f.Lte(m => m.ChallengeRating, c.MaxCr.Value);
+            if (c.IsNpc.HasValue) filter &= f.Eq(m => m.IsNpc, c.IsNpc.Value);
 
-            if (!string.IsNullOrWhiteSpace(criteria.Type))
-            {
-                var typeRegex = new BsonRegularExpression(criteria.Type, "i");
-                filter &= f.Or(
-                    f.Regex("Type", typeRegex),
-                    f.Regex("Type.Type", typeRegex)
-                );
-            }
+            var s = Builders<Monster>.Sort;
+            var sort = c.SortBy?.ToLowerInvariant() == "cr"
+                ? (c.Desc ? s.Descending(m => m.ChallengeRating) : s.Ascending(m => m.ChallengeRating)).Ascending(m => m.Name)
+                : c.Desc ? s.Descending(m => m.Name) : s.Ascending(m => m.Name);
 
-            if (criteria.Tags?.Any() == true)
-            {
-                filter &= f.AnyIn(m => m.Type!.Tags, criteria.Tags);
-            }
+            var page = c.Page < 1 ? 1 : c.Page;
+            var pageSize = c.PageSize is < 1 or > 100 ? 25 : c.PageSize;
 
-            if (criteria.MinCR.HasValue)
-            {
-                filter &= f.Gte(m => m.CR, criteria.MinCR.Value);
-            }
-
-            if (criteria.MaxCR.HasValue)
-            {
-                filter &= f.Lte(m => m.CR, criteria.MaxCR.Value);
-            }
-
-            return filter;
+            var total = await _collection.CountDocumentsAsync(filter);
+            var items = await _collection.Find(filter).Sort(sort).Skip((page - 1) * pageSize).Limit(pageSize).ToListAsync();
+            return (items, total);
         }
 
-        private SortDefinition<Monster> BuildSearchSort(MonsterSearchCriteria criteria)
+        public async Task<List<string>> GetTypesAsync(FilterDefinition<Monster> scope)
         {
-            var sortField = string.IsNullOrWhiteSpace(criteria.SortBy)
-                ? nameof(Monster.Name)
-                : criteria.SortBy;
-
-            return criteria.SortDescending
-                ? Builders<Monster>.Sort.Descending(sortField)
-                : Builders<Monster>.Sort.Ascending(sortField);
+            var types = await _collection.Distinct(m => m.Type, NotDeleted & scope).ToListAsync();
+            return types.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t!).OrderBy(t => t).ToList();
         }
+
+        public Task<List<Monster>> FindByNamesAsync(IEnumerable<string> names) =>
+            _collection.Find(NotDeleted & Builders<Monster>.Filter.In(m => m.Name, names), new FindOptions { Collation = IgnoreCase })
+                .ToListAsync();
     }
 }

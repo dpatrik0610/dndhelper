@@ -12,6 +12,7 @@ namespace dndhelper.Models
         Tokens,
         Music,
         Docs,
+        Monsters,
     }
 
     /// <summary>

@@ -57,7 +57,9 @@ namespace dndhelper.Controllers
                     coreType = CoreContentTypes.Equipment;
                     break;
                 case "monsters":
-                    sourceCampaignId = (await _monsters.GetByIdAsync(id) ?? throw Missing(id)).CampaignId;
+                    var monster = await _monsters.GetByIdAsync(id) ?? throw Missing(id);
+                    if (Monster.StaysInCampaign(monster)) return LockedMonster();
+                    sourceCampaignId = monster.CampaignId;
                     await _monsters.SetCampaignAsync(id, null);
                     coreType = CoreContentTypes.Monsters;
                     break;
@@ -100,7 +102,11 @@ namespace dndhelper.Controllers
             {
                 case "spells": moved = await _spells.SetCampaignAsync(id, campaignId); break;
                 case "equipment": moved = await _equipment.SetCampaignAsync(id, campaignId); break;
-                case "monsters": moved = await _monsters.SetCampaignAsync(id, campaignId); break;
+                case "monsters":
+                    if (await _monsters.GetByIdAsync(id) is { } m && Monster.StaysInCampaign(m) && m.CampaignId != campaignId)
+                        return LockedMonster();
+                    moved = await _monsters.SetCampaignAsync(id, campaignId);
+                    break;
                 case "rules":
                     var rule = await _rules.GetByIdAsync(id) ?? throw Missing(id);
                     if (await _rules.SlugExistsAsync(rule.Slug, campaignId, rule.Id))
@@ -114,6 +120,8 @@ namespace dndhelper.Controllers
             await AnnounceAsync(CoreContentTypes.All.First(t => t.Equals(type, StringComparison.OrdinalIgnoreCase)), id);
             return NoContent();
         }
+
+        private ObjectResult LockedMonster() => StatusCode(403, new { message = "5etools monsters stay in the campaign they were imported into." });
 
         /// <summary>
         /// Core content is one shared copy that every importing campaign reads live; this just tells open

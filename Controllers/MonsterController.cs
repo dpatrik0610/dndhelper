@@ -1,265 +1,89 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
+using dndhelper.Services;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Serilog;
-using System;
 using System.Collections.Generic;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
 {
-    // Campaign membership / DM rights are enforced in MonsterService.
+    /// <summary>
+    /// Campaign membership / DM rights are enforced in MonsterService; errors are mapped by ExceptionMiddleware.
+    /// </summary>
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class MonsterController : ControllerBase
     {
-        private readonly IMonsterService _monsterService;
-        private readonly ILogger _logger;
+        private readonly IMonsterService _monsters;
 
-        public MonsterController(IMonsterService monsterService, ILogger logger)
-        {
-            _monsterService = monsterService;
-            _logger = logger;
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(string id)
-        {
-            try
-            {
-                var monster = await _monsterService.GetByIdAsync(id);
-                if (monster == null) return NotFound();
-                return Ok(monster);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpGet("name/{name}")]
-        public async Task<IActionResult> GetByName(string name)
-        {
-            try
-            {
-                var monster = await _monsterService.GetMonstersByNameAsync(name);
-
-                if (monster.IsNullOrEmpty()) return NotFound();
-
-                return Ok(monster);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
+        public MonsterController(IMonsterService monsters) => _monsters = monsters;
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> Search([FromQuery] MonsterSearchCriteria criteria)
         {
-            var monsters = await _monsterService.GetAllAsync();
-            return Ok(monsters);
+            var (items, total) = await _monsters.SearchAsync(criteria);
+            return Ok(new { items, total });
         }
 
-        [HttpGet("paged")]
-        public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            try
-            {
-                var monsters = await _monsterService.GetPagedMonstersAsync(page, pageSize);
-                return Ok(monsters);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
+        [HttpGet("types")]
+        public async Task<ActionResult<List<string>>> Types() => await _monsters.GetTypesAsync();
 
-        [HttpGet("search")]
-        public async Task<IActionResult> Search(
-            [FromQuery] string? name,
-            [FromQuery] string? type,
-            [FromQuery] double? minCR,
-            [FromQuery] double? maxCR,
-            [FromQuery] List<string>? tags,
-            [FromQuery] string? sortBy = "Name",
-            [FromQuery] bool desc = false,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10)
-        {
-            try
-            {
-                var monsters = await _monsterService.AdvancedSearchAsync(new MonsterSearchCriteria
-                {
-                    Name = name,
-                    Type = type,
-                    MinCR = minCR,
-                    MaxCR = maxCR,
-                    Tags = tags,
-                    SortBy = sortBy!,
-                    SortDescending = desc,
-                    Page = page,
-                    PageSize = pageSize
-                });
-
-                return Ok(new { Found = monsters.Count, monsters });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-
-        // --- Admin only ---
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(string id) =>
+            await _monsters.GetByIdAsync(id) is Monster m ? Ok(m) : NotFound();
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Monster monster)
         {
-            try
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User ID claim missing.");
-
-                monster.CreatedByUserId = userId;
-                monster.OwnerIds!.Add(userId);
-
-                var created = await _monsterService.CreateAsync(monster);
-                return CreatedAtAction(nameof(GetById), new { id = created!.Id }, created);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            monster.Id = null;
+            monster.ImageUrl = null; // art only through the upload endpoint
+            var created = await _monsters.CreateAsync(monster) ?? throw new System.InvalidOperationException("Could not create the monster.");
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
-
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] Monster monster)
         {
-            if (id != monster.Id)
-                return BadRequest("ID mismatch.");
-
-            try
-            {
-                var updated = await _monsterService.UpdateAsync(monster);
-                return Ok(updated);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            if (id != monster.Id) return BadRequest("ID mismatch.");
+            return await _monsters.UpdateAsync(monster) is Monster m ? Ok(m) : NotFound();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(string id)
+        public async Task<IActionResult> Delete(string id) =>
+            await _monsters.DeleteAsync(id) ? NoContent() : NotFound();
+
+        /// <summary>Monster art, stored in R2 under images/monsters (max 10 MB); also its tabletop token.</summary>
+        [HttpPost("{id}/image")]
+        [RequestSizeLimit(11 * 1024 * 1024)]
+        public async Task<IActionResult> UploadImage(string id, IFormFile? file)
         {
-            try
-            {
-                await _monsterService.DeleteAsync(id);
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Choose an image to upload." });
+
+            await using var content = file.OpenReadStream();
+            return Ok(await _monsters.UploadImageAsync(id, content, file.FileName));
         }
 
-        [HttpPatch("soft-delete/{id}")]
-        public async Task<IActionResult> LogicDelete(string id)
-        {
-            try
-            {
-                var result = await _monsterService.LogicDeleteAsync(id);
-                if (!result) return NotFound();
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
+        // --- SRD (dnd5eapi.co) import into core content: superadmin only ---
 
-        [HttpDelete("delete-own/{id}")]
-        public async Task<IActionResult> DeleteOwn(string id)
-        {
-            try
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        /// <summary>ruleset: 2014 (SRD 5.1) or 2024 (SRD 5.2). Flags names already in the bestiary.</summary>
+        [Authorize(Roles = "Admin")]
+        [HttpGet("srd/{ruleset}")]
+        public async Task<ActionResult<List<SrdMonsterEntry>>> SrdCatalog(string ruleset) =>
+            await _monsters.GetSrdCatalogAsync(ruleset);
 
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User ID claim missing.");
+        [Authorize(Roles = "Admin")]
+        [HttpPost("srd/{ruleset}/import")]
+        public async Task<ActionResult<SrdImportResult>> SrdImport(string ruleset, [FromBody] SrdImportRequest request) =>
+            await _monsters.ImportSrdAsync(ruleset, request.Keys ?? new());
+    }
 
-                var result = await _monsterService.DeleteOwnMonsterAsync(id, userId);
-                if (!result) return NotFound();
-
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpPost("{monsterId}/switch-owner/{id}")]
-        public async Task<IActionResult> SwitchOwner(string monsterId, string id)
-        {
-            try
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userId))
-                    return Unauthorized("User ID claim missing.");
-
-                var result = await _monsterService.SwitchMonsterOwnerAsync(monsterId, id, userId);
-                if (!result) return NotFound();
-
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpGet("{monsterId}/addOwner/{newOwner}")]
-        public async Task<IActionResult> AddOwner(string monsterId, string newOwner)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(monsterId) || string.IsNullOrEmpty(newOwner))
-                    return BadRequest("Monster ID and User ID cannot be null or empty.");
-
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                var result = await _monsterService.AddMonsterOwnerAsync(monsterId, newOwner, userId!);
-                if (!result) return NotFound();
-                _logger.Information($"Added new owner {newOwner} to monster {monsterId} by user {userId}");
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpGet("count")]
-        public async Task<IActionResult> GetCount()
-        {
-            try
-            {
-                var count = await _monsterService.GetCountAsync();
-                return Ok(new { Count = count });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
+    public class SrdImportRequest
+    {
+        public List<string>? Keys { get; set; }
     }
 }

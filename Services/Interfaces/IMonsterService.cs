@@ -1,23 +1,17 @@
-﻿using dndhelper.Models;
+using dndhelper.Models;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services.Interfaces
 {
     public interface IMonsterService : IBaseService<Monster>, IInternalBaseService<Monster>
     {
-        Task<List<Monster>> GetMonstersByNameAsync(string name);
-        Task<List<Monster>> GetPagedMonstersAsync(int page, int pageSize);
-        Task<List<Monster>> SearchMonstersAsync(string query, int page, int pageSize);
-        Task<long> GetCountAsync();
+        Task<(List<Monster> Items, long Total)> SearchAsync(MonsterSearchCriteria criteria);
+        Task<List<string>> GetTypesAsync();
+        Task<Monster> UploadImageAsync(string monsterId, Stream content, string fileName);
 
-        // Ownership and Management
-        Task<bool> AddMonsterOwnerAsync(string monsterId, string newOwnerId, string requesterUserId);
-        Task<bool> SwitchMonsterOwnerAsync(string monsterId, string newOwnerId, string requesterUserId);
-        Task<List<Monster>> GetMonstersByOwnerAsync(string ownerId);
-        Task<bool> DeleteOwnMonsterAsync(string monsterId, string userId);
-
-        // Advanced Search
-        Task<List<Monster>> AdvancedSearchAsync(MonsterSearchCriteria criteria);
+        Task<List<SrdMonsterEntry>> GetSrdCatalogAsync(string ruleset);
+        Task<SrdImportResult> ImportSrdAsync(string ruleset, List<string> keys);
     }
 }

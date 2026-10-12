@@ -41,6 +41,22 @@ namespace dndhelper.Controllers
             return Ok(report);
         }
 
+        /// <summary>
+        /// Converts monsters still in the old 5etools shape to the current model. Defaults to a dry run.
+        /// Download a backup first. Safe to re-run: a second run finds nothing to convert.
+        /// </summary>
+        [HttpPost("migrate/monsters")]
+        public async Task<ActionResult<MonsterMigrationReport>> MigrateMonsters(
+            [FromServices] MonsterModelMigration migration,
+            [FromServices] dndhelper.Services.Interfaces.ICacheService cache,
+            [FromQuery] bool dryRun = true)
+        {
+            var report = await migration.RunAsync(dryRun);
+            if (!dryRun)
+                cache.ClearAllFromCache(); // repositories may hold monsters in the old shape
+            return Ok(report);
+        }
+
         [HttpGet("collections")]
         public async Task<ActionResult<List<string>>> GetCollections(CancellationToken cancellationToken)
         {

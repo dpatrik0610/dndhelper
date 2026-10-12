@@ -188,6 +188,7 @@ namespace dndhelper.Core
             services.AddScoped<ISessionService, SessionService>();
             services.AddScoped<IBackupService, BackupService>();
             services.AddScoped<Database.Migrations.CampaignScopeMigration>();
+            services.AddScoped<Database.Migrations.MonsterModelMigration>();
             services.AddScoped<IRuleService, RuleService>();
             services.AddScoped<IRuleCategoryService, RuleCategoryService>();
             services.AddScoped<ITabletopService, TabletopService>();

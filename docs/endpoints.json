@@ -1499,110 +1499,77 @@
     },
     {
       "controller": "MonsterController",
+      "action": "Search",
+      "method": "GET",
+      "route": "api/monster",
+      "description": "Paged search in the caller's campaign scope (campaign + imported core). Returns { items, total }.",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "string",
+          "source": "query"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "source": "query"
+        },
+        {
+          "name": "minCr",
+          "type": "double",
+          "source": "query"
+        },
+        {
+          "name": "maxCr",
+          "type": "double",
+          "source": "query"
+        },
+        {
+          "name": "isNpc",
+          "type": "bool",
+          "source": "query"
+        },
+        {
+          "name": "sortBy",
+          "type": "string",
+          "source": "query"
+        },
+        {
+          "name": "desc",
+          "type": "bool",
+          "source": "query"
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "source": "query"
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "source": "query"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "Types",
+      "method": "GET",
+      "route": "api/monster/types",
+      "description": "Distinct creature types in scope, for filters.",
+      "parameters": []
+    },
+    {
+      "controller": "MonsterController",
       "action": "GetById",
       "method": "GET",
       "route": "api/monster/{id}",
-      "description": "Retrieves detailed stats of a monster by ID. Accessible by Users and Admins.",
+      "description": "One stat block.",
       "parameters": [
         {
           "name": "id",
           "type": "string",
           "source": "implicit"
-        }
-      ]
-    },
-    {
-      "controller": "MonsterController",
-      "action": "GetByName",
-      "method": "GET",
-      "route": "api/monster/name/{name}",
-      "description": "Retrieves a list of monsters matching the exact or partial name. Accessible by Users and Admins.",
-      "parameters": [
-        {
-          "name": "name",
-          "type": "string",
-          "source": "implicit"
-        }
-      ]
-    },
-    {
-      "controller": "MonsterController",
-      "action": "GetAll",
-      "method": "GET",
-      "route": "api/monster",
-      "description": "Retrieves all monsters registered in the system. Accessible by Users and Admins.",
-      "parameters": []
-    },
-    {
-      "controller": "MonsterController",
-      "action": "GetPaged",
-      "method": "GET",
-      "route": "api/monster/paged",
-      "description": "Retrieves a paginated list of monsters. Accessible by Users and Admins.",
-      "parameters": [
-        {
-          "name": "page",
-          "type": "int",
-          "source": "FromQuery"
-        },
-        {
-          "name": "pageSize",
-          "type": "int",
-          "source": "FromQuery"
-        }
-      ]
-    },
-    {
-      "controller": "MonsterController",
-      "action": "Search",
-      "method": "GET",
-      "route": "api/monster/search",
-      "description": "Advanced monster search supporting filters for name, type, CR ranges, tags, sorting, and paging. Accessible by Users, Admins, and DungeonMasters.",
-      "parameters": [
-        {
-          "name": "name",
-          "type": "string?",
-          "source": "FromQuery"
-        },
-        {
-          "name": "type",
-          "type": "string?",
-          "source": "FromQuery"
-        },
-        {
-          "name": "minCR",
-          "type": "double?",
-          "source": "FromQuery"
-        },
-        {
-          "name": "maxCR",
-          "type": "double?",
-          "source": "FromQuery"
-        },
-        {
-          "name": "tags",
-          "type": "List<string>?",
-          "source": "FromQuery"
-        },
-        {
-          "name": "sortBy",
-          "type": "string?",
-          "source": "FromQuery"
-        },
-        {
-          "name": "desc",
-          "type": "bool",
-          "source": "FromQuery"
-        },
-        {
-          "name": "page",
-          "type": "int",
-          "source": "FromQuery"
-        },
-        {
-          "name": "pageSize",
-          "type": "int",
-          "source": "FromQuery"
         }
       ]
     },
@@ -1611,12 +1578,12 @@
       "action": "Create",
       "method": "POST",
       "route": "api/monster",
-      "description": "Creates a custom monster owned by the creating DM. Accessible by DungeonMasters and Admins.",
+      "description": "Creates a monster in the current campaign (superadmin without campaign: core). DM only.",
       "parameters": [
         {
           "name": "monster",
           "type": "Monster",
-          "source": "FromBody"
+          "source": "body"
         }
       ]
     },
@@ -1625,7 +1592,7 @@
       "action": "Update",
       "method": "PUT",
       "route": "api/monster/{id}",
-      "description": "Updates details of an existing custom monster. Accessible only by administrators.",
+      "description": "Updates a stat block. DM of its campaign, or superadmin for core.",
       "parameters": [
         {
           "name": "id",
@@ -1635,7 +1602,7 @@
         {
           "name": "monster",
           "type": "Monster",
-          "source": "FromBody"
+          "source": "body"
         }
       ]
     },
@@ -1644,7 +1611,7 @@
       "action": "Delete",
       "method": "DELETE",
       "route": "api/monster/{id}",
-      "description": "Deletes a custom monster permanently. Accessible only by administrators.",
+      "description": "Deletes a monster. DM of its campaign, or superadmin for core.",
       "parameters": [
         {
           "name": "id",
@@ -1655,77 +1622,55 @@
     },
     {
       "controller": "MonsterController",
-      "action": "LogicDelete",
-      "method": "PATCH",
-      "route": "api/monster/soft-delete/{id}",
-      "description": "Performs a soft-delete to hide a monster from listing queries. Accessible only by administrators.",
-      "parameters": [
-        {
-          "name": "id",
-          "type": "string",
-          "source": "implicit"
-        }
-      ]
-    },
-    {
-      "controller": "MonsterController",
-      "action": "DeleteOwn",
-      "method": "DELETE",
-      "route": "api/monster/delete-own/{id}",
-      "description": "Deletes a custom monster if the user is its owner. Accessible by DungeonMasters and Admins.",
-      "parameters": [
-        {
-          "name": "id",
-          "type": "string",
-          "source": "implicit"
-        }
-      ]
-    },
-    {
-      "controller": "MonsterController",
-      "action": "SwitchOwner",
+      "action": "UploadImage",
       "method": "POST",
-      "route": "api/monster/{monsterId}/switch-owner/{id}",
-      "description": "Transfers ownership of a custom monster to a different user. Accessible by DungeonMasters and Admins.",
+      "route": "api/monster/{id}/image",
+      "description": "Monster art (R2 images/monsters, max 10 MB); also its tabletop token.",
       "parameters": [
-        {
-          "name": "monsterId",
-          "type": "string",
-          "source": "implicit"
-        },
         {
           "name": "id",
           "type": "string",
           "source": "implicit"
+        },
+        {
+          "name": "file",
+          "type": "IFormFile",
+          "source": "form"
         }
       ]
     },
     {
       "controller": "MonsterController",
-      "action": "AddOwner",
+      "action": "SrdCatalog",
       "method": "GET",
-      "route": "api/monster/{monsterId}/addOwner/{newOwner}",
-      "description": "Grants co-ownership of a custom monster to another user. Accessible by DungeonMasters and Admins.",
+      "route": "api/monster/srd/{ruleset}",
+      "description": "Superadmin. SRD monster list from dnd5eapi.co (ruleset 2014 or 2024), flagging names already in the bestiary.",
       "parameters": [
         {
-          "name": "monsterId",
+          "name": "ruleset",
+          "type": "string",
+          "source": "implicit"
+        }
+      ]
+    },
+    {
+      "controller": "MonsterController",
+      "action": "SrdImport",
+      "method": "POST",
+      "route": "api/monster/srd/{ruleset}/import",
+      "description": "Superadmin. Imports up to 20 SRD monsters into core with art in R2; existing names only get missing art.",
+      "parameters": [
+        {
+          "name": "ruleset",
           "type": "string",
           "source": "implicit"
         },
         {
-          "name": "newOwner",
-          "type": "string",
-          "source": "implicit"
+          "name": "request",
+          "type": "SrdImportRequest",
+          "source": "body"
         }
       ]
-    },
-    {
-      "controller": "MonsterController",
-      "action": "GetCount",
-      "method": "GET",
-      "route": "api/monster/count",
-      "description": "Retrieves the total count of monsters in the database. Accessible by Users, Admins, and DungeonMasters.",
-      "parameters": []
     },
     {
       "controller": "NoteController",
