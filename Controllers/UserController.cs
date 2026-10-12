@@ -37,7 +37,7 @@ namespace dndhelper.Controllers
             var user = await _userService.GetSelfAsync(userId);
             if (user == null)
             {
-                _logger.Warning($"User not found with ID: {userId}");
+                _logger.Warning("User not found with ID: {UserId}", userId);
                 return NotFound();
             }
 
@@ -56,7 +56,7 @@ namespace dndhelper.Controllers
             var user = await _userService.GetSelfAsync(userId);
             if (user == null)
             {
-                _logger.Warning($"User not found with ID: {userId}");
+                _logger.Warning("User not found with ID: {UserId}", userId);
                 return NotFound();
             }
 
@@ -77,7 +77,7 @@ namespace dndhelper.Controllers
             var user = await _userService.GetSelfAsync(userId);
             if (user == null)
             {
-                _logger.Warning($"User not found with ID: {userId}");
+                _logger.Warning("User not found with ID: {UserId}", userId);
                 return NotFound();
             }
 

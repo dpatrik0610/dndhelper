@@ -12,7 +12,17 @@ namespace dndhelper.Repositories
 {
     public class UserRepository : MongoRepository<User>, IUserRepository
     {
-        public UserRepository(MongoDbContext context, ILogger logger) : base(logger, null!, context, "Users") { }
+        public UserRepository(MongoDbContext context, ILogger logger) : base(logger, null!, context, "Users")
+        {
+            if (_indexesCreated) return;
+            // ponytail: not unique, existing data may hold duplicates; make it unique once they're cleaned up.
+            TryCreateIndexes(new CreateIndexModel<User>(
+                Builders<User>.IndexKeys.Ascending(u => u.Username),
+                new CreateIndexOptions { Name = "idx_users_username" }));
+            _indexesCreated = true;
+        }
+
+        private static bool _indexesCreated;
 
         public async Task<User> GetByUsernameAsync(string username)
         {

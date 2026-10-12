@@ -1,4 +1,4 @@
-using dndhelper.Authorization;
+﻿using dndhelper.Authorization;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.CharacterServices.Interfaces;
@@ -67,21 +67,21 @@ namespace dndhelper.Services
         public async Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId)
         {
             Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
-            _logger.Information($"Fetching inventories for character {characterId}");
+            _logger.Debug("Fetching inventories for character {CharacterId}", characterId);
 
             try
             {
                 var inventories = await _repository.GetByCharacterIdAsync(characterId);
                 if (inventories == null)
                 {
-                    _logger.Warning($"No inventories found for character {characterId}");
+                    _logger.Warning("No inventories found for character {CharacterId}", characterId);
                     return Array.Empty<Inventory>();
                 }
                 return inventories;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error fetching inventories for character {characterId}");
+                _logger.Error(ex, "Error fetching inventories for character {CharacterId}", characterId);
                 throw;
             }
         }
@@ -89,7 +89,7 @@ namespace dndhelper.Services
         public async Task<IEnumerable<Inventory>> GetFromCharacterInventoryIdsAsync(string characterId)
         {
             Guard.NotNullOrWhiteSpace(characterId, nameof(characterId));
-            _logger.Information($"Fetching inventories for character {characterId}");
+            _logger.Debug("Fetching inventories for character {CharacterId}", characterId);
 
             try
             {
@@ -111,7 +111,7 @@ namespace dndhelper.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error fetching inventories for character {characterId}");
+                _logger.Error(ex, "Error fetching inventories for character {CharacterId}", characterId);
                 throw;
             }
         }
@@ -134,7 +134,7 @@ namespace dndhelper.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error adding inventory {inventoryId} for character {characterId}");
+                _logger.Error(ex, "Error adding inventory {InventoryId} for character {CharacterId}", inventoryId, characterId);
                 throw;
             }
         }
@@ -249,21 +249,21 @@ namespace dndhelper.Services
         public async Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId)
         {
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
-            _logger.Information($"Fetching items for inventory {inventoryId}");
+            _logger.Debug("Fetching items for inventory {InventoryId}", inventoryId);
 
             try
             {
                 var items = await _repository.GetItemsAsync(inventoryId);
                 if (items == null)
                 {
-                    _logger.Warning($"No items found for inventory {inventoryId}");
+                    _logger.Warning("No items found for inventory {InventoryId}", inventoryId);
                     return Array.Empty<InventoryItem>();
                 }
                 return items;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error fetching items for inventory {inventoryId}");
+                _logger.Error(ex, "Error fetching items for inventory {InventoryId}", inventoryId);
                 throw;
             }
         }
@@ -272,18 +272,18 @@ namespace dndhelper.Services
         {
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
             Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
-            _logger.Information($"Fetching item {equipmentId} in inventory {inventoryId}");
+            _logger.Debug("Fetching item {EquipmentId} in inventory {InventoryId}", equipmentId, inventoryId);
 
             try
             {
                 var item = await _repository.GetItemAsync(inventoryId, equipmentId);
                 if (item == null)
-                    _logger.Warning($"Item {equipmentId} not found in inventory {inventoryId}");
+                    _logger.Warning("Item {EquipmentId} not found in inventory {InventoryId}", equipmentId, inventoryId);
                 return item;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error fetching item {equipmentId} in inventory {inventoryId}");
+                _logger.Error(ex, "Error fetching item {EquipmentId} in inventory {InventoryId}", equipmentId, inventoryId);
                 throw;
             }
         }
@@ -300,7 +300,7 @@ namespace dndhelper.Services
             var inventory = await _repository.GetByIdAsync(inventoryId)
                 ?? throw new InvalidOperationException($"Inventory {inventoryId} does not exist.");
 
-            _logger.Information($"Adding item {equipmentId} to inventory {inventoryId}");
+            _logger.Information("Adding item {EquipmentId} to inventory {InventoryId}", equipmentId, inventoryId);
 
             try
             {
@@ -329,7 +329,7 @@ namespace dndhelper.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error adding item {equipmentId} to inventory {inventoryId}");
+                _logger.Error(ex, "Error adding item {EquipmentId} to inventory {InventoryId}", equipmentId, inventoryId);
                 throw;
             }
         }
@@ -339,7 +339,7 @@ namespace dndhelper.Services
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
             Guard.NotNull(item, nameof(item));
 
-            _logger.Information($"Updating item {item.EquipmentId} in inventory {inventoryId}");
+            _logger.Information("Updating item {EquipmentId} in inventory {InventoryId}", item.EquipmentId, inventoryId);
 
             try
             {
@@ -347,7 +347,7 @@ namespace dndhelper.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error updating item {item.EquipmentId} in inventory {inventoryId}");
+                _logger.Error(ex, "Error updating item {EquipmentId} in inventory {InventoryId}", item.EquipmentId, inventoryId);
                 throw;
             }
         }
@@ -356,7 +356,7 @@ namespace dndhelper.Services
         {
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
             Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
-            _logger.Information($"Deleting item {equipmentId} from inventory {inventoryId}");
+            _logger.Information("Deleting item {EquipmentId} from inventory {InventoryId}", equipmentId, inventoryId);
 
             try
             {
@@ -364,12 +364,12 @@ namespace dndhelper.Services
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.Warning(ex, $"Delete failed. Item {equipmentId} not found in inventory {inventoryId}");
+                _logger.Warning(ex, "Delete failed. Item {EquipmentId} not found in inventory {InventoryId}", equipmentId, inventoryId);
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error deleting item {equipmentId} from inventory {inventoryId}");
+                _logger.Error(ex, "Error deleting item {EquipmentId} from inventory {InventoryId}", equipmentId, inventoryId);
                 throw;
             }
         }
@@ -390,7 +390,7 @@ namespace dndhelper.Services
             equipment.CampaignId = inventory.CampaignId;
             equipment.IsCustom = true;
             var newItem = await _equipmentRepo.CreateAsync(equipment);
-            _logger.Information("Creating new item from " + newItem.Id);
+            _logger.Debug("Creating new item from {EquipmentId}", newItem.Id);
 
             InventoryItem inventoryItem = new InventoryItem { EquipmentId = equipment.Id, EquipmentName = equipment.Name, Quantity = 1 };
             return await _repository.AddItemAsync(inventoryId, inventoryItem);
@@ -402,7 +402,7 @@ namespace dndhelper.Services
             Guard.NotNullOrWhiteSpace(equipmentId, nameof(equipmentId));
             Guard.GreaterThanZero(decrementBy, nameof(decrementBy));
 
-            _logger.Information($"Decrementing item {equipmentId} by {decrementBy} in inventory {inventoryId}");
+            _logger.Information("Decrementing item {EquipmentId} by {DecrementBy} in inventory {InventoryId}", equipmentId, decrementBy, inventoryId);
 
             try
             {
@@ -417,22 +417,22 @@ namespace dndhelper.Services
                 {
                     existing.Quantity -= decrementBy;
                     await _repository.UpdateItemAsync(inventoryId, existing);
-                    _logger.Information($"Decremented quantity of {equipmentId} to {existing.Quantity} in inventory {inventoryId}");
+                    _logger.Information("Decremented quantity of {EquipmentId} to {Quantity} in inventory {InventoryId}", equipmentId, existing.Quantity, inventoryId);
                 }
                 else
                 {
                     await _repository.DeleteItemAsync(inventoryId, equipmentId);
-                    _logger.Information($"Removed item {equipmentId} from inventory {inventoryId} after reaching 0 or below");
+                    _logger.Information("Removed item {EquipmentId} from inventory {InventoryId} after reaching 0 or below", equipmentId, inventoryId);
                 }
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.Warning(ex, $"Decrement failed. Item {equipmentId} not found in inventory {inventoryId}");
+                _logger.Warning(ex, "Decrement failed. Item {EquipmentId} not found in inventory {InventoryId}", equipmentId, inventoryId);
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error decrementing item {equipmentId} in inventory {inventoryId}");
+                _logger.Error(ex, "Error decrementing item {EquipmentId} in inventory {InventoryId}", equipmentId, inventoryId);
                 throw;
             }
         }
@@ -479,7 +479,7 @@ namespace dndhelper.Services
                 await DecrementItemQuantityAsync(sourceInventoryId, equipmentId, amount);
                 await AddOrIncrementItemAsync(targetInventoryId, equipmentId, amount);
 
-                _logger.Information($"Successfully moved {amount} of item {equipmentId} to {targetInventoryId}");
+                _logger.Information("Successfully moved {Amount} of item {EquipmentId} to {TargetInventoryId}", amount, equipmentId, targetInventoryId);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-using dndhelper.Authentication.Interfaces;
+﻿using dndhelper.Authentication.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Http;
@@ -48,7 +48,7 @@ namespace dndhelper.Authentication
             var lockedFor = _throttle.LockedFor(username);
             if (lockedFor != null)
             {
-                _logger.Warning($"Sign-in blocked for locked username: {username}");
+                _logger.Warning("Sign-in blocked for locked username: {Username}", username);
                 throw new RateLimitException($"Too many failed sign-ins. Try again in {Math.Ceiling(lockedFor.Value.TotalMinutes)} minutes.")
                 {
                     RetryAfter = lockedFor,
@@ -69,7 +69,7 @@ namespace dndhelper.Authentication
             {
                 BCrypt.Net.BCrypt.Verify(password, DummyHash);
                 _throttle.Failed(username);
-                _logger.Warning($"User not found with username: {username}");
+                _logger.Warning("User not found with username: {Username}", username);
                 CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(username));
             }
 
@@ -83,12 +83,12 @@ namespace dndhelper.Authentication
 
             if (user!.IsActive != UserStatus.Active)
             {
-                _logger.Warning($"User {username} is inactive.");
+                _logger.Warning("User {Username} is inactive.", username);
                 CustomExceptions.ThrowUnauthorizedAccessException(_logger, nameof(user.IsActive));
             }
 
             var token = GenerateJwtToken(user);
-            _logger.Information($"Token generated for user: {username}");
+            _logger.Information("Token generated for user: {Username}", username);
 
             await _userService.RefreshLastLogin(username);
 
@@ -104,13 +104,13 @@ namespace dndhelper.Authentication
 
             if (await _userService.CheckExistsByUsername(username))
             {
-                _logger.Warning($"User already exists with username: {username}");
+                _logger.Warning("User already exists with username: {Username}", username);
                 CustomExceptions.ThrowInvalidOperationException(_logger, nameof(username));
             }
 
             var user = CreateNewUser(username, password);
             await _userService.CreateAsync(user);
-            _logger.Information($"User registered successfully: {username}");
+            _logger.Information("User registered successfully: {Username}", username);
         }
 
         /// <summary>
@@ -119,7 +119,7 @@ namespace dndhelper.Authentication
         public string GetUserIdFromToken()
         {
             var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            _logger.Information($"Retrieved user ID: {userId ?? "null"} from token.");
+            _logger.Debug("Retrieved user ID: {UserId} from token.", userId);
             return userId ?? string.Empty;
         }
 
@@ -137,10 +137,10 @@ namespace dndhelper.Authentication
             var user = await _userService.GetByIdAsync(userId);
             if (user == null)
             {
-                _logger.Warning($"Could not find user with ID: {userId}");
+                _logger.Warning("Could not find user with ID: {UserId}", userId);
                 CustomExceptions.ThrowNotFoundException(_logger, nameof(userId));
             }
-            _logger.Information($"User retrieved from token: {user!.Username}");
+            _logger.Debug("User retrieved from token: {Username}", user!.Username);
             return user;
         }
 

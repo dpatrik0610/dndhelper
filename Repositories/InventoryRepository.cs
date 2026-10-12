@@ -15,7 +15,16 @@ namespace dndhelper.Repositories
     public class InventoryRepository : MongoRepository<Inventory>, IInventoryRepository
     {
         public InventoryRepository(MongoDbContext context, ILogger logger, IMemoryCache cache)
-            : base(logger, cache, context, "Inventories") { }
+            : base(logger, cache, context, "Inventories")
+        {
+            if (_indexesCreated) return;
+            TryCreateIndexes(new CreateIndexModel<Inventory>(
+                Builders<Inventory>.IndexKeys.Ascending(i => i.CharacterIds),
+                new CreateIndexOptions { Name = "idx_inventories_characterIds" }));
+            _indexesCreated = true;
+        }
+
+        private static bool _indexesCreated;
 
         #region Helper Methods
 

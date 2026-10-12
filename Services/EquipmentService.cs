@@ -32,7 +32,7 @@ namespace dndhelper.Services
         public async Task<List<Equipment>> SearchByName(string name)
         {
             Guard.That(!string.IsNullOrWhiteSpace(name), "Search term cannot be empty.", nameof(name));
-            _logger.Information($"Searching equipments by name: {name}");
+            _logger.Debug("Searching equipments by name: {Name}", name);
 
             try
             {
@@ -52,7 +52,7 @@ namespace dndhelper.Services
 
                 if (!filtered.Any())
                 {
-                    _logger.Information($"No equipments matched the search term '{name}'.");
+                    _logger.Debug("No equipments matched the search term '{Name}'.", name);
                     return new List<Equipment>();
                 }
 
@@ -60,7 +60,7 @@ namespace dndhelper.Services
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, $"Error while searching equipments by name: {name}");
+                _logger.Error(ex, "Error while searching equipments by name: {Name}", name);
                 throw;
             }
         }

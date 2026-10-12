@@ -40,105 +40,42 @@ namespace dndhelper.Repositories
             }
         }
 
+        /// <summary>Creates indexes, logging instead of throwing so a conflicting existing index can't break every request.</summary>
+        protected void TryCreateIndexes(params CreateIndexModel<T>[] models)
+        {
+            try { _collection.Indexes.CreateMany(models); }
+            catch (MongoException ex) { _logger.Warning(ex, "Could not create indexes on {Collection}", typeof(T).Name); }
+        }
+
         // ------------------------
-        // CACHE UTILITIES (VISUAL)
+        // CACHE UTILITIES
         // ------------------------
+        // Debug level: these run on nearly every read, so they stay out of production logs.
         protected string GetCacheKey(string id) => $"{typeof(T).Name}_{id}";
 
         public void AddToCache(T entity)
         {
             if (_cache == null || entity.Id == null) return;
-            var key = GetCacheKey(entity.Id);
-            _cache.Set(key, entity, _cacheOptions);
-
-            _logger.Information(
-                $"🟢 [CACHE ADD] {typeof(T).Name} | ID: {entity.Id} | CacheKey: {key} | Items: {GetItemCount(entity)}"
-            );
+            _cache.Set(GetCacheKey(entity.Id), entity, _cacheOptions);
+            _logger.Debug("[CACHE ADD] {Collection} {EntityId}", typeof(T).Name, entity.Id);
         }
 
         public T? GetFromCache(string id)
         {
             if (_cache == null) return null;
-            var key = GetCacheKey(id);
-            if (_cache.TryGetValue(key, out T cachedEntity))
-            {
-                _logger.Information(
-                    $"🟡 [CACHE HIT] {typeof(T).Name} | ID: {id} | CacheKey: {key} | Items: {GetItemCount(cachedEntity)}"
-                );
-                return cachedEntity;
-            }
-
-            _logger.Information(
-                $"⚪ [CACHE MISS] {typeof(T).Name} | ID: {id} | CacheKey: {key}"
-            );
-            return null;
+            var hit = _cache.TryGetValue(GetCacheKey(id), out T? cachedEntity);
+            _logger.Debug(hit ? "[CACHE HIT] {Collection} {EntityId}" : "[CACHE MISS] {Collection} {EntityId}", typeof(T).Name, id);
+            return hit ? cachedEntity : null;
         }
 
-        public void UpdateCache(T entity)
-        {
-            if (_cache == null || entity.Id == null) return;
-            var key = GetCacheKey(entity.Id);
-            _cache.Set(key, entity, _cacheOptions);
-
-            _logger.Information(
-                $"🔵 [CACHE UPDATE] {typeof(T).Name} | ID: {entity.Id} | CacheKey: {key} | Items: {GetItemCount(entity)}"
-            );
-        }
+        public void UpdateCache(T entity) => AddToCache(entity);
 
         public void RemoveFromCache(string id)
         {
             if (_cache == null) return;
-            var key = GetCacheKey(id);
-            _cache.Remove(key);
-
-            _logger.Information(
-                $"🔴 [CACHE REMOVE] {typeof(T).Name} | ID: {id} | CacheKey: {key}"
-            );
+            _cache.Remove(GetCacheKey(id));
+            _logger.Debug("[CACHE REMOVE] {Collection} {EntityId}", typeof(T).Name, id);
         }
-
-
-        public List<string> GetAllCachedIds()
-        {
-            if (_cache == null)
-                return new List<string>();
-
-            var cachedIds = new List<string>();
-            // IMemoryCache doesn't expose direct enumeration, so we use reflection:
-            var entriesField = typeof(MemoryCache).GetProperty("EntriesCollection",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-            if (entriesField?.GetValue(_cache) is ICollection<object> entries)
-            {
-                foreach (var entry in entries)
-                {
-                    var keyProperty = entry.GetType().GetProperty("Key");
-                    var keyValue = keyProperty?.GetValue(entry)?.ToString();
-
-                    if (!string.IsNullOrEmpty(keyValue) && keyValue.StartsWith(typeof(T).Name))
-                    {
-                        var id = keyValue.Replace($"{typeof(T).Name}_", "");
-                        cachedIds.Add(id);
-                    }
-                }
-            }
-
-            _logger.Information("Cached IDs for {Collection}: {Ids}", typeof(T).Name, string.Join(", ", cachedIds));
-            return cachedIds;
-        }
-
-        // ------------------------
-        // HELPER
-        // ------------------------
-        private int GetItemCount(T entity)
-        {
-            // If entity has Items (like Inventory), count them
-            var itemsProp = typeof(T).GetProperty("Items");
-            if (itemsProp != null && itemsProp.GetValue(entity) is IEnumerable<object> items)
-                return items.Count();
-
-            return 0;
-        }
-
 
         // ------------------------
         // REPOSITORY METHODS
@@ -167,25 +104,38 @@ namespace dndhelper.Repositories
 
         public async Task<List<T>> CreateManyAsync(List<T> entities)
         {
-            var addedEntities = new List<T>();
+            if (entities.Count == 0) return new List<T>();
+
             foreach (var entity in entities)
             {
-                try
-                {
-                    entity.CreatedAt ??= DateTime.UtcNow;
-                    entity.UpdatedAt = DateTime.UtcNow;
-                    entity.IsDeleted = false;
+                entity.CreatedAt ??= DateTime.UtcNow;
+                entity.UpdatedAt = DateTime.UtcNow;
+                entity.IsDeleted = false;
+            }
 
-                    await _collection.InsertOneAsync(entity);
-                    AddToCache(entity);
-
-                    addedEntities.Add(entity);
-                }
-                catch (Exception ex)
+            // One round trip; unordered so a bad document doesn't stop the rest.
+            var failed = new HashSet<int>();
+            try
+            {
+                await _collection.InsertManyAsync(entities, new InsertManyOptions { IsOrdered = false });
+            }
+            catch (MongoBulkWriteException<T> ex)
+            {
+                foreach (var error in ex.WriteErrors)
                 {
-                    _logger.Error(ex, "Failed to add entity {EntityId} to collection {Collection}", entity.Id, typeof(T).Name);
+                    failed.Add(error.Index);
+                    _logger.Error("Failed to add entity {EntityId} to collection {Collection}: {Error}",
+                        entities[error.Index].Id, typeof(T).Name, error.Message);
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to add {Count} entities to collection {Collection}", entities.Count, typeof(T).Name);
+                return new List<T>();
+            }
+
+            var addedEntities = entities.Where((_, i) => !failed.Contains(i)).ToList();
+            addedEntities.ForEach(AddToCache);
             return addedEntities;
         }
 
@@ -281,10 +231,7 @@ namespace dndhelper.Repositories
             {
                 var cached = GetFromCache(id);
                 if (cached != null)
-                {
-                    _logger.Debug("Cache hit for entity {EntityId} in {Collection}", id, typeof(T).Name);
                     return cached;
-                }
 
                 var result = await _collection.FindAsync(e => e.Id == id && !e.IsDeleted);
                 var entity = await result.FirstOrDefaultAsync();
@@ -305,7 +252,7 @@ namespace dndhelper.Repositories
         {
             try
             {
-                var filter = Builders<T>.Filter.In(e => e.Id, ids);
+                var filter = Builders<T>.Filter.In(e => e.Id, ids) & Builders<T>.Filter.Ne(e => e.IsDeleted, true);
                 var results = await _collection.FindAsync(filter);
                 return await results.ToListAsync();
             }
@@ -363,20 +310,20 @@ namespace dndhelper.Repositories
                 }
 
                 var combinedUpdate = Builders<T>.Update.Combine(updates);
-                var result = await _collection.UpdateOneAsync(e => e.Id == entity.Id, combinedUpdate);
+                var updated = await _collection.FindOneAndUpdateAsync<T>(
+                    e => e.Id == entity.Id && !e.IsDeleted,
+                    combinedUpdate,
+                    new FindOneAndUpdateOptions<T> { ReturnDocument = ReturnDocument.After });
 
-                if (result.ModifiedCount > 0)
+                if (updated == null)
                 {
-                    var updated = await _collection.Find(e => e.Id == entity.Id && !e.IsDeleted).FirstOrDefaultAsync();
-                    if (updated != null)
-                        UpdateCache(updated);
-
-                    _logger.Information("Partially updated entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
-                    return updated;
+                    _logger.Warning("No entity updated for {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
+                    return null;
                 }
 
-                _logger.Warning("No entity updated for {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
-                return existing;
+                UpdateCache(updated);
+                _logger.Information("Partially updated entity {EntityId} in collection {Collection}", entity.Id, typeof(T).Name);
+                return updated;
             }
             catch (Exception ex)
             {

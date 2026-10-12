@@ -197,7 +197,7 @@ namespace dndhelper.Services
             user!.Email = newEmail;
             await _repository.UpdateAsync(user);
 
-            _logger.Information($"Email updated for user: {username}");
+            _logger.Information("Email updated for user: {Username}", username);
             return await _repository.GetByIdAsync(user.Id);
         }
 
