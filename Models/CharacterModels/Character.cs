@@ -29,6 +29,11 @@ namespace dndhelper.Models.CharacterModels
         public bool? IsNPC { get; set; } = false;
         public string? Race { get; set; } = "Human";
         public string? CharacterClass { get; set; } = "Fighter";
+        /// <summary>Main class hit die sides (10 = d10). Its level is Level minus the multiclass levels.</summary>
+        public int? HitDie { get; set; }
+        public bool? IsMulticlass { get; set; } = false;
+        /// <summary>Classes taken after the main one; only count while IsMulticlass is on.</summary>
+        public List<ClassLevel>? Multiclasses { get; set; } = new List<ClassLevel>();
         public string? Background { get; set; } = "Folk Hero";
         public int? Level { get; set; } = 1;
         public int? ArmorClass { get; set; } = 10;
@@ -36,7 +41,10 @@ namespace dndhelper.Models.CharacterModels
         public int? HitPoints { get; set; } = 10;
         public int? MaxHitPoints { get; set; } = 10;
         public int? TemporaryHitPoints { get; set; } = 0;
+        /// <summary>Worked out by the frontend from HitDie and Multiclasses, e.g. "3d10 + 2d8".</summary>
         public string? HitDice { get; set; } = "";
+        /// <summary>Hit dice spent on short rests, by die ("d10" -> 2). Long rests give back half of HitDice.</summary>
+        public Dictionary<string, int>? HitDiceSpent { get; set; } = new Dictionary<string, int>();
 
         public int? Speed { get; set; } = 30;
         public int? Initiative { get; set; } = 0;

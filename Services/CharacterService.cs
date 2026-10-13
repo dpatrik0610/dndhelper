@@ -10,6 +10,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace dndhelper.Services
@@ -158,6 +159,8 @@ namespace dndhelper.Services
                 slot.Current = slot.Max;
             }
 
+            RegainHitDice(character);
+
             // Short-rest pools also refill on a long rest
             foreach (var resource in character.ClassResources ?? new List<ClassResource>())
             {
@@ -175,6 +178,23 @@ namespace dndhelper.Services
             await _repository.UpdateAsync(character);
             await SyncTabletopAsync(character);
             return true;
+        }
+
+        /// <summary>5e: a long rest gives back spent hit dice up to half the total (at least one), biggest dice first.</summary>
+        public static void RegainHitDice(Character character)
+        {
+            var spent = character.HitDiceSpent ?? new Dictionary<string, int>();
+            var total = Regex.Matches(character.HitDice ?? "", @"(\d*)\s*d\s*(\d+)", RegexOptions.IgnoreCase)
+                .Sum(m => m.Groups[1].Value == "" ? 1 : int.Parse(m.Groups[1].Value));
+            var regain = Math.Max(1, total / 2);
+            foreach (var die in spent.Keys.OrderByDescending(k => int.TryParse(k.TrimStart('d'), out var sides) ? sides : 0).ToList())
+            {
+                var back = Math.Min(Math.Max(spent[die], 0), regain);
+                spent[die] -= back;
+                regain -= back;
+                if (spent[die] <= 0) spent.Remove(die);
+            }
+            character.HitDiceSpent = spent;
         }
 
         public async Task<BulkLongRestResult> BulkLongRestAsync(IEnumerable<string> characterIds)
