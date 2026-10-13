@@ -112,6 +112,10 @@ namespace dndhelper.Services
             var isDm = IsDm(campaign, caller);
             if (!isDm && !campaign.IsMember(caller.UserId)) throw Fail("You're not in this campaign.");
 
+            // Character tokens placed before EffectiveAc existed have none until their sheet is saved; refresh them now.
+            if (table.Tokens.Any(x => x.CharacterId != null && x.EffectiveAc == null))
+                table = await ChangeAsync(table.Id!, RefreshCharactersAsync);
+
             return new TableJoinResult(
                 table.Id!,
                 table.CampaignId,
@@ -742,16 +746,7 @@ namespace dndhelper.Services
                 ApplyBoard(t, encounter.Board ?? new StoredBoard { Grid = t.Grid });
 
                 // Characters may have levelled, healed or changed since; tokens pick up the current sheets.
-                var characterIds = t.Tokens.Where(x => x.CharacterId != null).Select(x => x.CharacterId!).Distinct().ToList();
-                if (characterIds.Count > 0)
-                {
-                    var characters = await _characters.GetByIdsAsync(characterIds);
-                    foreach (var token in t.Tokens.Where(x => x.CharacterId != null))
-                    {
-                        var character = characters.FirstOrDefault(c => c.Id == token.CharacterId);
-                        if (character != null) ApplyCharacter(token, character);
-                    }
-                }
+                await RefreshCharactersAsync(t);
 
                 var now = DateTime.UtcNow;
                 encounter.Status = EncounterStatus.Active;
@@ -870,6 +865,19 @@ namespace dndhelper.Services
                 foreach (var token in t.Tokens.Where(x => x.CharacterId == character.Id))
                     ApplyCharacter(token, character);
             });
+        }
+
+        /// <summary>Every character token picks up its current sheet.</summary>
+        private async Task RefreshCharactersAsync(Tabletop t)
+        {
+            var characterIds = t.Tokens.Where(x => x.CharacterId != null).Select(x => x.CharacterId!).Distinct().ToList();
+            if (characterIds.Count == 0) return;
+            var characters = await _characters.GetByIdsAsync(characterIds);
+            foreach (var token in t.Tokens.Where(x => x.CharacterId != null))
+            {
+                var character = characters.FirstOrDefault(c => c.Id == token.CharacterId);
+                if (character != null) ApplyCharacter(token, character);
+            }
         }
 
         private static void ApplyCharacter(TableToken token, Character character)
