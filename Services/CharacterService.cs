@@ -122,37 +122,38 @@ namespace dndhelper.Services
         {
             var character = await _repository.GetByIdAsync(characterId);
             if (character == null) return false;
+            await EnsureWriteAccess(character);
 
-            var slot = character.SpellSlots!.FirstOrDefault(s => s.Level == level);
+            var slot = character.SpellSlots?.FirstOrDefault(s => s.Level == level);
             if (slot == null || slot.Current <= 0) return false;
 
             slot.Current--;
-            await _repository.UpdateAsync(character);
-            return true;
+            return await _repository.UpdateAsync(character) != null;
         }
 
         public async Task<bool> RecoverSpellSlotAsync(string characterId, int level, int amount = 1)
         {
             var character = await _repository.GetByIdAsync(characterId);
             if (character == null) return false;
+            await EnsureWriteAccess(character);
 
-            var slot = character.SpellSlots.FirstOrDefault(s => s.Level == level);
-            if (slot == null) return false;
+            var slot = character.SpellSlots?.FirstOrDefault(s => s.Level == level);
+            if (slot == null || amount < 1) return false;
 
             slot.Current = Math.Min(slot.Current + amount, slot.Max);
-            await _repository.UpdateAsync(character);
-            return true;
+            return await _repository.UpdateAsync(character) != null;
         }
 
         public async Task<bool> LongRestAsync(string characterId)
         {
             var character = await _repository.GetByIdAsync(characterId);
             if (character == null) return false;
+            await EnsureWriteAccess(character);
 
-            character.HitPoints = character.MaxHitPoints;
+            character.HitPoints = CharacterStats.EffectiveMaxHp(character);
             character.TemporaryHitPoints = 0;
 
-            foreach (var slot in character.SpellSlots)
+            foreach (var slot in character.SpellSlots ?? new List<SpellSlot>())
             {
                 slot.Current = slot.Max;
             }
@@ -168,8 +169,9 @@ namespace dndhelper.Services
             character.DeathSavesFailures = 0;
             character.DeathSavesSuccesses = 0;
 
-            await _repository.UpdateAsync(character);
-            await SyncTabletopAsync(character);
+            var updated = await _repository.UpdateAsync(character);
+            if (updated == null) return false;
+            await SyncTabletopAsync(updated);
             return true;
         }
 
@@ -197,7 +199,15 @@ namespace dndhelper.Services
 
             foreach (var id in characterIds)
             {
-                var success = await LongRestAsync(id);
+                bool success;
+                try
+                {
+                    success = await LongRestAsync(id);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    success = false;
+                }
                 if (success)
                 {
                     successfulIds.Add(id);
