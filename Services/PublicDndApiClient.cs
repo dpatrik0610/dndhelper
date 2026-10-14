@@ -1,6 +1,5 @@
 using dndhelper.Models;
 using dndhelper.Services.Interfaces;
-using dndhelper.Utils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -27,7 +26,7 @@ public class PublicDndApiClient : IPublicDndApiClient
 
         var indexResults = JsonConvert.DeserializeObject<EquipmentListResponse>(json);
 
-        if (indexResults == null || indexResults.Results.IsNullOrEmpty())
+        if (indexResults?.Results is not { Count: > 0 })
             return Enumerable.Empty<Equipment>();
 
         List<Equipment> result = new List<Equipment>();

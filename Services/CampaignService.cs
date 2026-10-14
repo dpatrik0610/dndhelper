@@ -282,7 +282,7 @@ namespace dndhelper.Services
             List<Character> characters = new List<Character>();
             var campaign = await _repository.GetByIdAsync(campaignId);
 
-            if (campaign == null || campaign.CharacterIds.IsNullOrEmpty())
+            if (campaign?.CharacterIds is not { Count: > 0 })
                 return characters;
 
             characters = await _characterRepository.GetByIdsAsync(campaign.CharacterIds);
@@ -587,7 +587,7 @@ namespace dndhelper.Services
             if (campaign == null)
                 return null;
 
-            var campaignCharacters = campaign.CharacterIds.IsNullOrEmpty()
+            var campaignCharacters = campaign.CharacterIds is not { Count: > 0 }
                 ? new List<Character>()
                 : await _characterRepository.GetByIdsAsync(campaign.CharacterIds);
 

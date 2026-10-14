@@ -448,10 +448,10 @@ namespace dndhelper.Services
             if (inventory is null)
                 return false;
 
-            if (inventory.Items.IsNullOrEmpty())
+            if (inventory.Items is not { Count: > 0 })
                 return false;
 
-            return inventory.Items!.Any(x => x.EquipmentId == equipmentId);
+            return inventory.Items.Any(x => x.EquipmentId == equipmentId);
         }
 
         public async Task MoveItemAsync(string sourceInventoryId, string targetInventoryId, string equipmentId, int amount = 1)

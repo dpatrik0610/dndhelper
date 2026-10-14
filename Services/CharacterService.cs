@@ -165,11 +165,6 @@ namespace dndhelper.Services
                 if (resource.Recharge != "none") resource.Current = resource.Max;
             }
 
-            if (character.Conditions.IsNullOrEmpty())
-            {
-                character.Conditions!.Clear();
-            }
-
             character.DeathSavesFailures = 0;
             character.DeathSavesSuccesses = 0;
 
