@@ -1,6 +1,7 @@
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Models;
 using dndhelper.Models.CharacterModels;
+using dndhelper.Models.DTOs;
 using dndhelper.Services.CharacterServices.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Services.SignalR;
@@ -22,6 +23,7 @@ public class InventoryController : ControllerBase
     private readonly IAuthService _authService;
     private readonly ICampaignService _campaignService;
     private readonly ICharacterService _characterService;
+    private readonly ILootService _lootService;
     private readonly ILogger _logger;
 
     public InventoryController(
@@ -30,6 +32,7 @@ public class InventoryController : ControllerBase
         IAuthService authService,
         ICampaignService campaignService,
         ICharacterService characterService,
+        ILootService lootService,
         ILogger logger)
     {
         _inventoryService = inventoryService;
@@ -37,6 +40,7 @@ public class InventoryController : ControllerBase
         _authService = authService;
         _campaignService = campaignService;
         _characterService = characterService;
+        _lootService = lootService;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -85,6 +89,15 @@ public class InventoryController : ControllerBase
 
         await BroadcastInventoryChangeAsync(created, "created", created);
 
+        return CreatedAtAction(nameof(GetInventory), "Inventory", new { id = created.Id }, created);
+    }
+
+    // Rolls loot (random or per-tier counts, optionally tag-filtered) into a new named inventory.
+    [HttpPost("loot")]
+    public async Task<IActionResult> GenerateLoot([FromBody] LootRequest request)
+    {
+        var created = await _lootService.GenerateAsync(request);
+        await BroadcastInventoryChangeAsync(created, "created", created);
         return CreatedAtAction(nameof(GetInventory), "Inventory", new { id = created.Id }, created);
     }
 

@@ -196,6 +196,7 @@ namespace dndhelper.Core
             services.AddSingleton<TablePresence>();
             services.AddScoped<IChatService, ChatService>();
             services.AddScoped<IShopService, ShopService>();
+            services.AddScoped<ILootService, LootService>();
             services.AddScoped<IQuestService, QuestService>();
             services.AddScoped<IPollService, PollService>();
 
