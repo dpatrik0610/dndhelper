@@ -96,10 +96,10 @@ namespace dndhelper.Services
                 var character = await _characterService.GetByIdAsync(characterId);
 
                 Guard.NotNull(character, nameof(character));
-                Guard.NotNullOrEmpty(character!.InventoryIds, nameof(character.InventoryIds));
+                Guard.NotNullOrEmpty(character.InventoryIds, nameof(character.InventoryIds));
 
                 List<Inventory> response = [];
-                foreach(var inventoryId in character.InventoryIds!.ToHashSet())
+                foreach(var inventoryId in character.InventoryIds.ToHashSet())
                 {
                     var inventory = await _repository.GetByIdAsync(inventoryId);
                     if (inventory != null)

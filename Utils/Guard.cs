@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace dndhelper.Utils
 {
@@ -7,7 +9,8 @@ namespace dndhelper.Utils
     {
         #region Null / Empty
 
-        public static T NotNull<T>(T? value, string paramName) where T : class
+        public static T NotNull<T>([NotNull] T? value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null) where T : class
         {
             if (value is null)
                 throw new ArgumentNullException(paramName);
@@ -15,20 +18,22 @@ namespace dndhelper.Utils
             return value;
         }
 
-        public static string NotNullOrWhiteSpace(string? value, string paramName)
+        public static string NotNullOrWhiteSpace([NotNull] string? value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
-            if (string.IsNullOrWhiteSpace(value))
-                throw new ArgumentNullException(paramName);
+            // ArgumentNullException for null, ArgumentException for empty/whitespace
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
 
             return value;
         }
 
-        public static IReadOnlyCollection<T> NotNullOrEmpty<T>(ICollection<T>? value, string paramName)
+        public static IReadOnlyCollection<T> NotNullOrEmpty<T>([NotNull] IReadOnlyCollection<T>? value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
-            if (value == null || value.Count == 0)
+            if (value is null || value.Count == 0)
                 throw new ArgumentException("Value cannot be null or empty.", paramName);
 
-            return (IReadOnlyCollection<T>)value;
+            return value;
         }
 
         #endregion
@@ -36,7 +41,8 @@ namespace dndhelper.Utils
 
         #region Numeric - Non-negative / Greater than zero
 
-        public static int NotNegative(int value, string paramName)
+        public static int NotNegative(int value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
             if (value < 0)
                 throw new ArgumentOutOfRangeException(paramName, "Value cannot be negative.");
@@ -44,7 +50,8 @@ namespace dndhelper.Utils
             return value;
         }
 
-        public static decimal NotNegative(decimal value, string paramName)
+        public static decimal NotNegative(decimal value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
             if (value < 0)
                 throw new ArgumentOutOfRangeException(paramName, "Value cannot be negative.");
@@ -52,7 +59,8 @@ namespace dndhelper.Utils
             return value;
         }
 
-        public static int GreaterThanZero(int value, string paramName)
+        public static int GreaterThanZero(int value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
             if (value <= 0)
                 throw new ArgumentOutOfRangeException(paramName, "Value must be greater than zero.");
@@ -60,7 +68,8 @@ namespace dndhelper.Utils
             return value;
         }
 
-        public static decimal GreaterThanZero(decimal value, string paramName)
+        public static decimal GreaterThanZero(decimal value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
             if (value <= 0)
                 throw new ArgumentOutOfRangeException(paramName, "Value must be greater than zero.");
@@ -73,7 +82,8 @@ namespace dndhelper.Utils
 
         #region Numeric - Range checks
 
-        public static int InRange(int value, int min, int max, string paramName)
+        public static int InRange(int value, int min, int max,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
             if (value < min || value > max)
                 throw new ArgumentOutOfRangeException(paramName, $"Value must be between {min} and {max}.");
@@ -81,7 +91,8 @@ namespace dndhelper.Utils
             return value;
         }
 
-        public static decimal InRange(decimal value, decimal min, decimal max, string paramName)
+        public static decimal InRange(decimal value, decimal min, decimal max,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
         {
             if (value < min || value > max)
                 throw new ArgumentOutOfRangeException(paramName, $"Value must be between {min} and {max}.");
@@ -94,10 +105,11 @@ namespace dndhelper.Utils
 
         #region Enum validation
 
-        public static TEnum ValidEnum<TEnum>(TEnum value, string paramName)
+        public static TEnum ValidEnum<TEnum>(TEnum value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null)
             where TEnum : struct, Enum
         {
-            if (!Enum.IsDefined(typeof(TEnum), value))
+            if (!Enum.IsDefined(value))
                 throw new ArgumentException($"Invalid value for enum {typeof(TEnum).Name}.", paramName);
 
             return value;
