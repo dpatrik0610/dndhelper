@@ -64,6 +64,7 @@ namespace dndhelper.Repositories
                 _logger.Debug("Logic deleting user: {Id}", user.Id);
                 var update = Builders<User>.Update.Set(u => u.IsActive, UserStatus.LogicDeleted);
                 var result = await _collection.UpdateOneAsync(u => u.Id == user.Id, update);
+                RemoveFromCache(user.Id!);
                 if (result.MatchedCount == 0)
                     throw CustomExceptions.ThrowNotFoundException(_logger, nameof(user.Id));
             }
@@ -85,6 +86,7 @@ namespace dndhelper.Repositories
                 Projection = Builders<User>.Projection.Include(u => u.Username).Include(u => u.CrittersCaught),
             };
             var user = await _collection.FindOneAndUpdateAsync<User>(u => u.Id == userId, update, options);
+            RemoveFromCache(userId);
             if (user == null)
                 throw CustomExceptions.ThrowNotFoundException(_logger, nameof(userId));
             return user;
@@ -107,12 +109,14 @@ namespace dndhelper.Repositories
             // $addToSet: concurrent creates can't overwrite each other's ids.
             var update = Builders<User>.Update.AddToSet(u => u.CharacterIds, characterId);
             await _collection.UpdateOneAsync(u => u.Id == userId, update);
+            RemoveFromCache(userId);
         }
 
         public async Task RemoveCharacterIdAsync(string userId, string characterId)
         {
             var update = Builders<User>.Update.Pull(u => u.CharacterIds, characterId);
             await _collection.UpdateOneAsync(u => u.Id == userId, update);
+            RemoveFromCache(userId);
         }
 
         public async Task UpdateCharacterIds(User user, List<string> characterIds)
@@ -122,6 +126,7 @@ namespace dndhelper.Repositories
                 _logger.Debug("Updating character IDs for user: {Id}", user.Id);
                 var update = Builders<User>.Update.Set(u => u.CharacterIds, characterIds);
                 var result = await _collection.UpdateOneAsync(u => u.Id == user.Id, update);
+                RemoveFromCache(user.Id!);
                 if (result.MatchedCount == 0)
                     throw CustomExceptions.ThrowNotFoundException(_logger, nameof(user.Id));
             }
@@ -139,6 +144,7 @@ namespace dndhelper.Repositories
                 _logger.Debug("Updating campaign IDs for user: {Id}", user.Id);
                 var update = Builders<User>.Update.Set(u => u.CampaignIds, campaignIds);
                 var result = await _collection.UpdateOneAsync(u => u.Id == user.Id, update);
+                RemoveFromCache(user.Id!);
                 if (result.MatchedCount == 0)
                     throw CustomExceptions.ThrowNotFoundException(_logger, nameof(user.Id));
             }

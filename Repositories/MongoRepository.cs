@@ -3,6 +3,7 @@ using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Serilog;
 using System;
@@ -53,7 +54,7 @@ namespace dndhelper.Repositories
         public void AddToCache(T entity)
         {
             if (_cache == null || entity.Id == null) return;
-            _cache.Set(GetCacheKey(entity.Id), entity, _cacheOptions);
+            _cache.Set(GetCacheKey(entity.Id), Copy(entity), _cacheOptions);
             _logger.Debug("[CACHE ADD] {Collection} {EntityId}", typeof(T).Name, entity.Id);
         }
 
@@ -62,10 +63,12 @@ namespace dndhelper.Repositories
             if (_cache == null) return null;
             var hit = _cache.TryGetValue(GetCacheKey(id), out T? cachedEntity);
             _logger.Debug(hit ? "[CACHE HIT] {Collection} {EntityId}" : "[CACHE MISS] {Collection} {EntityId}", typeof(T).Name, id);
-            return hit ? cachedEntity : null;
+            return hit && cachedEntity != null ? Copy(cachedEntity) : null;
         }
 
         public void UpdateCache(T entity) => AddToCache(entity);
+
+        private static T Copy(T entity) => BsonSerializer.Deserialize<T>(entity.ToBsonDocument());
 
         public void RemoveFromCache(string id)
         {

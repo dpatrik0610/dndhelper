@@ -43,7 +43,9 @@ namespace dndhelper.Repositories
                 ReturnDocument = ReturnDocument.After
             };
 
-            return await _collection.FindOneAndUpdateAsync(filter, update, options);
+            var updated = await _collection.FindOneAndUpdateAsync(filter, update, options);
+            if (updated != null) UpdateCache(updated);
+            return updated;
         }
     }
 }
