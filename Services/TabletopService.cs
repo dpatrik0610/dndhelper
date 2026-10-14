@@ -64,6 +64,7 @@ namespace dndhelper.Services
         private readonly IEntitySyncService _entitySync;
         private readonly IHubContext<TabletopHub> _hub;
         private readonly IFileStorageService _storage;
+        private readonly DiscordWebhookClient _discord;
         private readonly ILogger _logger;
 
         public TabletopService(
@@ -75,6 +76,7 @@ namespace dndhelper.Services
             IEntitySyncService entitySync,
             IHubContext<TabletopHub> hub,
             IFileStorageService storage,
+            DiscordWebhookClient discord,
             ILogger logger)
         {
             _repository = Guard.NotNull(repository, nameof(repository));
@@ -85,6 +87,7 @@ namespace dndhelper.Services
             _entitySync = Guard.NotNull(entitySync, nameof(entitySync));
             _hub = Guard.NotNull(hub, nameof(hub));
             _storage = Guard.NotNull(storage, nameof(storage));
+            _discord = Guard.NotNull(discord, nameof(discord));
             _logger = Guard.NotNull(logger, nameof(logger));
         }
 
@@ -599,7 +602,7 @@ namespace dndhelper.Services
             return entry;
         }
 
-        public async Task<int> InvitePlayersAsync(TableContext ctx)
+        public async Task<TableInviteResult> InvitePlayersAsync(TableContext ctx)
         {
             RequireDm(ctx);
             var table = await _repository.GetByIdAsync(ctx.TableId) ?? throw Fail("This table no longer exists.");
@@ -622,8 +625,12 @@ namespace dndhelper.Services
                     recipients);
             }
 
+            bool? discord = campaign.HasTableWebhook
+                ? await _discord.PostTableInviteAsync(campaign.TableWebhookUrl!, campaign.TablePingRoleId, campaign.Name, ctx.Name, table.JoinCode)
+                : null;
+
             _logger.Information("📨 {User} invited {Count} players to tabletop {TableId}", ctx.Name, recipients.Count, ctx.TableId);
-            return recipients.Count;
+            return new TableInviteResult { Players = recipients.Count, Discord = discord };
         }
 
         public async Task<string> RegenerateCodeAsync(TableContext ctx)

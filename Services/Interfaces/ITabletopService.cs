@@ -45,7 +45,7 @@ namespace dndhelper.Services.Interfaces
         Task EndEncounterAsync(TableContext ctx);
         Task LoadEncounterAsync(TableContext ctx, string encounterId);
         Task DeleteEncounterAsync(TableContext ctx, string encounterId);
-        Task<int> InvitePlayersAsync(TableContext ctx);
+        Task<TableInviteResult> InvitePlayersAsync(TableContext ctx);
         Task<string> RegenerateCodeAsync(TableContext ctx);
 
         /// <summary>Pushes character sheet changes (HP, AC, conditions...) onto its tokens.</summary>

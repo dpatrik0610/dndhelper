@@ -1,4 +1,5 @@
 using dndhelper.Models;
+using dndhelper.Models.CampaignModels;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
 using dndhelper.Services.SignalR;
@@ -15,7 +16,8 @@ using System.Threading.Tasks;
 namespace dndhelper.Services
 {
     /// <summary>
-    /// Campaign polls: the DM manages them, members vote. Every write is a read-modify-replace guarded by
+    /// Campaign polls: the DM and members with the Poll role create them, members vote. A Poll-role member manages
+    /// only the polls they created; the DM manages all. Every write is a read-modify-replace guarded by
     /// Poll.Version, so concurrent votes never overwrite each other.
     /// </summary>
     public class PollService : BaseService<Poll, IPollRepository>, IPollService
@@ -25,16 +27,19 @@ namespace dndhelper.Services
         private const int MaxDescriptionLength = 2000;
 
         private readonly IEntitySyncService _entitySyncService;
+        private readonly DiscordWebhookClient _discord;
 
         public PollService(
             IPollRepository repository,
             ILogger logger,
             IAuthorizationService authorizationService,
             IHttpContextAccessor httpContextAccessor,
-            IEntitySyncService entitySyncService)
+            IEntitySyncService entitySyncService,
+            DiscordWebhookClient discord)
             : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _entitySyncService = Guard.NotNull(entitySyncService, nameof(entitySyncService));
+            _discord = Guard.NotNull(discord, nameof(discord));
         }
 
         private string Username => _user.Identity?.Name ?? "Someone";
@@ -58,20 +63,24 @@ namespace dndhelper.Services
         public async Task<PollView> CreatePollAsync(PollUpsertRequest request)
         {
             Guard.NotNull(request, nameof(request));
-            var campaign = await Access.EnsureDmAsync(request.CampaignId ?? Access.CurrentCampaignId);
+            var campaign = await Access.EnsureMemberAsync(request.CampaignId ?? Access.CurrentCampaignId);
+            if (!CanCreate(campaign))
+                throw new ForbiddenException("Only the DM or a member with the Poll role can create polls.");
 
-            var poll = new Poll { CampaignId = campaign.Id, CreatedBy = Username };
+            var poll = new Poll { CampaignId = campaign.Id, CreatedBy = Username, CreatedById = GetCurrentUserId() };
             Apply(poll, request);
 
             var created = await CreateAsync(poll) ?? throw new InvalidOperationException("Failed to create the poll.");
             await BroadcastAsync(created, "created");
+            if (campaign.HasPollWebhook)
+                await _discord.PostPollStartedAsync(campaign.PollWebhookUrl!, campaign.PollPingRoleId, campaign.Name, Username, created);
             return ToView(created, campaign);
         }
 
         public async Task<PollView> UpdatePollAsync(string id, PollUpsertRequest request)
         {
             Guard.NotNull(request, nameof(request));
-            var campaign = await Access.EnsureDmAsync((await LoadAsync(id)).CampaignId);
+            var campaign = await EnsureCanManageAsync(await LoadAsync(id));
 
             var (updated, _) = await MutateAsync(id, poll => { Apply(poll, request); return true; });
             await BroadcastAsync(updated, "updated");
@@ -81,7 +90,7 @@ namespace dndhelper.Services
         public async Task<bool> DeletePollAsync(string id)
         {
             var poll = await LoadAsync(id);
-            await Access.EnsureDmAsync(poll.CampaignId);
+            await EnsureCanManageAsync(poll);
 
             if (!await _repository.DeleteAsync(id))
                 return false;
@@ -132,19 +141,20 @@ namespace dndhelper.Services
 
         public async Task<PollView> SuggestOptionAsync(string id, PollSuggestionRequest request)
         {
-            var campaign = await Access.EnsureMemberAsync((await LoadAsync(id)).CampaignId);
-            var isDm = await Access.IsDmAsync(campaign.Id);
+            var current = await LoadAsync(id);
+            var campaign = await Access.EnsureMemberAsync(current.CampaignId);
+            var isManager = CanManage(current, campaign);
             var text = request?.Text?.Trim() ?? string.Empty;
             Require(text.Length is > 0 and <= MaxTextLength, $"Options are 1 to {MaxTextLength} characters.");
 
             var (updated, _) = await MutateAsync(id, poll =>
             {
                 EnsureOpen(poll);
-                Require(poll.AllowSuggestions || isDm, "This poll doesn't take suggestions.");
+                Require(poll.AllowSuggestions || isManager, "This poll doesn't take suggestions.");
                 Require(poll.Options.Count < MaxOptions, $"A poll can have at most {MaxOptions} options.");
                 Require(poll.Options.All(o => !string.Equals(o.Text, text, StringComparison.OrdinalIgnoreCase)), "That option already exists.");
 
-                poll.Options.Add(new PollOption { Id = NewId(), Text = text, SuggestedBy = isDm ? null : Username });
+                poll.Options.Add(new PollOption { Id = NewId(), Text = text, SuggestedBy = isManager ? null : Username });
                 return true;
             });
 
@@ -154,13 +164,13 @@ namespace dndhelper.Services
 
         public async Task<PollView> ClosePollAsync(string id)
         {
-            var campaign = await Access.EnsureDmAsync((await LoadAsync(id)).CampaignId);
+            var campaign = await EnsureCanManageAsync(await LoadAsync(id));
             return ToView(await CloseAsync(id, campaign), campaign);
         }
 
         public async Task<PollView> ReopenPollAsync(string id)
         {
-            var campaign = await Access.EnsureDmAsync((await LoadAsync(id)).CampaignId);
+            var campaign = await EnsureCanManageAsync(await LoadAsync(id));
 
             var (updated, changed) = await MutateAsync(id, poll =>
             {
@@ -179,12 +189,27 @@ namespace dndhelper.Services
         public async Task AnnounceAsync(string id)
         {
             var poll = await LoadAsync(id);
-            var campaign = await Access.EnsureDmAsync(poll.CampaignId);
+            var campaign = await EnsureCanManageAsync(poll);
             Require(poll.IsClosed, "Close the poll before announcing its result.");
             await AnnounceAsync(poll, campaign);
         }
 
         #region Helpers
+
+        private bool CanCreate(Campaign campaign) =>
+            Access.IsSuperAdmin || campaign.IsDm(Access.UserId) || campaign.HasRole(Access.UserId, CampaignRoles.Poll);
+
+        private bool CanManage(Poll poll, Campaign campaign) =>
+            Access.IsSuperAdmin || campaign.IsDm(Access.UserId)
+            || (poll.CreatedById != null && poll.CreatedById == Access.UserId && campaign.HasRole(Access.UserId, CampaignRoles.Poll));
+
+        private async Task<Campaign> EnsureCanManageAsync(Poll poll)
+        {
+            var campaign = await Access.EnsureMemberAsync(poll.CampaignId);
+            if (!CanManage(poll, campaign))
+                throw new ForbiddenException("Only the DM or the poll's creator can do this.");
+            return campaign;
+        }
 
         private async Task<Poll> LoadAsync(string id)
         {
@@ -286,9 +311,9 @@ namespace dndhelper.Services
         private PollView ToView(Poll poll, Campaign campaign)
         {
             var userId = GetCurrentUserId();
-            var isDm = Access.IsSuperAdmin || campaign.IsDm(userId);
+            var canManage = CanManage(poll, campaign);
             var mine = poll.Votes.FirstOrDefault(v => v.UserId == userId);
-            var hidden = !isDm && !poll.IsClosed && (poll.ResultsVisibility == PollResultsVisibility.AfterClose
+            var hidden = !canManage && !poll.IsClosed && (poll.ResultsVisibility == PollResultsVisibility.AfterClose
                 || (poll.ResultsVisibility == PollResultsVisibility.AfterVote && mine == null));
 
             return new PollView
@@ -315,6 +340,7 @@ namespace dndhelper.Services
                 VoterCount = poll.Votes.Count,
                 MemberCount = campaign.Members?.Count ?? 0,
                 ResultsHidden = hidden,
+                CanManage = canManage,
                 Tally = hidden ? null : Tally(poll),
                 Voters = hidden || poll.Anonymous
                     ? null
@@ -362,6 +388,8 @@ namespace dndhelper.Services
             };
 
             await BroadcastAsync(poll, "announced", new { id = poll.Id, campaignId = poll.CampaignId, title = poll.Title, summary, winners });
+            if (campaign.HasPollWebhook)
+                await _discord.PostPollResultAsync(campaign.PollWebhookUrl!, campaign.PollPingRoleId, campaign.Name, poll.Title, summary);
         }
 
         private static void EnsureOpen(Poll poll) => Require(poll.IsOpenAt(DateTime.UtcNow), "This poll is closed.");

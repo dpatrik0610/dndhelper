@@ -5,6 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace dndhelper.Models
 {
@@ -25,6 +26,21 @@ namespace dndhelper.Models
         public List<string>? OwnerIds { get; set; } = new List<string>();
 
         public string? InviteCode { get; set; }
+
+        [JsonIgnore]
+        public string? TableWebhookUrl { get; set; }
+
+        [JsonIgnore]
+        public string? PollWebhookUrl { get; set; }
+
+        public string? TablePingRoleId { get; set; }
+        public string? PollPingRoleId { get; set; }
+
+        [BsonIgnore]
+        public bool HasTableWebhook => !string.IsNullOrEmpty(TableWebhookUrl);
+
+        [BsonIgnore]
+        public bool HasPollWebhook => !string.IsNullOrEmpty(PollWebhookUrl);
 
         // Core content types (see CoreContentTypes) this campaign has imported.
         public List<string> CoreImports { get; set; } = new();

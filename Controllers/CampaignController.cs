@@ -1,6 +1,7 @@
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Authorization;
 using dndhelper.Models;
+using dndhelper.Models.CampaignModels;
 using dndhelper.Services.Interfaces;
 using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
@@ -61,6 +62,10 @@ namespace dndhelper.Controllers
         [HttpPut("{id}/core-imports")]
         public async Task<IActionResult> SetCoreImports(string id, [FromBody] List<string> types) =>
             Ok(await _campaignService.SetCoreImportsAsync(id, types));
+
+        [HttpPut("{id}/discord-webhook")]
+        public async Task<IActionResult> SetDiscordWebhook(string id, [FromBody] DiscordWebhookRequest request) =>
+            Ok(await _campaignService.SetDiscordWebhookAsync(id, request?.Target ?? DiscordWebhookTarget.Table, request?.Url, request?.RoleId));
 
         [HttpGet]
         public async Task<IActionResult> GetAll()

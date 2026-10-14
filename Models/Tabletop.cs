@@ -258,6 +258,12 @@ namespace dndhelper.Models
         public int? Remaining { get; set; }
     }
 
+    public class TableInviteResult
+    {
+        public int Players { get; set; }
+        public bool? Discord { get; set; }
+    }
+
     public class TableLogEntry
     {
         public string Id { get; set; } = ObjectId.GenerateNewId().ToString();

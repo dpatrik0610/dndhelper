@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 namespace dndhelper.Models
 {
     /// <summary>
-    /// A campaign poll. The DM creates and manages it, every campaign member may vote.
+    /// A campaign poll. The DM, or a member with the Poll role, creates and manages it; every campaign member may vote.
     /// Votes are never sent to clients as-is: see <see cref="PollView"/>.
     /// </summary>
     public class Poll : IEntity, ICampaignScoped
@@ -40,6 +40,8 @@ namespace dndhelper.Models
         public DateTime? ClosedAt { get; set; }
 
         public string? CreatedBy { get; set; }
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? CreatedById { get; set; }
         public List<PollVote> Votes { get; set; } = new();
 
         /// <summary>Optimistic concurrency token, bumped on every write.</summary>
@@ -125,6 +127,7 @@ namespace dndhelper.Models
         public int VoterCount { get; set; }
         public int MemberCount { get; set; }
         public bool ResultsHidden { get; set; }
+        public bool CanManage { get; set; }
         /// <summary>Votes per option id; null while results are hidden.</summary>
         public Dictionary<string, int>? Tally { get; set; }
         /// <summary>Who voted for what; null when anonymous or hidden.</summary>

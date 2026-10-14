@@ -41,5 +41,6 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign> RemoveMemberAsync(string campaignId, string userId);
         Task<Campaign> RegenerateInviteCodeAsync(string campaignId);
         Task<Campaign> SetCoreImportsAsync(string campaignId, List<string> types);
+        Task<Campaign> SetDiscordWebhookAsync(string campaignId, DiscordWebhookTarget target, string? url, string? roleId);
     }
 }

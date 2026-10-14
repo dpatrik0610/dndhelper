@@ -281,7 +281,7 @@ namespace dndhelper.Repositories
 
                 foreach (var prop in properties)
                 {
-                    if (prop.Name is nameof(IEntity.Id) or "CreatedAt" or "IsDeleted" or nameof(ICampaignScoped.CampaignId))
+                    if (!prop.CanWrite || prop.Name is nameof(IEntity.Id) or "CreatedAt" or "IsDeleted" or nameof(ICampaignScoped.CampaignId))
                         continue;
 
                     var newValue = prop.GetValue(entity);

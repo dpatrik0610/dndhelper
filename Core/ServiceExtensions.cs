@@ -236,6 +236,8 @@ namespace dndhelper.Core
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
 
+            services.AddHttpClient<DiscordWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
+
             return services;
         }
     }

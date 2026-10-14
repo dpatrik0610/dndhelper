@@ -113,7 +113,7 @@ namespace dndhelper.Core
 
         /// <summary>Returns the entry so the roller can animate the real dice.</summary>
         public Task<TableLogEntry> Roll(TableRollRequest request) => _service.RollAsync(Table, request);
-        public Task<int> InvitePlayers() => _service.InvitePlayersAsync(Table);
+        public Task<TableInviteResult> InvitePlayers() => _service.InvitePlayersAsync(Table);
 
         public Task<List<TableEncounterSummary>> ListEncounters() => _service.ListEncountersAsync(Table);
         public Task StartEncounter(string? name) => _service.StartEncounterAsync(Table, name);

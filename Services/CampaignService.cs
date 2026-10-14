@@ -162,11 +162,15 @@ namespace dndhelper.Services
         {
             var existing = await Access.EnsureDmAsync(campaign.Id);
 
-            // Membership, invite code and core imports have their own endpoints.
+            // Membership, invite code, core imports and the Discord webhook have their own endpoints.
             campaign.Members = existing.Members;
             campaign.OwnerIds = existing.OwnerIds;
             campaign.InviteCode = existing.InviteCode;
             campaign.CoreImports = existing.CoreImports;
+            campaign.TableWebhookUrl = existing.TableWebhookUrl;
+            campaign.PollWebhookUrl = existing.PollWebhookUrl;
+            campaign.TablePingRoleId = existing.TablePingRoleId;
+            campaign.PollPingRoleId = existing.PollPingRoleId;
             campaign.UpdatedAt = DateTime.UtcNow;
             return await _repository.UpdateAsync(campaign);
         }
@@ -263,6 +267,31 @@ namespace dndhelper.Services
         {
             var campaign = await Access.EnsureDmAsync(campaignId);
             campaign.CoreImports = (types ?? new()).Intersect(CoreContentTypes.All).ToList();
+            return await SaveMembershipAsync(campaign);
+        }
+
+        public async Task<Campaign> SetDiscordWebhookAsync(string campaignId, DiscordWebhookTarget target, string? url, string? roleId)
+        {
+            var campaign = await Access.EnsureDmAsync(campaignId);
+            var isPoll = target == DiscordWebhookTarget.Poll;
+
+            if (url != null)
+            {
+                url = url.Trim();
+                if (url.Length > 0 && !DiscordWebhookClient.IsValidWebhookUrl(url))
+                    throw new ArgumentException("That isn't a Discord webhook URL. Copy it from Channel settings → Integrations → Webhooks.");
+                if (isPoll) campaign.PollWebhookUrl = url;
+                else campaign.TableWebhookUrl = url;
+            }
+
+            if (roleId != null)
+            {
+                roleId = DiscordWebhookClient.NormalizeRoleId(roleId)
+                    ?? throw new ArgumentException("That isn't a Discord role. Paste the role ID, or type \\@Role in Discord and paste what it turns into.");
+                if (isPoll) campaign.PollPingRoleId = roleId;
+                else campaign.TablePingRoleId = roleId;
+            }
+
             return await SaveMembershipAsync(campaign);
         }
 

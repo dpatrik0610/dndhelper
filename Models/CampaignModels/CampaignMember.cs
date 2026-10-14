@@ -34,9 +34,20 @@ namespace dndhelper.Models.CampaignModels
         public bool AmIMember { get; set; }
     }
 
+    [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+    public enum DiscordWebhookTarget { Table, Poll }
+
+    public class DiscordWebhookRequest
+    {
+        public DiscordWebhookTarget Target { get; set; }
+        public string? Url { get; set; }
+        public string? RoleId { get; set; }
+    }
+
     public static class CampaignRoles
     {
         public const string Dm = "DM";
         public const string Player = "Player";
+        public const string Poll = "Poll";
     }
 }
