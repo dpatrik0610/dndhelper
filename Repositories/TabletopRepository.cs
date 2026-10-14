@@ -3,7 +3,6 @@ using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Driver.GridFS;
 using Serilog;
 using System;
 using System.IO;
@@ -20,14 +19,12 @@ namespace dndhelper.Repositories
     public class TabletopRepository : ITabletopRepository
     {
         private readonly IMongoCollection<Tabletop> _collection;
-        private readonly GridFSBucket _images;
         private readonly ILogger _logger;
 
         public TabletopRepository(ILogger logger, MongoDbContext context)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _collection = context.GetCollection<Tabletop>("Tabletops");
-            _images = context.GetBucket("tabletopImages");
 
             _collection.Indexes.CreateMany(new[]
             {
@@ -77,36 +74,5 @@ namespace dndhelper.Repositories
 
         public Task ReplaceAsync(Tabletop table) =>
             _collection.ReplaceOneAsync(t => t.Id == table.Id, table);
-
-        // Images: GridFS is legacy, new uploads go to R2.
-
-        public async Task<(Stream Content, string ContentType)?> OpenImageAsync(string id)
-        {
-            if (!ObjectId.TryParse(id, out var objectId)) return null;
-            try
-            {
-                var stream = await _images.OpenDownloadStreamAsync(objectId);
-                var contentType = stream.FileInfo.Metadata?.GetValue("contentType", "application/octet-stream").AsString
-                    ?? "application/octet-stream";
-                return (stream, contentType);
-            }
-            catch (GridFSFileNotFoundException)
-            {
-                return null;
-            }
-        }
-
-        public async Task DeleteImageAsync(string id)
-        {
-            if (!ObjectId.TryParse(id, out var objectId)) return;
-            try
-            {
-                await _images.DeleteAsync(objectId);
-            }
-            catch (GridFSFileNotFoundException)
-            {
-                // already gone
-            }
-        }
     }
 }

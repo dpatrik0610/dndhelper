@@ -1,6 +1,5 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Driver.GridFS;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -46,9 +45,6 @@ namespace dndhelper.Database
 
             return _database.GetCollection<T>(collectionName);
         }
-
-        public GridFSBucket GetBucket(string bucketName) =>
-            new GridFSBucket(_database, new GridFSBucketOptions { BucketName = bucketName });
 
         public async Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default)
         {

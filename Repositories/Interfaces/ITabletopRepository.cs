@@ -1,5 +1,4 @@
 using dndhelper.Models;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace dndhelper.Repositories.Interfaces
@@ -13,8 +12,5 @@ namespace dndhelper.Repositories.Interfaces
         Task ReplaceAsync(Tabletop table);
         Task<bool> AnyUsesMapAsync(string imageUrl);
         Task<bool> AnyUsesTokenImageAsync(string imageUrl);
-
-        Task<(Stream Content, string ContentType)?> OpenImageAsync(string id);
-        Task DeleteImageAsync(string id);
     }
 }

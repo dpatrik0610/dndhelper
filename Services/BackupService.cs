@@ -34,9 +34,30 @@ namespace dndhelper.Services
             if (string.IsNullOrWhiteSpace(collectionName))
                 throw new ArgumentNullException(nameof(collectionName));
 
-            var archiveStream = new MemoryStream();
-            var fileName = $"{collectionName}-dump-{DateTime.UtcNow:yyyyMMddHHmmss}.gz";
+            var archiveStream = CreateTempStream();
+            try
+            {
+                await DumpCollectionToAsync(collectionName, archiveStream, cancellationToken);
+            }
+            catch
+            {
+                await archiveStream.DisposeAsync();
+                throw;
+            }
 
+            archiveStream.Position = 0;
+            _logger.Information("mongodump completed for collection {Collection} ({Bytes} bytes)", collectionName, archiveStream.Length);
+
+            var fileName = $"{collectionName}-dump-{DateTime.UtcNow:yyyyMMddHHmmss}.gz";
+            return new BackupResult(archiveStream, fileName, "application/gzip");
+        }
+
+        private static FileStream CreateTempStream() =>
+            new(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite, FileShare.None, 81920,
+                FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+
+        private async Task DumpCollectionToAsync(string collectionName, Stream destination, CancellationToken cancellationToken)
+        {
             var psi = new ProcessStartInfo
             {
                 FileName = _mongodumpPath,
@@ -73,7 +94,7 @@ namespace dndhelper.Services
             });
 
             var readStdErrTask = process.StandardError.ReadToEndAsync();
-            var copyStdOutTask = process.StandardOutput.BaseStream.CopyToAsync(archiveStream, cancellationToken);
+            var copyStdOutTask = process.StandardOutput.BaseStream.CopyToAsync(destination, cancellationToken);
 
             await Task.WhenAll(copyStdOutTask, process.WaitForExitAsync(cancellationToken));
             var stdErr = await readStdErrTask;
@@ -84,11 +105,6 @@ namespace dndhelper.Services
                 var detail = string.IsNullOrWhiteSpace(stdErr) ? $"mongodump failed for collection '{collectionName}'." : stdErr.Trim();
                 throw new InvalidOperationException(detail);
             }
-
-            archiveStream.Position = 0;
-            _logger.Information("mongodump completed for collection {Collection} ({Bytes} bytes)", collectionName, archiveStream.Length);
-
-            return new BackupResult(archiveStream, fileName, "application/gzip");
         }
 
         public async Task<BackupResult> ExportAllCollectionsAsync(CancellationToken cancellationToken = default)
@@ -97,17 +113,22 @@ namespace dndhelper.Services
             if (collections.Count == 0)
                 throw new InvalidOperationException("No collections found to back up.");
 
-            var zipStream = new MemoryStream();
-            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+            var zipStream = CreateTempStream();
+            try
             {
+                using var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true);
                 foreach (var collection in collections)
                 {
-                    var result = await ExportCollectionAsync(collection, cancellationToken);
-                    var entry = archive.CreateEntry($"{collection}.gz", CompressionLevel.Optimal);
+                    var entry = archive.CreateEntry($"{collection}.gz", CompressionLevel.NoCompression);
                     await using var entryStream = entry.Open();
-                    await result.Stream.CopyToAsync(entryStream, cancellationToken);
-                    result.Stream.Position = 0;
+                    await DumpCollectionToAsync(collection, entryStream, cancellationToken);
+                    _logger.Information("mongodump completed for collection {Collection}", collection);
                 }
+            }
+            catch
+            {
+                await zipStream.DisposeAsync();
+                throw;
             }
 
             zipStream.Position = 0;

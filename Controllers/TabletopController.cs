@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace dndhelper.Controllers
 {
     /// <summary>
-    /// Image upload/serving for the tabletop. Everything else on the table goes through TabletopHub.
+    /// Image uploads for the tabletop (stored in R2). Everything else on the table goes through TabletopHub.
     /// </summary>
     [Authorize]
     [ApiController]
@@ -61,21 +61,5 @@ namespace dndhelper.Controllers
             User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
             User.Identity?.Name ?? "Player",
             User.IsInRole("Admin"));
-
-        /// <summary>
-        /// Anonymous because SVG &lt;image&gt; can't send the bearer token. ObjectIds are not secret,
-        /// so table images are effectively public to anyone with the link (same as Roll20 map art).
-        /// </summary>
-        [AllowAnonymous]
-        [HttpGet("images/{id}")]
-        public async Task<IActionResult> GetImage(string id)
-        {
-            var image = await _service.OpenImageAsync(id);
-            if (image == null) return NotFound();
-
-            Response.Headers.CacheControl = "public, max-age=31536000, immutable";
-            Response.Headers["X-Content-Type-Options"] = "nosniff";
-            return File(image.Value.Content, image.Value.ContentType);
-        }
     }
 }

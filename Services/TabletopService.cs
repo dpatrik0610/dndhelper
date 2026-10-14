@@ -34,7 +34,6 @@ namespace dndhelper.Services
     /// </summary>
     public class TabletopService : ITabletopService
     {
-        public const string ImagePathPrefix = "/api/tabletop/images/";
         /// <summary>Uploaded maps a DM may keep; superadmins are exempt. Tokens have no count limit, only a 5 MB file cap.</summary>
         public const int MaxMapsPerDm = 10;
 
@@ -49,7 +48,6 @@ namespace dndhelper.Services
         private const double MaxCoord = 1_000_000;
 
         private static readonly Regex ColorRegex = new("^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$", RegexOptions.Compiled);
-        private static readonly Regex OwnImageRegex = new($"^{Regex.Escape(ImagePathPrefix)}([0-9a-f]{{24}})$", RegexOptions.Compiled);
 
         // ponytail: in-process per-table lock, fine for the single API instance (SignalR has no backplane either).
         // Scaling out needs a Redis backplane plus a version field on the document instead.
@@ -986,10 +984,6 @@ namespace dndhelper.Services
             await _storage.DeleteAsync(fileId);
         }
 
-        /// <summary>Legacy: images uploaded before R2 still live in GridFS and keep their /api/tabletop/images/{id} URLs.</summary>
-        public Task<(Stream Content, string ContentType)?> OpenImageAsync(string imageId) =>
-            _repository.OpenImageAsync(imageId);
-
         private Task<Tabletop> Change(string tableId, Action<Tabletop> apply, Func<Tabletop, Task>? announce = null) =>
             ChangeAsync(tableId, t =>
             {
@@ -1106,7 +1100,6 @@ namespace dndhelper.Services
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
             if (value.Length > 1000) throw Fail("Image URL is too long.");
-            if (OwnImageRegex.IsMatch(value)) return value;
             if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
                 return value;
             throw Fail("Images must be uploaded or use an http(s) URL.");
