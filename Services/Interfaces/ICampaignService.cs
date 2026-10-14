@@ -25,7 +25,6 @@ namespace dndhelper.Services.Interfaces
         Task<Campaign?> AddQuestAsync(string campaignId, string questId);
         Task<Campaign?> RemoveQuestAsync(string campaignId, string questId);
 
-        //Task<List<string>> GetNotesAsync(string campaignId);
         Task<Campaign?> AddNoteAsync(string campaignId, string noteId);
         Task<Campaign?> RemoveNoteAsync(string campaignId, string noteId);
 

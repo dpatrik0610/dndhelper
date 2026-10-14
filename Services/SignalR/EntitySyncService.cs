@@ -36,7 +36,6 @@ namespace dndhelper.Services.SignalR
 
         private static string UserGroup(string userId) => $"user_{userId}";
 
-        // Centralized internal helper
         private Task BroadcastEntityChangedInternalAsync<T>(
             string entityType,
             string action,

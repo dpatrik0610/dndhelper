@@ -141,7 +141,6 @@ public class InventoryController : ControllerBase
     {
         var inventories = await _inventoryService.AddInventoryToCharacter(characterId, inventoryId);
 
-        // Broadcast character change (inventories list updated)
         var character = await _characterService.GetByIdAsync(characterId);
         if (character != null)
         {
@@ -170,10 +169,6 @@ public class InventoryController : ControllerBase
 
         return NoContent();
     }
-
-    // ----------------------
-    // Inventory Item Endpoints
-    // ----------------------
 
     /// <summary>
     /// Every item endpoint checks access first: the inventory's owner, a DM of its campaign, or the superadmin
@@ -401,9 +396,6 @@ public class InventoryController : ControllerBase
         public int Amount { get; set; } = 1;
     }
 
-    // =====================
-    // SignalR Sync Helper
-    // =====================
     private async Task BroadcastInventoryChangeAsync(Inventory inventory, string action, object? data)
     {
         var hasOwners = inventory.OwnerIds != null && inventory.OwnerIds.Any();
@@ -422,7 +414,6 @@ public class InventoryController : ControllerBase
                 recipients.Add(ownerId);
         }
 
-        // 1) If inventory explicitly has CampaignId → add that campaign's DMs
         if (hasCampaign)
         {
             var dmIds = await _campaignService.GetCampaignDMIdsAsync(inventory.CampaignId);
@@ -434,8 +425,6 @@ public class InventoryController : ControllerBase
         }
         else if (hasCharacters)
         {
-            // 2) Otherwise derive campaigns from attached characters
-            //    (e.g., shared inventory between party members)
             var characters = await _characterService.GetByIdsAsync(inventory.CharacterIds);
             var campaignIds = characters
                 .Where(c => !string.IsNullOrEmpty(c.CampaignId))

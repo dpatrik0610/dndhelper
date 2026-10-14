@@ -24,8 +24,6 @@ namespace dndhelper.Controllers
             _logger = logger;
         }
 
-        // --- READ endpoints: accessible by User and Admin ---
-
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
@@ -48,23 +46,6 @@ namespace dndhelper.Controllers
             return Ok(spells);
         }
 
-        //[HttpGet("name/{name}")]
-        //        //public async Task<IActionResult> GetByName(string name)
-        //{
-        //    try
-        //    {
-        //        var spell = await _spellService.GetspellsByNameAsync(name);
-
-        //        if (spell.IsNullOrEmpty()) return NotFound();
-
-        //        return Ok(spell);
-        //    }
-        //    catch (ArgumentException ex)
-        //    {
-        //        return BadRequest(ex.Message);
-        //    }
-        //}
-
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -72,71 +53,15 @@ namespace dndhelper.Controllers
             return Ok(spells);
         }
 
-        //[HttpGet("paged")]
-        //        //public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        //{
-        //    try
-        //    {
-        //        var spells = await _spellService.GetPagedspellsAsync(page, pageSize);
-        //        return Ok(spells);
-        //    }
-        //    catch (ArgumentException ex)
-        //    {
-        //        return BadRequest(ex.Message);
-        //    }
-        //}
-
-        //[HttpGet("search")]
-        //        //public async Task<IActionResult> Search(
-        //    [FromQuery] string? name,
-        //    [FromQuery] string? type,
-        //    [FromQuery] double? minCR,
-        //    [FromQuery] double? maxCR,
-        //    [FromQuery] List<string>? tags,
-        //    [FromQuery] string? sortBy = "Name",
-        //    [FromQuery] bool desc = false,
-        //    [FromQuery] int page = 1,
-        //    [FromQuery] int pageSize = 10)
-        //{
-        //    try
-        //    {
-        //        var spells = await _spellService.AdvancedSearchAsync(new spellSearchCriteria
-        //        {
-        //            Name = name,
-        //            Type = type,
-        //            MinCR = minCR,
-        //            MaxCR = maxCR,
-        //            Tags = tags,
-        //            SortBy = sortBy!,
-        //            SortDescending = desc,
-        //            Page = page,
-        //            PageSize = pageSize
-        //        });
-
-        //        return Ok(new { Found = spells.Count, spells });
-        //    }
-        //    catch (ArgumentException ex)
-        //    {
-        //        return BadRequest(ex.Message);
-        //    }
-        //}
-
-
-        // --- DM and Admin ---
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Spell spell)
         {
             try
             {
-                // Extract user ID from claims
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized("User ID claim missing.");
-
-                // Optionally assign creator ID to spell or log it.
-                //spell.CreatedByUserId = userId;
-                //spell.OwnerIds!.Add(userId);
 
                 var created = await _spellService.CreateAsync(spell);
                 return CreatedAtAction(nameof(GetById), new { id = created!.Id }, created);

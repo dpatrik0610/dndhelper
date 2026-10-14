@@ -72,8 +72,6 @@ namespace dndhelper.Models
         public DateTime VotedAt { get; set; }
     }
 
-    // ---- Requests ----
-
     public class PollUpsertRequest
     {
         public string? CampaignId { get; set; }
@@ -100,8 +98,6 @@ namespace dndhelper.Models
     {
         public string Text { get; set; } = string.Empty;
     }
-
-    // ---- Response ----
 
     /// <summary>What one user may see of a poll: hidden results and anonymous voters are stripped server-side.</summary>
     public class PollView

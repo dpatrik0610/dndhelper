@@ -29,7 +29,6 @@ namespace dndhelper.Models
         // Custom pricing factor (e.g., 1.0 = standard cost, 1.2 = 20% markup, 0.8 = 20% discount)
         public double PriceMultiplier { get; set; } = 1.0;
 
-        // Metadata
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;

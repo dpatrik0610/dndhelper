@@ -29,11 +29,9 @@ if (File.Exists(envFile))
 var builder = WebApplication.CreateBuilder(args);
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
-// 🔹 Logging
 builder.Host.UseSerilog();
 builder.Services.InjectServices(builder.Configuration);
 
-// 🔹 MVC + Swagger
 builder.Services.AddControllers(options =>
     options.Filters.Add<dndhelper.Authorization.CampaignMembershipFilter>());
 builder.Services.AddEndpointsApiExplorer();
@@ -41,7 +39,6 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSignalR();
 
-// 🔹 CORS (allow from env or allow all for testing)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(MyAllowSpecificOrigins, policy =>
@@ -100,17 +97,14 @@ using (var scope = app.Services.CreateScope())
 
 Log.Information("🚀 Application started");
 
-// 🔹 Swagger only in dev
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// 🔹 Middleware
 app.UseMiddleware<ExceptionMiddleware>();
 
-// 🔹 Redirect HTTPS only if not running in Docker/local
 if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
 {
     app.UseHttpsRedirection();

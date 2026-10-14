@@ -6,14 +6,12 @@ namespace dndhelper.Services.Interfaces
 {
     public interface IInventoryService : IBaseService<Inventory>, IInternalBaseService<Inventory>
     {
-        // Inventories
         Task<bool> IsShopInventoryAsync(string inventoryId);
         Task<Inventory?> SetCharactersAsync(string inventoryId, List<string> characterIds);
         Task<IEnumerable<Inventory>> GetByCharacterAsync(string characterId);
         Task<IEnumerable<Inventory>> GetFromCharacterInventoryIdsAsync(string characterId);
         Task<IEnumerable<Inventory>> AddInventoryToCharacter(string characterId, string inventoryId);
 
-        // Inventory Items
         Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId);
         Task<InventoryItem?> GetItemAsync(string inventoryId, string equipmentId);
         Task<InventoryItem> AddOrIncrementItemAsync(string inventoryId, string equipmentId, int incrementVal = 1);

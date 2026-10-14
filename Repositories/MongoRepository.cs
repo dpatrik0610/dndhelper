@@ -25,7 +25,7 @@ namespace dndhelper.Repositories
             _collection = context.GetCollection<T>(collectionName)
                 ?? throw new ArgumentNullException(nameof(context), $"Failed to load {collectionName} collection from context: {context}");
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), "Logger cannot be null");
-            _cache = cache ?? null; // Cache can be null for repositories that don't use caching.
+            _cache = cache ?? null;
 
             _cacheOptions = new MemoryCacheEntryOptions()
                 .SetSlidingExpiration(TimeSpan.FromMinutes(5))
@@ -47,9 +47,6 @@ namespace dndhelper.Repositories
             catch (MongoException ex) { _logger.Warning(ex, "Could not create indexes on {Collection}", typeof(T).Name); }
         }
 
-        // ------------------------
-        // CACHE UTILITIES
-        // ------------------------
         // Debug level: these run on nearly every read, so they stay out of production logs.
         protected string GetCacheKey(string id) => $"{typeof(T).Name}_{id}";
 
@@ -76,10 +73,6 @@ namespace dndhelper.Repositories
             _cache.Remove(GetCacheKey(id));
             _logger.Debug("[CACHE REMOVE] {Collection} {EntityId}", typeof(T).Name, id);
         }
-
-        // ------------------------
-        // REPOSITORY METHODS
-        // ------------------------
 
         public async Task<T?> CreateAsync(T entity)
         {
@@ -280,27 +273,23 @@ namespace dndhelper.Repositories
                     return null;
                 }
 
-                // Get all writable properties
                 var properties = typeof(T).GetProperties();
                 var updates = new List<UpdateDefinition<T>>();
 
                 foreach (var prop in properties)
                 {
-                    // Skip nulls and immutable fields
                     if (prop.Name is nameof(IEntity.Id) or "CreatedAt" or "IsDeleted" or nameof(ICampaignScoped.CampaignId))
                         continue;
 
                     var newValue = prop.GetValue(entity);
                     var oldValue = prop.GetValue(existing);
 
-                    // Only update changed values (handles both value and reference types)
                     if (newValue != null && !Equals(newValue, oldValue))
                     {
                         updates.Add(Builders<T>.Update.Set(prop.Name, newValue));
                     }
                 }
 
-                // Always refresh UpdatedAt
                 updates.Add(Builders<T>.Update.Set(nameof(IEntity.UpdatedAt), DateTime.UtcNow));
 
                 if (!updates.Any())

@@ -30,9 +30,6 @@ namespace dndhelper.Controllers
             _access = access;
         }
 
-        // ------------------------
-        // MEMBERSHIP
-        // ------------------------
         public record JoinRequest(string Code);
 
         /// <summary>Superadmin only: every campaign on the site (the normal list is just my campaigns).</summary>
@@ -178,9 +175,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // ------------------------
-        // PLAYER MANAGEMENT
-        // ------------------------
         [HttpGet("{id}/characters")]
         public async Task<IActionResult> GetCharacters(string id)
         {
@@ -210,9 +204,6 @@ namespace dndhelper.Controllers
             return result == null ? NotFound() : Ok(result);
         }
 
-        // ------------------------
-        // WORLD MANAGEMENT
-        // ------------------------
         [HttpPost("{id}/worlds/{worldId}")]
         public async Task<IActionResult> AddWorld(string id, string worldId)
         {
@@ -229,9 +220,6 @@ namespace dndhelper.Controllers
             return result == null ? NotFound() : Ok(result);
         }
 
-        // ------------------------
-        // QUEST MANAGEMENT
-        // ------------------------
         [HttpPost("{id}/quests/{questId}")]
         public async Task<IActionResult> AddQuest(string id, string questId)
         {
@@ -248,9 +236,6 @@ namespace dndhelper.Controllers
             return result == null ? NotFound() : Ok(result);
         }
 
-        // ------------------------
-        // NOTE MANAGEMENT
-        // ------------------------
         [HttpPost("{id}/notes/{noteId}")]
         public async Task<IActionResult> AddNote(string id, string noteId)
         {
@@ -267,9 +252,6 @@ namespace dndhelper.Controllers
             return result == null ? NotFound() : Ok(result);
         }
 
-        // ------------------------
-        // SESSION MANAGEMENT
-        // ------------------------
         [HttpPost("{id}/sessions/{sessionId}")]
         public async Task<IActionResult> AddSession(string id, string sessionId)
         {

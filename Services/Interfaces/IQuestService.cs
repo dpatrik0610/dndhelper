@@ -11,7 +11,6 @@ namespace dndhelper.Services.Interfaces
         Task<Quest?> UpdateAndNotifyAsync(string id, Quest quest);
         Task<bool> DeleteAndNotifyAsync(string id);
 
-        // Atomic Quest Objectives Management
         Task<Quest?> AddObjectiveAsync(string questId, QuestObjective objective);
         Task<Quest?> UpdateObjectiveAsync(string questId, QuestObjective objective);
         Task<Quest?> DeleteObjectiveAsync(string questId, string objectiveId);

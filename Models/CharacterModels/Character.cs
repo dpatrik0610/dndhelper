@@ -53,10 +53,10 @@ namespace dndhelper.Models.CharacterModels
 
         public List<string>? Proficiencies { get; set; } = new List<string>();
         public List<string>? Languages { get; set; } = new List<string> { "Common" };
-        public List<string>? Conditions { get; set; } = new List<string>(); // Later can be enum
-        public List<string>? Resistances { get; set; } = new List<string>(); // Later can be enum
-        public List<string>? Immunities { get; set; } = new List<string>(); // Later can be enum
-        public List<string>? Vulnerabilities { get; set; } = new List<string>(); // Later can be enum
+        public List<string>? Conditions { get; set; } = new List<string>();
+        public List<string>? Resistances { get; set; } = new List<string>();
+        public List<string>? Immunities { get; set; } = new List<string>();
+        public List<string>? Vulnerabilities { get; set; } = new List<string>();
         public List<Feature>? Features { get; set; } = new List<Feature>();
         public List<string>? Actions { get; set; } = new List<string>();
         public List<CharacterSpell>? Spells { get; set; } = new List<CharacterSpell>();

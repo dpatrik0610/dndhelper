@@ -21,17 +21,6 @@ namespace dndhelper.Repositories
             await _collection.Find(Builders<Equipment>.Filter.Eq(e => e.Index, index) & Builders<Equipment>.Filter.Ne(e => e.IsDeleted, true) & scope)
                 .SortByDescending(e => e.CampaignId).FirstOrDefaultAsync();
 
-        //public new async Task<Equipment> UpdateAsync(Equipment equipment)
-        //{
-        //    var filter = Builders<Equipment>.Filter.Eq(e => e.Index, equipment.Index);
-        //    var result = await _collection.ReplaceOneAsync(filter, equipment);
-        //    if (result.IsAcknowledged && result.ModifiedCount > 0)
-        //        return equipment;
-
-        //    // Could throw or handle not found
-        //    throw new KeyNotFoundException($"Equipment with index '{equipment.Index}' not found.");
-        //}
-
         public async Task DeleteByIndex(string index)
         {
             var result = await _collection.DeleteOneAsync(e => e.Index == index);

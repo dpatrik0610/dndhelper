@@ -91,8 +91,6 @@ namespace dndhelper.Services
             return saved!;
         }
 
-        // --- SRD import (superadmin; the controller enforces the role). Lands in core content. ---
-
         public async Task<List<SrdMonsterEntry>> GetSrdCatalogAsync(string ruleset)
         {
             EnsureRuleset(ruleset);

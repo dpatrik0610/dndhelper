@@ -148,7 +148,6 @@ namespace dndhelper.Services
             }
         }
 
-        // Atomic Quest Objectives Management
         public async Task<Quest?> AddObjectiveAsync(string questId, QuestObjective objective)
         {
             Guard.NotNullOrWhiteSpace(questId, nameof(questId));
@@ -163,7 +162,6 @@ namespace dndhelper.Services
                 objective.Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString();
             }
 
-            // Automate completion check
             if (objective.CurrentProgress >= objective.CompletionThreshold)
             {
                 objective.IsCompleted = true;
@@ -194,7 +192,6 @@ namespace dndhelper.Services
             existingObj.CurrentProgress = objective.CurrentProgress;
             existingObj.CompletionThreshold = objective.CompletionThreshold;
 
-            // Automate completion check
             if (existingObj.CurrentProgress >= existingObj.CompletionThreshold)
             {
                 existingObj.IsCompleted = true;
@@ -218,7 +215,7 @@ namespace dndhelper.Services
 
             var existingObj = quest.Objectives.FirstOrDefault(o => string.Equals(o.Id, objectiveId, StringComparison.Ordinal));
             if (existingObj == null)
-                return quest; // Return unmodified quest if objective not found
+                return quest;
 
             quest.Objectives.Remove(existingObj);
 
@@ -240,27 +237,21 @@ namespace dndhelper.Services
             if (string.IsNullOrEmpty(userId))
                 throw new UnauthorizedAccessException("User is not authenticated.");
 
-            // System Admins can manage everything
             if (_user.IsInRole("Admin"))
                 return;
 
-            // Get the campaign's DM IDs
             var dmIds = await _campaignService.GetCampaignDMIdsAsync(quest.CampaignId);
             bool isDm = dmIds != null && dmIds.Contains(userId);
 
-            // If the user is a DM of the campaign, they can manage all quests
             if (isDm)
                 return;
 
-            // Otherwise, if the quest is NOT personal, non-DMs cannot manage it
             if (quest.Type != QuestType.Personal)
                 throw new UnauthorizedAccessException($"Only campaign DMs can {operation} non-personal campaign quests.");
 
-            // For personal quests, let's verify if the user owns at least one of the involved characters
             if (quest.InvolvedCharacterIds == null || !quest.InvolvedCharacterIds.Any())
                 throw new UnauthorizedAccessException($"Personal quests must be linked to at least one involved character.");
 
-            // Check character ownership and verify campaign membership
             bool ownsCharacter = false;
             foreach (var charId in quest.InvolvedCharacterIds)
             {

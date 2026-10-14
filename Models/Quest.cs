@@ -26,7 +26,6 @@ namespace dndhelper.Models
         public List<string> RewardItemIds { get; set; } = new();
         public List<Currency> RewardCurrencies { get; set; } = new();
 
-        // METADATA
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public bool IsDeleted { get; set; }

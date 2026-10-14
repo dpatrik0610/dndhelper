@@ -149,11 +149,9 @@ namespace dndhelper.Services
             var character = await _repository.GetByIdAsync(characterId);
             if (character == null) return false;
 
-            // Recover all hit points and temporary hit points
             character.HitPoints = character.MaxHitPoints;
             character.TemporaryHitPoints = 0;
 
-            // Recover all spell slots
             foreach (var slot in character.SpellSlots)
             {
                 slot.Current = slot.Max;

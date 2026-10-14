@@ -21,7 +21,6 @@ namespace dndhelper.Repositories.Interfaces
         Task<long> CountAsync();
         Task<PagedResult<T>> GetAllPaginatedAsync(int page, int pageSize);
 
-        // Cache management
         void AddToCache(T entity);
         T? GetFromCache(string id);
         void UpdateCache(T entity);

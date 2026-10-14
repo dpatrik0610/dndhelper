@@ -115,8 +115,6 @@ namespace dndhelper.Database.Migrations
             return m;
         }
 
-        // ---------- _copy ----------
-
         private BsonDocument Resolve(BsonDocument doc, int depth)
         {
             if (doc.GetValue("_copy", BsonNull.Value) is not BsonDocument copy || depth > 10)
@@ -249,8 +247,6 @@ namespace dndhelper.Database.Migrations
         }
 
         private void Skip(string what) => Unsupported[what] = Unsupported.GetValueOrDefault(what) + 1;
-
-        // ---------- fields ----------
 
         private static void MapType(BsonValue type, Monster m)
         {
@@ -422,8 +418,6 @@ namespace dndhelper.Database.Migrations
             var words = letters.Select(Word).ToList();
             return words.Distinct().Count() == 1 ? words[0] : string.Join(" ", words);
         }
-
-        // ---------- rules text ----------
 
         private static List<MonsterFeature> Features(BsonDocument d, string field) =>
             (d.GetValue(field, BsonNull.Value) as BsonArray ?? new BsonArray()).OfType<BsonDocument>()

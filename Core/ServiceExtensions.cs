@@ -72,7 +72,6 @@ namespace dndhelper.Core
                 logger.Information("MongoDB configured for database {DbName}", databaseName);
                 var context = new MongoDbContext(connectionString, databaseName, logger);
 
-                // Seed default rule categories if empty
                 try
                 {
                     RuleCategoriesSeeder.SeedDefaultCategoriesAsync(context, logger).GetAwaiter().GetResult();
@@ -98,7 +97,6 @@ namespace dndhelper.Core
                 throw new InvalidOperationException("JWT signing key not configured (Jwt__Key).");
             }
 
-            // Authentication
             services.AddHttpContextAccessor();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IAuthService, AuthService>();
@@ -138,7 +136,6 @@ namespace dndhelper.Core
                 };
             });
 
-            // Authorization
             services.AddAuthorization(options =>
             {
                 options.AddPolicy("OwnershipPolicy", policy =>
@@ -200,7 +197,6 @@ namespace dndhelper.Core
             services.AddScoped<IQuestService, QuestService>();
             services.AddScoped<IPollService, PollService>();
 
-            // Internal services
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
             services.AddScoped<IInternalBaseService<Encounter>, EncounterService>();

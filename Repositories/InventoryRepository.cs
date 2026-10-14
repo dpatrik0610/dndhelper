@@ -33,7 +33,6 @@ namespace dndhelper.Repositories
             if (string.IsNullOrWhiteSpace(inventoryId))
                 throw new ArgumentException("Inventory ID cannot be null or empty", nameof(inventoryId));
 
-            // Use base cache helper
             var cached = GetFromCache(inventoryId);
             if (cached != null) return cached;
 
@@ -106,7 +105,6 @@ namespace dndhelper.Repositories
                 var result = await _collection.UpdateOneAsync(filter, update);
                 if (result.ModifiedCount == 0) return null;
 
-                // Update cache via base class
                 inventory.Items ??= new List<InventoryItem>();
                 inventory.Items.Add(item);
                 UpdateCache(inventory);
@@ -138,7 +136,6 @@ namespace dndhelper.Repositories
 
                 await _collection.UpdateOneAsync(filter, update);
 
-                // Update cache via base class
                 var existing = inventory.Items?.FirstOrDefault(i => i.EquipmentId == item.EquipmentId);
                 if (existing != null) existing.Quantity = item.Quantity;
                 UpdateCache(inventory);
@@ -163,7 +160,6 @@ namespace dndhelper.Repositories
                 var update = Builders<Inventory>.Update.PullFilter(i => i.Items, x => x.EquipmentId == equipmentId);
                 await _collection.UpdateOneAsync(i => i.Id == inventoryId, update);
 
-                // Update cache via base class
                 inventory.Items = inventory.Items?.Where(i => i.EquipmentId != equipmentId).ToList();
                 UpdateCache(inventory);
             }

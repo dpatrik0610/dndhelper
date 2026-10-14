@@ -39,7 +39,6 @@ namespace dndhelper.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public List<string> OwnerIds { get; set; } = new List<string>();
 
-        // Metadata
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;

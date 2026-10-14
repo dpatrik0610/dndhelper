@@ -271,8 +271,6 @@ namespace dndhelper.Models
         public DateTime At { get; set; } = DateTime.UtcNow;
     }
 
-    // ── Hub contracts ──
-
     public record TableRollRequest(string? Label, List<string> Expressions, string? As, bool Private);
 
     public record TableSnapshot(

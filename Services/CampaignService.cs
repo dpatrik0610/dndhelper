@@ -74,7 +74,6 @@ namespace dndhelper.Services
             if (createdCampaign == null || string.IsNullOrEmpty(createdCampaign.Id))
                 throw CustomExceptions.ThrowCustomException(_logger, "Failed to create new campaign.");
 
-            // Add campaign reference to user
             user.CampaignIds ??= new List<string>();
             user.CampaignIds.Add(createdCampaign.Id);
             await _userRepository.UpdateAsync(user);
@@ -96,12 +95,10 @@ namespace dndhelper.Services
 
             var campaign = await Access.EnsureDmAsync(campaignId);
 
-            // Logical delete
             var deleted = await _repository.LogicDeleteAsync(campaignId);
             if (!deleted)
                 throw CustomExceptions.ThrowCustomException(_logger, $"Failed to logically delete campaign: {campaignId}");
 
-            // Remove from user reference
             user.CampaignIds?.Remove(campaignId);
             await _userRepository.UpdateAsync(user);
 
@@ -121,9 +118,7 @@ namespace dndhelper.Services
             return users.Select(x => x.Id).ToList();
         }
 
-        // ------------------------
-        // ACCESS: members read, DMs write. The superadmin sees every campaign.
-        // ------------------------
+        // Members read, DMs write. The superadmin sees every campaign.
         public override async Task<Campaign?> GetByIdAsync(string id)
         {
             var campaign = await _repository.GetByIdAsync(id);
@@ -176,9 +171,6 @@ namespace dndhelper.Services
             return await _repository.UpdateAsync(campaign);
         }
 
-        // ------------------------
-        // MEMBERSHIP
-        // ------------------------
         public async Task<Campaign> JoinAsync(string inviteCode)
         {
             Guard.NotNullOrWhiteSpace(inviteCode, nameof(inviteCode));
@@ -285,9 +277,6 @@ namespace dndhelper.Services
         private static string NewInviteCode() =>
             RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 8);
 
-        // ------------------------
-        // PLAYER MANAGEMENT
-        // ------------------------
         public async Task<List<Character>> GetCharactersAsync(string campaignId)
         {
             List<Character> characters = new List<Character>();
@@ -462,9 +451,6 @@ namespace dndhelper.Services
             return campaign;
         }
 
-        // ------------------------
-        // WORLD MANAGEMENT
-        // ------------------------
         public async Task<Campaign?> AddWorldAsync(string campaignId, string worldId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);
@@ -483,9 +469,6 @@ namespace dndhelper.Services
             return await _repository.UpdateAsync(campaign);
         }
 
-        // ------------------------
-        // QUEST MANAGEMENT
-        // ------------------------
         public async Task<Campaign?> AddQuestAsync(string campaignId, string questId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);
@@ -503,17 +486,6 @@ namespace dndhelper.Services
             campaign.QuestIds.Remove(questId);
             return await _repository.UpdateAsync(campaign);
         }
-
-        // ------------------------
-        // NOTE MANAGEMENT
-        // ------------------------
-
-        //public async Task<List<string>> GetNotes(string campaignId)
-        //{
-        //    List<string> notes = new List<string>();
-        //    var campaign = await _repository.GetByIdAsync(campaignId);
-
-        //    if (campaign == null || campaign.NoteIds.IsNullOrEmpty()) return notes;
 
         //    // TODO: Make notes in db.
         //}
@@ -536,9 +508,6 @@ namespace dndhelper.Services
             return await _repository.UpdateAsync(campaign);
         }
 
-        // ------------------------
-        // SESSION MANAGEMENT
-        // ------------------------
         public async Task<Campaign?> AddSessionAsync(string campaignId, string sessionId)
         {
             var campaign = await _repository.GetByIdAsync(campaignId);

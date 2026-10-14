@@ -24,7 +24,6 @@ namespace dndhelper.Controllers
             _currencyService = currencyService;
         }
 
-        // GET: api/currency/{characterId}
         [HttpGet("{characterId}")]
         public async Task<IActionResult> GetCharacterCurrencies(string characterId)
         {
@@ -32,7 +31,6 @@ namespace dndhelper.Controllers
             return Ok(new { data = currencies, message = "Currencies retrieved successfully." });
         }
 
-        // PUT: api/currency/remove/{characterId}
         [HttpPut("remove/{characterId}")]
         public async Task<IActionResult> RemoveCurrencies(string characterId, [FromBody] List<Currency> currencies)
         {
@@ -40,7 +38,6 @@ namespace dndhelper.Controllers
             return Ok(new { message = "Currencies removed successfully." });
         }
 
-        // PUT: api/currency/transfer/{targetId}
         [HttpPut("transfer/{targetId}")]
         public async Task<IActionResult> TransferCurrencies(string targetId, [FromBody] List<Currency> currencies)
         {
@@ -48,7 +45,6 @@ namespace dndhelper.Controllers
             return Ok(new { message = "Currencies transferred successfully." });
         }
 
-        // PUT: api/currency/inventory/{inventoryId}
         // DM hands out money, so only the DM of the inventory's campaign (or the superadmin).
         [HttpPut("inventory/{inventoryId}")]
         public async Task<IActionResult> AddCurrenciesToInventory(
@@ -62,7 +58,6 @@ namespace dndhelper.Controllers
             return Ok(new { message = "Currencies added to inventory." });
         }
 
-        // PUT: api/currency/inventory/{inventoryId}/remove
         [HttpPut("inventory/{inventoryId}/remove")]
         public async Task<IActionResult> RemoveCurrenciesFromInventory(
             string inventoryId,
@@ -75,7 +70,6 @@ namespace dndhelper.Controllers
             return Ok(new { message = "Currencies removed from inventory." });
         }
 
-        // PUT: api/currency/transfer-between/{fromId}/{toId}
         [Authorize(Roles = "Admin, User")]
         [HttpPut("transfer-between/{fromId}/{toId}")]
         public async Task<IActionResult> TransferBetweenCharacters(string fromId, string toId, [FromBody] List<Currency> currencies)
@@ -84,7 +78,6 @@ namespace dndhelper.Controllers
             return Ok(new { message = "Currencies transferred successfully." });
         }
 
-        // PUT: api/currency/claim/{characterId}/{inventoryId}
         [Authorize(Roles = "Admin, User")]
         [HttpPut("claim/{characterId}/{inventoryId}")]
         public async Task<IActionResult> ClaimFromInventory(string characterId, string inventoryId, [FromBody] List<Currency> currencies)

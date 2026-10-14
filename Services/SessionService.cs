@@ -59,7 +59,6 @@ namespace dndhelper.Services
                 var created = await CreateAsync(session);
                 if (created != null)
                 {
-                    // Attach to campaign session list
                     await _campaignService.AddSessionAsync(created.CampaignId, created.Id);
 
                     if (created.IsLive)
@@ -115,7 +114,6 @@ namespace dndhelper.Services
                 var success = await DeleteAsync(id);
                 if (success)
                 {
-                    // Detach from campaign
                     if (!string.IsNullOrWhiteSpace(existing.CampaignId))
                     {
                         await _campaignService.RemoveSessionAsync(existing.CampaignId, id);

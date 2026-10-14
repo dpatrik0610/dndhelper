@@ -249,7 +249,6 @@ namespace dndhelper.Services
             return updated;
         }
 
-        // Inventory Items
         public async Task<IEnumerable<InventoryItem>> GetItemsAsync(string inventoryId)
         {
             Guard.NotNullOrWhiteSpace(inventoryId, nameof(inventoryId));
@@ -308,7 +307,6 @@ namespace dndhelper.Services
 
             try
             {
-                // If inventory contains the item, increment quantity by amount.
                 var existing = inventory.Items?.Find(x => x.EquipmentId == equipmentId);
                 if (existing != null)
                 {
@@ -317,7 +315,6 @@ namespace dndhelper.Services
                     return existing;
                 }
 
-                // If inventory does not contain it yet:
                 var newInventoryItem = new InventoryItem()
                 {
                     EquipmentId = equipment.Id,

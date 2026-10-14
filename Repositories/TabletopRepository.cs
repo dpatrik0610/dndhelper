@@ -78,7 +78,7 @@ namespace dndhelper.Repositories
         public Task ReplaceAsync(Tabletop table) =>
             _collection.ReplaceOneAsync(t => t.Id == table.Id, table);
 
-        // ── Images (GridFS, legacy: new uploads go to R2) ──
+        // Images: GridFS is legacy, new uploads go to R2.
 
         public async Task<(Stream Content, string ContentType)?> OpenImageAsync(string id)
         {

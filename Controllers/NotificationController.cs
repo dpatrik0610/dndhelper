@@ -12,7 +12,7 @@ namespace dndhelper.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Optional: require authentication
+    [Authorize]
     public class NotificationController : ControllerBase
     {
         private readonly IHubContext<NotificationHub> _hubContext;
@@ -38,12 +38,10 @@ namespace dndhelper.Controllers
                 timestamp = DateTime.UtcNow
             };
 
-            // Send to specific users
             if (request.UserIds != null && request.UserIds.Any())
             {
                 _logger.Information("🎯 Sending notification to {Count} specific users", request.UserIds.Count);
 
-                // Send to each user's group
                 var tasks = request.UserIds.Select(userId =>
                 {
                     _logger.Debug("  → Targeting group: user_{UserId}", userId);
@@ -61,7 +59,6 @@ namespace dndhelper.Controllers
                 });
             }
 
-            // Send to all users
             _logger.Information("📢 Broadcasting notification to ALL users");
             await _hubContext.Clients.All.SendAsync("ReceiveNotification", notificationData);
 
@@ -86,7 +83,6 @@ namespace dndhelper.Controllers
             {
                 _logger.Information("📢 Broadcasting notification to all EXCEPT {Count} users", request.UserIds.Count);
 
-                // Get all group names to exclude
                 var excludeGroups = request.UserIds.Select(id => $"user_{id}").ToList();
 
                 await _hubContext.Clients.AllExcept(excludeGroups)

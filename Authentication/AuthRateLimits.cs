@@ -39,7 +39,6 @@ namespace dndhelper.Authentication
                         QueueLimit = 0,
                     }));
 
-                // 10 new accounts per hour per IP.
                 options.AddPolicy(Register, http => RateLimitPartition.GetFixedWindowLimiter(ClientIp(http),
                     _ => new FixedWindowRateLimiterOptions
                     {

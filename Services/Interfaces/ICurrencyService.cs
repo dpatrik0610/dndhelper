@@ -15,7 +15,6 @@ namespace dndhelper.Services.Interfaces
         Task TransferBetweenCharacters(string fromId, string toId, List<Currency> currencies);
         Task ClaimFromInventory(string characterId, string inventoryId, List<Currency> currencies);
 
-        // Orchestration helpers (include notifications)
         Task RemoveCurrencyFromCharacterAndNotifyAsync(string characterId, List<Currency> currencies);
         Task TransferManyToCharacterAndNotifyAsync(string targetId, List<Currency> currencies);
         Task AddCurrenciesToInventoryAndNotifyAsync(string inventoryId, List<Currency> currencies);

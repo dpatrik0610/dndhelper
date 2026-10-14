@@ -117,21 +117,16 @@ namespace dndhelper.Services
 
             var equipment = await _equipmentRepository.GetByIdAsync(equipmentId) ?? throw new KeyNotFoundException("Equipment specifications not found.");
             
-            // Convert GP to SP base value using integer math
             int baseCostSp = ConvertCostToSilver(equipment.Cost); 
             int totalCostSp = (int)Math.Round(baseCostSp * shop.PriceMultiplier * quantity);
 
-            // Combined wallet gold/silver pool validation
             _currencyService.ValidateCharacterHasFunds(character, totalCostSp);
 
-            // Deduct character funds
             _currencyService.DeductAndConsolidateCurrency(character, totalCostSp);
             character = await _characterRepository.UpdateAsync(character) ?? character;
 
-            // Add currency to shop register
             _currencyService.AddCurrencyToInventory(shopInventory, totalCostSp);
 
-            // Transfer item quantity from shop to character
             if (shopItem.Quantity.HasValue) 
             {
                 shopItem.Quantity -= quantity;
@@ -145,7 +140,6 @@ namespace dndhelper.Services
             string playerInventoryId = character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.");
             var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId) ?? throw new KeyNotFoundException("Player bag not found.");
             
-            // Add item to player inventory bag
             var existingItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == equipmentId);
             if (existingItem != null)
             {
@@ -158,7 +152,6 @@ namespace dndhelper.Services
             }
             await _inventoryRepository.UpdateAsync(playerInventory);
 
-            // Broadcast real-time updates over SignalR
             await BroadcastCharacterChangeAsync(character, "updated", character);
             await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
             await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
@@ -187,7 +180,6 @@ namespace dndhelper.Services
 
             if (request.IsSteal)
             {
-                // STEAL FLOW: Verify item exists in Shop stock before submitting attempt
                 var shop = await _repository.GetByIdAsync(request.ShopId)
                     ?? throw new KeyNotFoundException("Shop not found.");
 
@@ -200,7 +192,6 @@ namespace dndhelper.Services
                     throw new InvalidOperationException("The shop has insufficient stock of this item to steal.");
                 }
 
-                // Set OfferedPriceGp to 0 for steal requests
                 request.OfferedPriceGp = 0;
 
                 var created = await _sellRequestRepository.CreateAsync(request);
@@ -209,7 +200,6 @@ namespace dndhelper.Services
             }
             else
             {
-                // STANDARD SELL FLOW: Escrow item from Player bag
                 string playerInventoryId;
                 Inventory playerInventory;
                 InventoryItem? bagItem = null;
@@ -229,7 +219,6 @@ namespace dndhelper.Services
                 }
                 else
                 {
-                    // Fallback search: try to find an inventory owned by the character that actually has the item
                     playerInventoryId = "";
                     playerInventory = null!;
 
@@ -264,7 +253,6 @@ namespace dndhelper.Services
                         bagItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
                     }
 
-                    // Update request with the selected source inventory ID
                     request.SourceInventoryId = playerInventoryId;
                 }
 
@@ -273,7 +261,6 @@ namespace dndhelper.Services
                     throw new InvalidOperationException("Character has insufficient item stock to sell.");
                 }
 
-                // Escrow item immediately: deduct from player bag
                 bagItem.Quantity -= request.Quantity;
                 if (bagItem.Quantity <= 0) 
                 {
@@ -283,7 +270,6 @@ namespace dndhelper.Services
                 await _inventoryRepository.UpdateAsync(playerInventory);
                 var created = await _sellRequestRepository.CreateAsync(request);
 
-                // Broadcast escrow update
                 await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
 
                 return created;
@@ -340,14 +326,12 @@ namespace dndhelper.Services
             {
                 if (approve)
                 {
-                    // APPROVED STEAL: Deduct item from Shop stock and move to player inventory (free of charge)
                     var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
                     if (shopItem == null || (shopItem.Quantity ?? 0) < request.Quantity)
                     {
                         throw new InvalidOperationException("The shop no longer has sufficient stock of this item to steal.");
                     }
 
-                    // Deduct from shop stock
                     shopItem.Quantity -= request.Quantity;
                     if (shopItem.Quantity <= 0)
                     {
@@ -355,7 +339,6 @@ namespace dndhelper.Services
                     }
                     await _inventoryRepository.UpdateAsync(shopInventory);
 
-                    // Add to player inventory bag
                     string playerInventoryId = string.IsNullOrEmpty(request.SourceInventoryId)
                         ? character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.")
                         : request.SourceInventoryId;
@@ -376,7 +359,6 @@ namespace dndhelper.Services
                     }
                     await _inventoryRepository.UpdateAsync(playerInventory);
 
-                    // Broadcast both updates
                     await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
                     await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
                 }
@@ -388,19 +370,16 @@ namespace dndhelper.Services
             }
             else
             {
-                // STANDARD SELL APPROVAL / REJECTION
                 if (approve)
                 {
-                    // 1. Pay Player
                     int priceSp = (int)Math.Round(request.OfferedPriceGp * 100);
                     _currencyService.AddAndConsolidateCurrency(character, priceSp);
                     character = await _characterRepository.UpdateAsync(character) ?? character;
 
-                    // 2. Deduct from Shop Register Till (DMs register can go negative!)
+                    // The shop register may go negative.
                     _currencyService.RemoveCurrencyFromInventory(shopInventory, priceSp, allowNegative: true);
                     await _inventoryRepository.UpdateAsync(shopInventory);
 
-                    // 3. Move escrowed item into Shop Stock
                     var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId);
                     if (shopItem != null)
                     {
@@ -414,13 +393,11 @@ namespace dndhelper.Services
                     }
                     await _inventoryRepository.UpdateAsync(shopInventory);
 
-                    // Broadcast
                     await BroadcastCharacterChangeAsync(character, "updated", character);
                     await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
                 }
                 else
                 {
-                    // Rejected: Return escrowed item to Player bag
                     string playerInventoryId = string.IsNullOrEmpty(request.SourceInventoryId) 
                         ? character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.")
                         : request.SourceInventoryId;
@@ -441,7 +418,6 @@ namespace dndhelper.Services
                     }
                     await _inventoryRepository.UpdateAsync(playerInventory);
 
-                    // Broadcast
                     await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
                 }
             }
@@ -482,7 +458,6 @@ namespace dndhelper.Services
                 var equipmentData = equipments.FirstOrDefault(e => e.Id == item.EquipmentId);
                 if (equipmentData == null) continue;
 
-                // Calculate cost in Silver Pieces (sp) using the shop's multiplier
                 int baseCostSp = ConvertCostToSilver(equipmentData.Cost);
                 
                 int finalCostSp = (int)Math.Round(baseCostSp * shop.PriceMultiplier);

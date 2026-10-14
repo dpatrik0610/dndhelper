@@ -206,8 +206,6 @@ namespace dndhelper.Authentication
             _logger.Information("Password reset successfully for user {Username}", user.Username);
         }
 
-        // --- Private Helpers ---
-
         private void ValidateCredentials(string username, string password)
         {
             if (string.IsNullOrWhiteSpace(username))
@@ -232,14 +230,12 @@ namespace dndhelper.Authentication
                 new Claim("IsActive", user.IsActive.ToString())
             };
 
-            // Add one role claim per role
             if (user.Roles != null && user.Roles.Any())
             {
                 claims.AddRange(user.Roles.Select(r => new Claim(ClaimTypes.Role, r.ToString())));
             }
             else
             {
-                // Default to Player if no roles are assigned
                 claims.Add(new Claim(ClaimTypes.Role, UserRole.User.ToString()));
             }
 

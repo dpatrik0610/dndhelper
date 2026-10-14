@@ -20,7 +20,6 @@ namespace dndhelper.Controllers
             _logger = logger;
         }
 
-        // GET: api/cache/info
         [HttpGet("info")]
         [Authorize(Roles = "Admin")]
         public IActionResult Info()
@@ -34,17 +33,14 @@ namespace dndhelper.Controllers
             return Ok(new { collections = grouped, total = keys.Count });
         }
 
-        // DELETE: api/cache
         [HttpDelete]
         [Authorize(Roles = "Admin")]
         public IActionResult ClearAll()
         {
             var keys = _cacheService.GetAllKeys();
 
-            // Clear items from actual IMemoryCache
             _cacheService.ClearAllFromCache();
 
-            // Clear tracked key index
             _cacheService.ClearAllTracked();
 
             return Ok(new { removed = keys, count = keys.Count });

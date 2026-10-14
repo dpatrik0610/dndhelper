@@ -24,7 +24,6 @@ namespace dndhelper.Controllers
             _logger = logger;
         }
 
-        // GET: api/note/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
@@ -43,7 +42,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // GET: api/note/many?ids=1,2,3
         [HttpGet("many")]
         public async Task<IActionResult> GetMany([FromQuery] string ids)
         {
@@ -64,7 +62,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // POST: api/note
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Note note)
         {
@@ -86,7 +83,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // PUT: api/note/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] Note updatedNote)
         {
@@ -111,7 +107,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // DELETE: api/note/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {

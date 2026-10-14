@@ -26,10 +26,6 @@ namespace dndhelper.Services
             _campaignRepository = Guard.NotNull(campaignRepository, nameof(campaignRepository));
         }
 
-        // ------------------------
-        // SUPERADMIN USER MANAGEMENT (UserController restricts these to the Admin role)
-        // ------------------------
-
         /// <summary>Every user with their characters and campaign memberships, without password hashes.</summary>
         // ponytail: loads every user, character and campaign per call; page it when the site outgrows that.
         public async Task<List<AdminUserDto>> GetAdminOverviewAsync()
@@ -141,7 +137,6 @@ namespace dndhelper.Services
             Campaigns = campaigns,
         };
 
-        // Create
         public override async Task<User?> CreateAsync(User user)
         {
             if (user == null)
@@ -158,7 +153,6 @@ namespace dndhelper.Services
             return createdUser;
         }
 
-        // Read
         public async Task<User> GetSelfAsync(string userId)
         {
             if (string.IsNullOrWhiteSpace(userId))
@@ -226,10 +220,6 @@ namespace dndhelper.Services
             }
             return null;
         }
-
-        // ------------------------
-        // THEME CRITTERS
-        // ------------------------
 
         // The critters in the frontend's ThemeCritter.tsx; keep the two lists in step. The name becomes a Mongo
         // field path, so anything else is refused.

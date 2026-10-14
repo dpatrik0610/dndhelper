@@ -90,10 +90,6 @@ namespace dndhelper.Services
             _logger = Guard.NotNull(logger, nameof(logger));
         }
 
-        // ──────────────────────────────────────────────
-        // Join
-        // ──────────────────────────────────────────────
-
         public async Task<string> OpenForCampaignAsync(TableCaller caller, string campaignId)
         {
             if (!ObjectId.TryParse(campaignId, out _)) throw Fail("Pick a campaign.");
@@ -127,10 +123,6 @@ namespace dndhelper.Services
                 table.Fog,
                 isDm ? table.Log : table.Log.Where(l => !l.Private).ToList());
         }
-
-        // ──────────────────────────────────────────────
-        // Tokens
-        // ──────────────────────────────────────────────
 
         public Task MoveTokenAsync(TableContext ctx, string tokenId, double x, double y, int distanceFt) =>
             Change(ctx.TableId, t =>
@@ -300,10 +292,6 @@ namespace dndhelper.Services
                 };
             });
 
-        // ──────────────────────────────────────────────
-        // Grid & map
-        // ──────────────────────────────────────────────
-
         public Task UpdateGridAsync(TableContext ctx, GridSettings grid)
         {
             RequireDm(ctx);
@@ -336,10 +324,6 @@ namespace dndhelper.Services
             // Orphans pile up in R2; sweep images no table or encounter references if that ever matters.
             return Change(ctx.TableId, t => t.Map = next);
         }
-
-        // ──────────────────────────────────────────────
-        // Turn order
-        // ──────────────────────────────────────────────
 
         public Task StartCombatAsync(TableContext ctx)
         {
@@ -426,10 +410,6 @@ namespace dndhelper.Services
             token.Effects.RemoveAll(e => e.Remaining <= 0);
         }
 
-        // ──────────────────────────────────────────────
-        // Drawings
-        // ──────────────────────────────────────────────
-
         public Task AddStrokeAsync(TableContext ctx, TableStroke input)
         {
             Guard.NotNull(input, nameof(input));
@@ -464,10 +444,6 @@ namespace dndhelper.Services
             RequireDm(ctx);
             return Change(ctx.TableId, t => t.Strokes.Clear(), t => SendAll(t, "StrokesCleared"));
         }
-
-        // ──────────────────────────────────────────────
-        // AoE templates
-        // ──────────────────────────────────────────────
 
         public Task AddTemplateAsync(TableContext ctx, AoeTemplate input)
         {
@@ -529,10 +505,6 @@ namespace dndhelper.Services
             return Change(ctx.TableId, t => t.Templates.Clear());
         }
 
-        // ──────────────────────────────────────────────
-        // Fog of war
-        // ──────────────────────────────────────────────
-
         public Task SetFogEnabledAsync(TableContext ctx, bool enabled)
         {
             RequireDm(ctx);
@@ -588,10 +560,6 @@ namespace dndhelper.Services
                 }
             }, SendFog);
         }
-
-        // ──────────────────────────────────────────────
-        // Rolls & room
-        // ──────────────────────────────────────────────
 
         public async Task<TableLogEntry> RollAsync(TableContext ctx, TableRollRequest request)
         {
@@ -669,10 +637,7 @@ namespace dndhelper.Services
             return table.JoinCode;
         }
 
-        // ──────────────────────────────────────────────
-        // Encounters: each one is a campaign Encounter with the board stored on it
-        // ──────────────────────────────────────────────
-
+        // Each encounter is a campaign Encounter with the board stored on it.
         public async Task<List<TableEncounterSummary>> ListEncountersAsync(TableContext ctx)
         {
             RequireDm(ctx);
@@ -849,10 +814,6 @@ namespace dndhelper.Services
                     t.Fog,
                     t.Log.Where(l => !l.Private).ToList())));
 
-        // ──────────────────────────────────────────────
-        // Character sync
-        // ──────────────────────────────────────────────
-
         public async Task SyncCharacterAsync(Character character)
         {
             if (character?.Id == null || string.IsNullOrEmpty(character.CampaignId)) return;
@@ -972,10 +933,6 @@ namespace dndhelper.Services
                 excludeUserId: ctx.UserId);
         }
 
-        // ──────────────────────────────────────────────
-        // Images
-        // ──────────────────────────────────────────────
-
         public async Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName, StorageFolder folder)
         {
             if (folder is not (StorageFolder.Maps or StorageFolder.Tokens))
@@ -1032,10 +989,6 @@ namespace dndhelper.Services
         /// <summary>Legacy: images uploaded before R2 still live in GridFS and keep their /api/tabletop/images/{id} URLs.</summary>
         public Task<(Stream Content, string ContentType)?> OpenImageAsync(string imageId) =>
             _repository.OpenImageAsync(imageId);
-
-        // ──────────────────────────────────────────────
-        // Plumbing
-        // ──────────────────────────────────────────────
 
         private Task<Tabletop> Change(string tableId, Action<Tabletop> apply, Func<Tabletop, Task>? announce = null) =>
             ChangeAsync(tableId, t =>

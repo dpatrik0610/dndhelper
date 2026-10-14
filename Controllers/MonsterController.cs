@@ -70,8 +70,6 @@ namespace dndhelper.Controllers
             return Ok(await _monsters.UploadImageAsync(id, content, file.FileName));
         }
 
-        // --- SRD (dnd5eapi.co) import into core content: superadmin only ---
-
         /// <summary>ruleset: 2014 (SRD 5.1) or 2024 (SRD 5.2). Flags names already in the bestiary.</summary>
         [Authorize(Roles = "Admin")]
         [HttpGet("srd/{ruleset}")]

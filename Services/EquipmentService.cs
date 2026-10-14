@@ -15,7 +15,7 @@ namespace dndhelper.Services
 {
     public class EquipmentService : BaseService<Equipment, IEquipmentRepository>, IEquipmentService
     {
-        private readonly IPublicDndApiClient _apiClient;  // Wrapper for Official DnD API calls.
+        private readonly IPublicDndApiClient _apiClient;
 
         public EquipmentService(IEquipmentRepository repository, IPublicDndApiClient apiClient, ILogger logger, IAuthorizationService authorizationService,
         IHttpContextAccessor httpContextAccessor) : base(repository, logger, authorizationService, httpContextAccessor)

@@ -23,7 +23,6 @@ namespace dndhelper.Controllers
             _logger = logger;
         }
 
-        // GET: api/quest/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
@@ -45,7 +44,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // GET: api/quest/campaign/{campaignId}
         [HttpGet("campaign/{campaignId}")]
         public async Task<IActionResult> GetByCampaignId(string campaignId)
         {
@@ -64,7 +62,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // POST: api/quest
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Quest quest)
         {
@@ -86,7 +83,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // PUT: api/quest/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] Quest quest)
         {
@@ -111,7 +107,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // DELETE: api/quest/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
@@ -133,7 +128,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // POST: api/quest/{questId}/objective
         [HttpPost("{questId}/objective")]
         public async Task<IActionResult> AddObjective(string questId, [FromBody] QuestObjective objective)
         {
@@ -158,7 +152,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // PUT: api/quest/{questId}/objective
         [HttpPut("{questId}/objective")]
         public async Task<IActionResult> UpdateObjective(string questId, [FromBody] QuestObjective objective)
         {
@@ -183,7 +176,6 @@ namespace dndhelper.Controllers
             }
         }
 
-        // DELETE: api/quest/{questId}/objective/{objectiveId}
         [HttpDelete("{questId}/objective/{objectiveId}")]
         public async Task<IActionResult> DeleteObjective(string questId, string objectiveId)
         {

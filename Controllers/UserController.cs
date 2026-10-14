@@ -30,7 +30,6 @@ namespace dndhelper.Controllers
             _hub = hub ?? throw new ArgumentNullException(nameof(hub));
         }
 
-        // GET: api/user/me
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetSelf()
@@ -117,7 +116,6 @@ namespace dndhelper.Controllers
         public async Task<ActionResult<List<AdminUserDto>>> GetAll() =>
             Ok(await _userService.GetAdminOverviewAsync());
 
-        // POST: api/user
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<AdminUserDto>> Create([FromBody] AdminUserRequest request) =>
@@ -129,7 +127,6 @@ namespace dndhelper.Controllers
         public async Task<ActionResult<AdminUserDto>> Update(string id, [FromBody] AdminUserRequest request) =>
             Ok(await _userService.AdminUpdateAsync(id, request));
 
-        // DELETE: api/user/{id}
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(string id)
@@ -139,7 +136,6 @@ namespace dndhelper.Controllers
             return NoContent();
         }
 
-        // PATCH: api/user/{id}/logic-delete
         [HttpPatch("{id}/logic-delete")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> LogicDelete(string id)
