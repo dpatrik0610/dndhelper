@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 namespace dndhelper.Utils
@@ -39,63 +40,31 @@ namespace dndhelper.Utils
         #endregion
 
 
-        #region Numeric - Non-negative / Greater than zero
+        #region Numeric
 
-        public static int NotNegative(int value,
-            [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        public static T NotNegative<T>(T value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null) where T : INumber<T>
         {
-            if (value < 0)
-                throw new ArgumentOutOfRangeException(paramName, "Value cannot be negative.");
+            if (value < T.Zero)
+                throw new ArgumentOutOfRangeException(paramName, value, "Value cannot be negative.");
 
             return value;
         }
 
-        public static decimal NotNegative(decimal value,
-            [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        public static T GreaterThanZero<T>(T value,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null) where T : INumber<T>
         {
-            if (value < 0)
-                throw new ArgumentOutOfRangeException(paramName, "Value cannot be negative.");
+            if (value <= T.Zero)
+                throw new ArgumentOutOfRangeException(paramName, value, "Value must be greater than zero.");
 
             return value;
         }
 
-        public static int GreaterThanZero(int value,
-            [CallerArgumentExpression(nameof(value))] string? paramName = null)
-        {
-            if (value <= 0)
-                throw new ArgumentOutOfRangeException(paramName, "Value must be greater than zero.");
-
-            return value;
-        }
-
-        public static decimal GreaterThanZero(decimal value,
-            [CallerArgumentExpression(nameof(value))] string? paramName = null)
-        {
-            if (value <= 0)
-                throw new ArgumentOutOfRangeException(paramName, "Value must be greater than zero.");
-
-            return value;
-        }
-
-        #endregion
-
-
-        #region Numeric - Range checks
-
-        public static int InRange(int value, int min, int max,
-            [CallerArgumentExpression(nameof(value))] string? paramName = null)
+        public static T InRange<T>(T value, T min, T max,
+            [CallerArgumentExpression(nameof(value))] string? paramName = null) where T : INumber<T>
         {
             if (value < min || value > max)
-                throw new ArgumentOutOfRangeException(paramName, $"Value must be between {min} and {max}.");
-
-            return value;
-        }
-
-        public static decimal InRange(decimal value, decimal min, decimal max,
-            [CallerArgumentExpression(nameof(value))] string? paramName = null)
-        {
-            if (value < min || value > max)
-                throw new ArgumentOutOfRangeException(paramName, $"Value must be between {min} and {max}.");
+                throw new ArgumentOutOfRangeException(paramName, value, $"Value must be between {min} and {max}.");
 
             return value;
         }
@@ -120,7 +89,7 @@ namespace dndhelper.Utils
 
         #region Custom predicate
 
-        public static void That(bool condition, string message, string paramName = "value")
+        public static void That(bool condition, string message, string? paramName = null)
         {
             if (!condition)
                 throw new ArgumentException(message, paramName);
