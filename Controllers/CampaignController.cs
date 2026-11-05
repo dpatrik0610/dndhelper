@@ -257,30 +257,6 @@ namespace dndhelper.Controllers
             return result == null ? NotFound() : Ok(result);
         }
 
-        [HttpPost("{id}/sessions/{sessionId}")]
-        public async Task<IActionResult> AddSession(string id, string sessionId)
-        {
-            await _access.EnsureDmAsync(id);
-            var result = await _campaignService.AddSessionAsync(id, sessionId);
-            return result == null ? NotFound() : Ok(result);
-        }
-
-        [HttpDelete("{id}/sessions/{sessionId}")]
-        public async Task<IActionResult> RemoveSession(string id, string sessionId)
-        {
-            await _access.EnsureDmAsync(id);
-            var result = await _campaignService.RemoveSessionAsync(id, sessionId);
-            return result == null ? NotFound() : Ok(result);
-        }
-
-        [HttpPut("{id}/current-session/{sessionId}")]
-        public async Task<IActionResult> SetCurrentSession(string id, string sessionId)
-        {
-            await _access.EnsureDmAsync(id);
-            var result = await _campaignService.SetCurrentSessionAsync(id, sessionId);
-            return result == null ? NotFound() : Ok(result);
-        }
-
         [HttpPut("{id}/active-encounter/{encounterId}")]
         public async Task<IActionResult> SetActiveEncounter(string id, string encounterId)
         {

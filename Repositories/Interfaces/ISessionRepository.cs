@@ -6,6 +6,7 @@ namespace dndhelper.Repositories.Interfaces
 {
     public interface ISessionRepository : IRepository<Session>
     {
-        Task<IEnumerable<Session>> GetByCampaignIdAsync(string campaignId);
+        Task<List<Session>> GetByCampaignIdAsync(string campaignId);
+        Task<Session> ReplaceAsync(Session session);
     }
 }

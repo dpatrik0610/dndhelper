@@ -2,8 +2,6 @@ using dndhelper.Models;
 using dndhelper.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Serilog;
-using System;
 using System.Threading.Tasks;
 
 namespace dndhelper.Controllers
@@ -13,114 +11,54 @@ namespace dndhelper.Controllers
     [Route("api/[controller]")]
     public class SessionController : ControllerBase
     {
-        private readonly ISessionService _sessionService;
-        private readonly ILogger _logger;
+        private readonly ISessionService _sessions;
 
-        public SessionController(
-            ISessionService sessionService,
-            ILogger logger)
+        public SessionController(ISessionService sessions)
         {
-            _sessionService = sessionService;
-            _logger = logger;
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                return BadRequest(new { message = "Session ID is required." });
-
-            var session = await _sessionService.GetByIdAsync(id);
-            if (session == null)
-                return NotFound(new { message = "Session not found." });
-
-            return Ok(session);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var sessions = await _sessionService.GetAllAsync();
-            return Ok(sessions);
+            _sessions = sessions;
         }
 
         [HttpGet("campaign/{campaignId}")]
-        public async Task<IActionResult> GetByCampaign(string campaignId)
-        {
-            if (string.IsNullOrWhiteSpace(campaignId))
-                return BadRequest(new { message = "Campaign ID is required." });
+        public async Task<IActionResult> GetByCampaign(string campaignId) =>
+            Ok(await _sessions.GetByCampaignIdAsync(campaignId));
 
-            var sessions = await _sessionService.GetByCampaignIdAsync(campaignId);
-            return Ok(sessions);
-        }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(string id) =>
+            Ok(await _sessions.GetVisibleAsync(id));
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Session session)
         {
-            if (session == null)
-                return BadRequest(new { message = "Session payload is required." });
-
-            try
-            {
-                var created = await _sessionService.CreateAndNotifyAsync(session);
-                if (created == null)
-                    return StatusCode(500, new { message = "Failed to create session." });
-
-                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error creating session");
-                return StatusCode(500, new { message = ex.Message });
-            }
+            var created = await _sessions.CreateAndNotifyAsync(session);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] Session session)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                return BadRequest(new { message = "Session ID is required." });
+        public async Task<IActionResult> Update(string id, [FromBody] Session session) =>
+            Ok(await _sessions.UpdateDetailsAsync(id, session));
 
-            if (session == null)
-                return BadRequest(new { message = "Session payload is required." });
+        [HttpPost("{id}/start")]
+        public async Task<IActionResult> Start(string id) =>
+            Ok(await _sessions.StartAsync(id));
 
-            session.Id = id;
-
-            try
-            {
-                var updated = await _sessionService.UpdateAndNotifyAsync(id, session);
-                if (updated == null)
-                    return NotFound(new { message = "Session not found." });
-
-                return Ok(updated);
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error updating session {SessionId}", id);
-                return StatusCode(500, new { message = ex.Message });
-            }
-        }
+        [HttpPost("{id}/end")]
+        public async Task<IActionResult> End(string id) =>
+            Ok(await _sessions.EndAsync(id));
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                return BadRequest(new { message = "Session ID is required." });
+        public async Task<IActionResult> Delete(string id) =>
+            await _sessions.DeleteAndNotifyAsync(id) ? NoContent() : NotFound(new { message = "Session not found." });
 
-            try
-            {
-                var success = await _sessionService.DeleteAndNotifyAsync(id);
-                if (!success)
-                    return NotFound(new { message = "Session not found." });
+        [HttpPost("{id}/notes")]
+        public async Task<IActionResult> AddNote(string id, [FromBody] SessionNoteInput note) =>
+            Ok(await _sessions.AddNoteAsync(id, note));
 
-                return NoContent();
-            }
-            catch (Exception ex) when (ex is not UnauthorizedAccessException)
-            {
-                _logger.Error(ex, "Error deleting session {SessionId}", id);
-                return StatusCode(500, new { message = ex.Message });
-            }
-        }
+        [HttpPut("{id}/notes/{noteId}")]
+        public async Task<IActionResult> UpdateNote(string id, string noteId, [FromBody] SessionNoteInput note) =>
+            Ok(await _sessions.UpdateNoteAsync(id, noteId, note));
 
+        [HttpDelete("{id}/notes/{noteId}")]
+        public async Task<IActionResult> DeleteNote(string id, string noteId) =>
+            Ok(await _sessions.DeleteNoteAsync(id, noteId));
     }
 }

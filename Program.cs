@@ -88,6 +88,9 @@ using (var scope = app.Services.CreateScope())
             try { scope.ServiceProvider.GetRequiredService(type); }
             catch (Exception ex) { Log.Warning(ex, "Warm-up failed for {Repository}", type.Name); }
         }
+
+        try { await scope.ServiceProvider.GetRequiredService<dndhelper.Database.Migrations.SessionModelMigration>().RunAsync(); }
+        catch (Exception ex) { Log.Error(ex, "Session model migration failed"); }
     }
     else
     {

@@ -6,9 +6,15 @@ namespace dndhelper.Services.Interfaces
 {
     public interface ISessionService : IBaseService<Session>, IInternalBaseService<Session>
     {
-        Task<Session?> CreateAndNotifyAsync(Session session);
-        Task<Session?> UpdateAndNotifyAsync(string id, Session session);
+        Task<List<Session>> GetByCampaignIdAsync(string campaignId);
+        Task<Session> GetVisibleAsync(string id);
+        Task<Session> CreateAndNotifyAsync(Session input);
+        Task<Session> UpdateDetailsAsync(string id, Session input);
+        Task<Session> StartAsync(string id);
+        Task<Session> EndAsync(string id);
         Task<bool> DeleteAndNotifyAsync(string id);
-        Task<IEnumerable<Session>> GetByCampaignIdAsync(string campaignId);
+        Task<Session> AddNoteAsync(string id, SessionNoteInput input);
+        Task<Session> UpdateNoteAsync(string id, string noteId, SessionNoteInput input);
+        Task<Session> DeleteNoteAsync(string id, string noteId);
     }
 }

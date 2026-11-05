@@ -1,9 +1,11 @@
 using dndhelper.Database;
 using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
+using dndhelper.Utils;
 using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Driver;
 using Serilog;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -16,10 +18,21 @@ namespace dndhelper.Repositories
         {
         }
 
-        public async Task<IEnumerable<Session>> GetByCampaignIdAsync(string campaignId)
+        public async Task<List<Session>> GetByCampaignIdAsync(string campaignId)
         {
             var filter = Builders<Session>.Filter.Eq(s => s.CampaignId, campaignId);
-            return await _collection.Find(filter).ToListAsync();
+            return await FindAsync(filter);
+        }
+
+        public async Task<Session> ReplaceAsync(Session session)
+        {
+            session.UpdatedAt = DateTime.UtcNow;
+            var result = await _collection.ReplaceOneAsync(s => s.Id == session.Id && !s.IsDeleted, session);
+            if (result.MatchedCount == 0)
+                throw new NotFoundException("Session not found.");
+
+            UpdateCache(session);
+            return session;
         }
     }
 }
