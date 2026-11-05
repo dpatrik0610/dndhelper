@@ -169,7 +169,7 @@ public class CharacterController : ControllerBase
 
         var updated = await _characterService.GetByIdAsync(id);
         if (updated != null)
-            await BroadcastCharacterChangeAsync(updated, "updated", updated);
+            await BroadcastCharacterChangeAsync(updated, "longrested", updated);
 
         return new JsonResult(new { message = "Long rest successful." });
     }
@@ -187,7 +187,7 @@ public class CharacterController : ControllerBase
         var updatedCharacters = await _characterService.GetByIdsAsync(result.SuccessfulIds);
         foreach (var character in updatedCharacters)
         {
-            await BroadcastCharacterChangeAsync(character, "updated", character);
+            await BroadcastCharacterChangeAsync(character, "longrested", character);
         }
 
         return Ok(new { message = $"Bulk long rest attempted for {characterIds.Count()} characters.", successful = result.SuccessfulIds, failed = result.FailedIds });
