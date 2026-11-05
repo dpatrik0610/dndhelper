@@ -459,8 +459,7 @@ namespace dndhelper.Services
                         changedBy = user.Username,
                         timestamp = DateTime.UtcNow,
                     },
-                    ids,
-                    excludeUserId: user.Id);
+                    ids);
             }
         }
 
@@ -666,8 +665,7 @@ namespace dndhelper.Services
                     changedBy = user.Username,
                     timestamp = DateTime.UtcNow
                 },
-                recipients,
-                excludeUserId: user.Id);
+                recipients);
         }
     }
 }

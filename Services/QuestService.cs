@@ -312,8 +312,7 @@ namespace dndhelper.Services
                     changedBy = user.Username,
                     timestamp = DateTime.UtcNow
                 },
-                recipients.ToList(),
-                excludeUserId: user.Id);
+                recipients.ToList());
         }
     }
 }

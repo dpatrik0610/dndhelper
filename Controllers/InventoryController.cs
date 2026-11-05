@@ -453,8 +453,7 @@ public class InventoryController : ControllerBase
                 changedBy = user.Username,
                 timestamp = DateTime.UtcNow,
             },
-            recipients.ToList(),
-            excludeUserId: user.Id
+            recipients.ToList()
         );
     }
 
@@ -487,8 +486,7 @@ public class InventoryController : ControllerBase
                 changedBy = user.Username,
                 timestamp = DateTime.UtcNow,
             },
-            recipients.ToList(),
-            excludeUserId: user.Id
+            recipients.ToList()
         );
     }
 

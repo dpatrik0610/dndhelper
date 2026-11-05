@@ -907,8 +907,7 @@ namespace dndhelper.Services
                     changedBy = ctx.Name,
                     timestamp = DateTime.UtcNow,
                 },
-                recipients,
-                excludeUserId: ctx.UserId);
+                recipients);
         }
 
         public async Task<string> UploadImageAsync(string tableId, TableCaller caller, Stream content, string fileName, StorageFolder folder)
