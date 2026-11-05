@@ -6,8 +6,7 @@ namespace dndhelper.Services.Interfaces
 {
     public interface IRollHistoryService
     {
-        Task<RollRecord?> CreateAsync(RollRecord record);
-        Task<IReadOnlyList<RollRecord>> GetMyPublicRollsAsync(string userId, int page, int pageSize);
-        Task<IReadOnlyList<RollRecord>> GetRollsByCampaignAsync(string campaignId, int page, int pageSize);
+        Task<RollRecord?> RecordAsync(RollRecord record);
+        Task<IReadOnlyList<RollRecord>> GetHistoryAsync(string userId, string? campaignId, bool isDm, RollType? type, int page, int pageSize);
     }
 }

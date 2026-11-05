@@ -119,11 +119,12 @@ namespace dndhelper.Services
                 character.Id
             );
 
-            await _rollHistoryService.CreateAsync(new RollRecord
+            await _rollHistoryService.RecordAsync(new RollRecord
             {
                 UserId = user.Id,
                 Username = user.Username,
                 CharacterId = character.Id,
+                CharacterName = character.Name,
                 CampaignId = character.CampaignId,
                 Type = RollType.Subtle,
                 Expression = roll.Expression,

@@ -24,6 +24,7 @@ namespace dndhelper.Models.RollModels
 
         [BsonRepresentation(BsonType.ObjectId)]
         public string? CharacterId { get; set; }
+        public string? CharacterName { get; set; }
         [BsonRepresentation(BsonType.ObjectId)]
         public string? CampaignId { get; set; }
 

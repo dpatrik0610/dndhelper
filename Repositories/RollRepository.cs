@@ -1,4 +1,4 @@
-﻿using dndhelper.Database;
+using dndhelper.Database;
 using dndhelper.Models.RollModels;
 using dndhelper.Repositories.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
@@ -18,8 +18,8 @@ namespace dndhelper.Repositories
             // Match RollHistoryService's two queries, newest first.
             TryCreateIndexes(
                 new CreateIndexModel<RollRecord>(
-                    Builders<RollRecord>.IndexKeys.Ascending(r => r.UserId).Ascending(r => r.Type).Descending(r => r.CreatedAt),
-                    new CreateIndexOptions { Name = "idx_rolls_user_type_createdAt" }),
+                    Builders<RollRecord>.IndexKeys.Ascending(r => r.UserId).Descending(r => r.CreatedAt),
+                    new CreateIndexOptions { Name = "idx_rolls_user_createdAt" }),
                 new CreateIndexModel<RollRecord>(
                     Builders<RollRecord>.IndexKeys.Ascending(r => r.CampaignId).Descending(r => r.CreatedAt),
                     new CreateIndexOptions { Name = "idx_rolls_campaign_createdAt" }));
