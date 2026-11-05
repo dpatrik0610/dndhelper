@@ -9,23 +9,23 @@
     }
   },
   "profiles": {
-    "http": {
-      "commandName": "Project",
-      "dotnetRunMessages": true,
-      "launchBrowser": true,
-      "launchUrl": "swagger",
-      "applicationUrl": "http://0.0.0.0:5000;http://localhost:5000",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "MONGODUMP_PATH": "C:\\Program Files\\MongoDB\\Tools\\mongodb-database-tools-windows-x86_64-100.13.0\\bin\\mongodump.exe"
-      }
-    },
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7222;https://0.0.0.0:7222;http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MONGODUMP_PATH": "C:\\Program Files\\MongoDB\\Tools\\mongodb-database-tools-windows-x86_64-100.13.0\\bin\\mongodump.exe"
+      }
+    },
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://0.0.0.0:5000;http://localhost:5000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "MONGODUMP_PATH": "C:\\Program Files\\MongoDB\\Tools\\mongodb-database-tools-windows-x86_64-100.13.0\\bin\\mongodump.exe"
