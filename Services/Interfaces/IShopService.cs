@@ -16,5 +16,8 @@ namespace dndhelper.Services.Interfaces
         Task<SellRequest> SubmitSellRequestAsync(SellRequest request);
         Task<IEnumerable<SellRequest>> GetSellRequestsForCampaignAsync(string campaignId);
         Task<SellRequest?> ProcessSellRequestAsync(string requestId, bool approve);
+        Task<IEnumerable<SellRequest>> GetSellRequestsForCharacterAsync(string characterId);
+        Task<SellRequest> CounterSellRequestAsync(string requestId, double counterPriceGp);
+        Task<SellRequest?> RespondToCounterOfferAsync(string requestId, bool accept);
     }
 }

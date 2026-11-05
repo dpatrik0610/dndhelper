@@ -4,6 +4,7 @@ namespace dndhelper.Models
     {
         Pending,
         Approved,
-        Rejected
+        Rejected,
+        Countered
     }
 }

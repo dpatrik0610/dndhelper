@@ -107,6 +107,14 @@ namespace dndhelper.Services
             var character = await _characterRepository.GetByIdAsync(buyerCharacterId) ?? throw new KeyNotFoundException("Character not found.");
             await EnsureOwnershipAccess(character);
 
+            await CompletePurchaseAsync(shop, character, equipmentId, quantity, null, null);
+            return true;
+        }
+
+        private async Task CompletePurchaseAsync(Shop shop, Character character, string equipmentId, int quantity, int? agreedCostSp, string? destinationInventoryId)
+        {
+            if (quantity < 1) throw new InvalidOperationException("Quantity must be at least 1.");
+
             var shopInventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId) ?? throw new KeyNotFoundException("Shop inventory not found.");
             var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == equipmentId) ?? throw new KeyNotFoundException("Item not sold here.");
 
@@ -116,9 +124,8 @@ namespace dndhelper.Services
             }
 
             var equipment = await _equipmentRepository.GetByIdAsync(equipmentId) ?? throw new KeyNotFoundException("Equipment specifications not found.");
-            
-            int baseCostSp = ConvertCostToSilver(equipment.Cost); 
-            int totalCostSp = (int)Math.Round(baseCostSp * shop.PriceMultiplier * quantity);
+
+            int totalCostSp = agreedCostSp ?? (int)Math.Round(ConvertCostToSilver(equipment.Cost) * shop.PriceMultiplier * quantity);
 
             _currencyService.ValidateCharacterHasFunds(character, totalCostSp);
 
@@ -137,9 +144,9 @@ namespace dndhelper.Services
             }
             await _inventoryRepository.UpdateAsync(shopInventory);
 
-            string playerInventoryId = character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.");
+            string playerInventoryId = destinationInventoryId ?? character.InventoryIds?.FirstOrDefault() ?? throw new InvalidOperationException("Character has no bag.");
             var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId) ?? throw new KeyNotFoundException("Player bag not found.");
-            
+
             var existingItem = playerInventory.Items?.FirstOrDefault(i => i.EquipmentId == equipmentId);
             if (existingItem != null)
             {
@@ -155,8 +162,6 @@ namespace dndhelper.Services
             await BroadcastCharacterChangeAsync(character, "updated", character);
             await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
             await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
-
-            return true;
         }
 
         public async Task<SellRequest> SubmitSellRequestAsync(SellRequest request)
@@ -177,6 +182,45 @@ namespace dndhelper.Services
             }
             request.OwnerIds = owners.Distinct().ToList();
             request.Status = SellRequestStatus.Pending;
+            request.CounterPriceGp = null;
+
+            if (new[] { request.IsSteal, request.IsHaggle, request.IsTrade }.Count(kind => kind) > 1)
+                throw new InvalidOperationException("A request can only be one kind of deal.");
+
+            if (request.IsTrade) return await SubmitTradeAsync(request, character);
+
+            request.GiveItems = new List<TradeItem>();
+            request.WantItems = new List<TradeItem>();
+            if (string.IsNullOrEmpty(request.EquipmentId)) throw new InvalidOperationException("No item was chosen.");
+            if (request.Quantity < 1) throw new InvalidOperationException("Quantity must be at least 1.");
+            if (request.OfferedPriceGp < 0) throw new InvalidOperationException("Offered price cannot be negative.");
+
+            if (request.IsHaggle)
+            {
+                var shop = await _repository.GetByIdAsync(request.ShopId)
+                    ?? throw new KeyNotFoundException("Shop not found.");
+                if (!shop.IsOpened) throw new InvalidOperationException("The shop is closed.");
+
+                var shopInventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId)
+                    ?? throw new KeyNotFoundException("Shop stock register not found.");
+
+                var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == request.EquipmentId)
+                    ?? throw new KeyNotFoundException("Item not sold here.");
+                if (shopItem.Quantity.HasValue && shopItem.Quantity.Value < request.Quantity)
+                {
+                    throw new InvalidOperationException("Insufficient shop stock.");
+                }
+
+                if (!string.IsNullOrEmpty(request.SourceInventoryId) &&
+                    (character.InventoryIds == null || !character.InventoryIds.Contains(request.SourceInventoryId)))
+                {
+                    throw new UnauthorizedAccessException("Character does not own the specified inventory.");
+                }
+
+                _currencyService.ValidateCharacterHasFunds(character, ToSilver(request.OfferedPriceGp));
+
+                return await _sellRequestRepository.CreateAsync(request);
+            }
 
             if (request.IsSteal)
             {
@@ -290,7 +334,44 @@ namespace dndhelper.Services
             return await _sellRequestRepository.GetByCampaignIdAsync(campaignId);
         }
 
+        public async Task<IEnumerable<SellRequest>> GetSellRequestsForCharacterAsync(string characterId)
+        {
+            var character = await _characterRepository.GetByIdAsync(characterId)
+                ?? throw new KeyNotFoundException("Character not found.");
+            await EnsureOwnershipAccess(character);
+
+            return await _sellRequestRepository.GetByCharacterIdAsync(characterId);
+        }
+
         public async Task<SellRequest?> ProcessSellRequestAsync(string requestId, bool approve)
+        {
+            var request = await GetRequestAsDmAsync(requestId);
+            return await ResolveRequestAsync(request, approve, SellRequestStatus.Pending);
+        }
+
+        public async Task<SellRequest> CounterSellRequestAsync(string requestId, double counterPriceGp)
+        {
+            var request = await GetRequestAsDmAsync(requestId);
+            if (request.IsSteal) throw new InvalidOperationException("Steal attempts cannot be countered.");
+            if (counterPriceGp < 0 && !request.IsTrade) throw new InvalidOperationException("Counter price cannot be negative.");
+
+            return await _sellRequestRepository.TryUpdateStatusAsync(requestId, SellRequestStatus.Pending, SellRequestStatus.Countered, counterPriceGp)
+                ?? throw new InvalidOperationException("This request has already been processed or countered.");
+        }
+
+        public async Task<SellRequest?> RespondToCounterOfferAsync(string requestId, bool accept)
+        {
+            var request = await _sellRequestRepository.GetByIdAsync(requestId)
+                ?? throw new KeyNotFoundException("Sell request not found.");
+
+            var character = await _characterRepository.GetByIdAsync(request.CharacterId)
+                ?? throw new KeyNotFoundException("Character not found.");
+            await EnsureOwnershipAccess(character);
+
+            return await ResolveRequestAsync(request, accept, SellRequestStatus.Countered);
+        }
+
+        private async Task<SellRequest> GetRequestAsDmAsync(string requestId)
         {
             var request = await _sellRequestRepository.GetByIdAsync(requestId)
                 ?? throw new KeyNotFoundException("Sell request not found.");
@@ -298,20 +379,27 @@ namespace dndhelper.Services
             var campaign = await _campaignRepository.GetByIdAsync(request.CampaignId)
                 ?? throw new KeyNotFoundException("Campaign not found.");
 
-            var currentUserId = GetCurrentUserId();
-            if (!campaign.OwnerIds.Contains(currentUserId))
+            if (!campaign.OwnerIds.Contains(GetCurrentUserId()))
             {
                 throw new UnauthorizedAccessException("Only DMs can process requests.");
             }
 
+            return request;
+        }
+
+        private async Task<SellRequest?> ResolveRequestAsync(SellRequest request, bool approve, SellRequestStatus fromStatus)
+        {
+            var requestId = request.Id!;
             var targetStatus = approve ? SellRequestStatus.Approved : SellRequestStatus.Rejected;
 
             // Atomic state transition to prevent concurrent approval processing race conditions
-            var updatedRequest = await _sellRequestRepository.TryUpdateStatusAsync(requestId, SellRequestStatus.Pending, targetStatus);
+            var updatedRequest = await _sellRequestRepository.TryUpdateStatusAsync(requestId, fromStatus, targetStatus);
             if (updatedRequest == null)
             {
                 throw new InvalidOperationException("This sell request has already been processed or completed.");
             }
+
+            double agreedPriceGp = updatedRequest.CounterPriceGp ?? updatedRequest.OfferedPriceGp;
 
             var character = await _characterRepository.GetByIdAsync(request.CharacterId)
                 ?? throw new KeyNotFoundException("Character not found.");
@@ -321,6 +409,37 @@ namespace dndhelper.Services
 
             var shopInventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId)
                 ?? throw new KeyNotFoundException("Shop stock register not found.");
+
+            if (request.IsTrade)
+            {
+                try
+                {
+                    await ResolveTradeAsync(request, approve, character, shopInventory, agreedPriceGp);
+                }
+                catch
+                {
+                    await _sellRequestRepository.TryUpdateStatusAsync(requestId, targetStatus, fromStatus);
+                    throw;
+                }
+                return updatedRequest;
+            }
+
+            if (request.IsHaggle)
+            {
+                if (approve)
+                {
+                    try
+                    {
+                        await CompletePurchaseAsync(shop, character, request.EquipmentId!,request.Quantity, ToSilver(agreedPriceGp), request.SourceInventoryId);
+                    }
+                    catch
+                    {
+                        await _sellRequestRepository.TryUpdateStatusAsync(requestId, targetStatus, fromStatus);
+                        throw;
+                    }
+                }
+                return updatedRequest;
+            }
 
             if (request.IsSteal)
             {
@@ -372,7 +491,7 @@ namespace dndhelper.Services
             {
                 if (approve)
                 {
-                    int priceSp = (int)Math.Round(request.OfferedPriceGp * 100);
+                    int priceSp = ToSilver(agreedPriceGp);
                     _currencyService.AddAndConsolidateCurrency(character, priceSp);
                     character = await _characterRepository.UpdateAsync(character) ?? character;
 
@@ -423,6 +542,154 @@ namespace dndhelper.Services
             }
 
             return updatedRequest;
+        }
+
+        private static int ToSilver(double gp) => (int)Math.Round(gp * 100);
+
+        private async Task<SellRequest> SubmitTradeAsync(SellRequest request, Character character)
+        {
+            request.EquipmentId = null;
+            request.GiveItems ??= new List<TradeItem>();
+            request.WantItems ??= new List<TradeItem>();
+
+            var lines = request.GiveItems.Concat(request.WantItems).ToList();
+            if (lines.Count == 0) throw new InvalidOperationException("An offer needs at least one item.");
+            if (lines.Any(l => l.Quantity < 1 || string.IsNullOrEmpty(l.EquipmentId)))
+                throw new InvalidOperationException("Every item in an offer needs a quantity of at least 1.");
+            if (request.WantItems.GroupBy(i => i.EquipmentId).Any(g => g.Count() > 1) ||
+                request.GiveItems.GroupBy(i => (i.EquipmentId, i.SourceInventoryId)).Any(g => g.Count() > 1))
+                throw new InvalidOperationException("Each item can only appear once on each side of an offer.");
+
+            if (!string.IsNullOrEmpty(request.SourceInventoryId) && character.InventoryIds?.Contains(request.SourceInventoryId) != true)
+                throw new UnauthorizedAccessException("Character does not own the specified inventory.");
+
+            var shop = await _repository.GetByIdAsync(request.ShopId) ?? throw new KeyNotFoundException("Shop not found.");
+            if (!shop.IsOpened) throw new InvalidOperationException("The shop is closed.");
+            var shopInventory = await _inventoryRepository.GetByIdAsync(shop.InventoryId)
+                ?? throw new KeyNotFoundException("Shop stock register not found.");
+
+            foreach (var want in request.WantItems)
+            {
+                var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == want.EquipmentId)
+                    ?? throw new KeyNotFoundException("An item you asked for is not sold here.");
+                if (shopItem.Quantity.HasValue && shopItem.Quantity.Value < want.Quantity)
+                    throw new InvalidOperationException($"The shop does not have {want.Quantity}× {shopItem.EquipmentName}.");
+                want.EquipmentName = shopItem.EquipmentName;
+                want.SourceInventoryId = null;
+            }
+
+            var bags = new Dictionary<string, Inventory>();
+            foreach (var give in request.GiveItems)
+            {
+                if (string.IsNullOrEmpty(give.SourceInventoryId) || character.InventoryIds?.Contains(give.SourceInventoryId) != true)
+                    throw new UnauthorizedAccessException("Character does not own the inventory an offered item comes from.");
+
+                if (!bags.TryGetValue(give.SourceInventoryId, out var bag))
+                {
+                    bag = await _inventoryRepository.GetByIdAsync(give.SourceInventoryId)
+                        ?? throw new KeyNotFoundException("Player inventory bag not found.");
+                    bags[give.SourceInventoryId] = bag;
+                }
+
+                var bagItem = bag.Items?.FirstOrDefault(i => i.EquipmentId == give.EquipmentId);
+                if (bagItem == null || (bagItem.Quantity ?? 0) < give.Quantity)
+                    throw new InvalidOperationException("You do not have enough of an item you offered.");
+                give.EquipmentName = bagItem.EquipmentName;
+            }
+
+            if (request.OfferedPriceGp > 0) _currencyService.ValidateCharacterHasFunds(character, ToSilver(request.OfferedPriceGp));
+
+            foreach (var give in request.GiveItems) TakeItem(bags[give.SourceInventoryId!], give.EquipmentId, give.Quantity);
+            foreach (var bag in bags.Values) await _inventoryRepository.UpdateAsync(bag);
+
+            var created = await _sellRequestRepository.CreateAsync(request);
+            foreach (var bag in bags.Values) await BroadcastInventoryChangeAsync(bag, "updated", bag);
+            return created;
+        }
+
+        private async Task ResolveTradeAsync(SellRequest request, bool approve, Character character, Inventory shopInventory, double priceGp)
+        {
+            if (!approve)
+            {
+                var bags = new Dictionary<string, Inventory>();
+                foreach (var give in request.GiveItems)
+                {
+                    var bagId = give.SourceInventoryId!;
+                    if (!bags.TryGetValue(bagId, out var bag))
+                    {
+                        bag = await _inventoryRepository.GetByIdAsync(bagId) ?? throw new KeyNotFoundException("Player bag not found.");
+                        bags[bagId] = bag;
+                    }
+                    PutItem(bag, give.EquipmentId, give.EquipmentName, give.Quantity);
+                }
+                foreach (var bag in bags.Values)
+                {
+                    await _inventoryRepository.UpdateAsync(bag);
+                    await BroadcastInventoryChangeAsync(bag, "updated", bag);
+                }
+                return;
+            }
+
+            foreach (var want in request.WantItems)
+            {
+                var shopItem = shopInventory.Items?.FirstOrDefault(i => i.EquipmentId == want.EquipmentId);
+                if (shopItem == null || (shopItem.Quantity.HasValue && shopItem.Quantity.Value < want.Quantity))
+                    throw new InvalidOperationException($"The shop no longer has {want.Quantity}× {want.EquipmentName ?? "of a requested item"}.");
+            }
+
+            int priceSp = ToSilver(priceGp);
+            if (priceSp > 0) _currencyService.ValidateCharacterHasFunds(character, priceSp);
+
+            string playerInventoryId = request.SourceInventoryId ?? character.InventoryIds?.FirstOrDefault()
+                ?? throw new InvalidOperationException("Character has no bag.");
+            var playerInventory = await _inventoryRepository.GetByIdAsync(playerInventoryId)
+                ?? throw new KeyNotFoundException("Player bag not found.");
+
+            foreach (var want in request.WantItems)
+            {
+                TakeItem(shopInventory, want.EquipmentId, want.Quantity);
+                PutItem(playerInventory, want.EquipmentId, want.EquipmentName, want.Quantity);
+            }
+            foreach (var give in request.GiveItems) PutItem(shopInventory, give.EquipmentId, give.EquipmentName, give.Quantity);
+
+            if (priceSp > 0)
+            {
+                _currencyService.DeductAndConsolidateCurrency(character, priceSp);
+                _currencyService.AddCurrencyToInventory(shopInventory, priceSp);
+            }
+            else if (priceSp < 0)
+            {
+                _currencyService.AddAndConsolidateCurrency(character, -priceSp);
+                _currencyService.RemoveCurrencyFromInventory(shopInventory, -priceSp, allowNegative: true);
+            }
+            if (priceSp != 0) character = await _characterRepository.UpdateAsync(character) ?? character;
+
+            await _inventoryRepository.UpdateAsync(shopInventory);
+            await _inventoryRepository.UpdateAsync(playerInventory);
+
+            if (priceSp != 0) await BroadcastCharacterChangeAsync(character, "updated", character);
+            await BroadcastInventoryChangeAsync(shopInventory, "updated", shopInventory);
+            await BroadcastInventoryChangeAsync(playerInventory, "updated", playerInventory);
+        }
+
+        private static void TakeItem(Inventory inventory, string equipmentId, int quantity)
+        {
+            var item = inventory.Items?.FirstOrDefault(i => i.EquipmentId == equipmentId);
+            if (item?.Quantity == null) return;
+            item.Quantity -= quantity;
+            if (item.Quantity <= 0) inventory.Items!.Remove(item);
+        }
+
+        private static void PutItem(Inventory inventory, string equipmentId, string? name, int quantity)
+        {
+            var item = inventory.Items?.FirstOrDefault(i => i.EquipmentId == equipmentId);
+            if (item != null)
+            {
+                if (item.Quantity.HasValue) item.Quantity += quantity;
+                return;
+            }
+            inventory.Items ??= new List<InventoryItem>();
+            inventory.Items.Add(new InventoryItem { EquipmentId = equipmentId, EquipmentName = name, Quantity = quantity });
         }
 
         public int ConvertCostToSilver(Cost? cost)

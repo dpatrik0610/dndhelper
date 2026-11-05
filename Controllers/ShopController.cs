@@ -192,6 +192,51 @@ namespace dndhelper.Controllers
             }
         }
 
+        [HttpGet("character/{characterId}/sell-requests")]
+        public async Task<IActionResult> GetCharacterSellRequests(string characterId)
+        {
+            try
+            {
+                return Ok(await _shopService.GetSellRequestsForCharacterAsync(characterId));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
+        [HttpPatch("sell-requests/{id}/counter")]
+        public async Task<IActionResult> CounterSellRequest(string id, [FromQuery] double priceGp)
+        {
+            try
+            {
+                var countered = await _shopService.CounterSellRequestAsync(id, priceGp);
+                await _entitySyncService.BroadcastEntityUpdated("SellRequest", countered.Id!, countered, User.Identity?.Name ?? "DM");
+                return Ok(countered);
+            }
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPatch("sell-requests/{id}/respond")]
+        public async Task<IActionResult> RespondToCounterOffer(string id, [FromQuery] bool accept)
+        {
+            try
+            {
+                var processed = await _shopService.RespondToCounterOfferAsync(id, accept);
+                if (processed == null) return NotFound();
+
+                await _entitySyncService.BroadcastEntityUpdated("SellRequest", processed.Id!, processed, User.Identity?.Name ?? "Player");
+                return Ok(processed);
+            }
+            catch (Exception ex) when (ex is not UnauthorizedAccessException)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateShop(string id, [FromBody] Shop shop)
         {

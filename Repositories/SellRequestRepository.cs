@@ -26,7 +26,16 @@ namespace dndhelper.Repositories
             return await _collection.Find(filter).ToListAsync();
         }
 
-        public async Task<SellRequest?> TryUpdateStatusAsync(string id, SellRequestStatus currentStatus, SellRequestStatus newStatus)
+        public async Task<IEnumerable<SellRequest>> GetByCharacterIdAsync(string characterId)
+        {
+            var filter = Builders<SellRequest>.Filter.And(
+                Builders<SellRequest>.Filter.Eq(r => r.CharacterId, characterId),
+                Builders<SellRequest>.Filter.Eq(r => r.IsDeleted, false)
+            );
+            return await _collection.Find(filter).ToListAsync();
+        }
+
+        public async Task<SellRequest?> TryUpdateStatusAsync(string id, SellRequestStatus currentStatus, SellRequestStatus newStatus, double? counterPriceGp = null)
         {
             var filter = Builders<SellRequest>.Filter.And(
                 Builders<SellRequest>.Filter.Eq(r => r.Id, id),
@@ -37,6 +46,7 @@ namespace dndhelper.Repositories
             var update = Builders<SellRequest>.Update
                 .Set(r => r.Status, newStatus)
                 .Set(r => r.UpdatedAt, DateTime.UtcNow);
+            if (counterPriceGp.HasValue) update = update.Set(r => r.CounterPriceGp, counterPriceGp);
 
             var options = new FindOneAndUpdateOptions<SellRequest>
             {
