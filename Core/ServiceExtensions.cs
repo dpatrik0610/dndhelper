@@ -1,4 +1,4 @@
-using dndhelper.Authentication;
+﻿using dndhelper.Authentication;
 using dndhelper.Authentication.Interfaces;
 using dndhelper.Authorization;
 using dndhelper.Authorization.Policies;
@@ -169,6 +169,7 @@ namespace dndhelper.Core
             services.AddScoped<IChronicleFolderRepository, ChronicleFolderRepository>();
             services.AddScoped<IChronicleCommentRepository, ChronicleCommentRepository>();
             services.AddScoped<IStoredFileRepository, StoredFileRepository>();
+            services.AddSingleton<MusicRepository>();
             #endregion
 
             #region Services
@@ -201,6 +202,8 @@ namespace dndhelper.Core
             services.AddScoped<IQuestService, QuestService>();
             services.AddScoped<IPollService, PollService>();
             services.AddScoped<IChronicleService, ChronicleService>();
+            services.AddScoped<MusicService>();
+            services.AddSingleton<MusicRuntime>();
 
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
@@ -242,6 +245,13 @@ namespace dndhelper.Core
             });
 
             services.AddHttpClient<DiscordWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
+
+            services.AddHostedService<SpotFetcherHost>();
+            services.AddHttpClient<SpotFetcherClient>(client =>
+            {
+                client.BaseAddress = new Uri(config.GetValue<string>("SpotFetcher:Url") ?? "http://127.0.0.1:47821");
+                client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+            });
 
             return services;
         }

@@ -1,0 +1,5 @@
+yt-dlp[default]>=2026.8
+ytmusicapi>=1.10
+mutagen>=1.47
+requests>=2.31
+imageio-ffmpeg>=0.5

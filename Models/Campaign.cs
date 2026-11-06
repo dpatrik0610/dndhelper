@@ -69,6 +69,8 @@ namespace dndhelper.Models
 
         public bool IsDm(string? userId) => HasRole(userId, CampaignRoles.Dm);
 
+        public bool CanDriveMusic(string? userId) => IsDm(userId) || HasRole(userId, CampaignRoles.Bard);
+
         public List<string> DmIds() =>
             (Members ?? new()).Where(m => m.Roles.Contains(CampaignRoles.Dm)).Select(m => m.UserId).ToList();
 

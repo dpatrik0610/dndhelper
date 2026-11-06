@@ -5,3 +5,4 @@ obj/
 .gitignore
 Dockerfile
 .env
+**/__pycache__

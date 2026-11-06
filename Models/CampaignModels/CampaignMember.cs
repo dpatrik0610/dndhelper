@@ -49,5 +49,6 @@ namespace dndhelper.Models.CampaignModels
         public const string Dm = "DM";
         public const string Player = "Player";
         public const string Poll = "Poll";
+        public const string Bard = "Bardify";
     }
 }
