@@ -37,18 +37,22 @@ class FitBitrate(unittest.TestCase):
 
 
 class Requests(unittest.TestCase):
+    site = "https://site.example"
+    origins = {site}
     host = f"127.0.0.1:{PORT}"
 
-    def test_the_api_beside_it(self):
-        self.assertTrue(request_allowed(None, self.host))
-        self.assertTrue(request_allowed(None, f"localhost:{PORT}"))
+    def test_the_site(self):
+        self.assertTrue(request_allowed(self.site, self.host, self.origins))
+        self.assertTrue(request_allowed(self.site, f"localhost:{PORT}", self.origins))
 
-    def test_any_browser_page(self):
-        self.assertFalse(request_allowed("https://site.example", self.host))
-        self.assertFalse(request_allowed("null", self.host))
+    def test_another_page(self):
+        self.assertFalse(request_allowed("https://evil.example", self.host, self.origins))
 
-    def test_a_domain_pointed_at_this_machine(self):
-        self.assertFalse(request_allowed(None, f"evil.example:{PORT}"))
+    def test_no_origin(self):
+        self.assertFalse(request_allowed(None, self.host, self.origins))
+
+    def test_a_domain_pointed_at_this_computer(self):
+        self.assertFalse(request_allowed(self.site, f"evil.example:{PORT}", self.origins))
 
 
 class Search(unittest.TestCase):
@@ -112,7 +116,7 @@ class Routes(unittest.TestCase):
     def post(self, path, body):
         conn = http.client.HTTPConnection("127.0.0.1", self.site.server_address[1])
         self.addCleanup(conn.close)
-        conn.request("POST", path, json.dumps(body), {"Host": f"127.0.0.1:{PORT}"})
+        conn.request("POST", path, json.dumps(body), {"Origin": "http://localhost:3000", "Host": f"127.0.0.1:{PORT}"})
         res = conn.getresponse()
         return res.status, res.read().decode()
 

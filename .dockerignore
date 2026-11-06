@@ -6,3 +6,4 @@ obj/
 Dockerfile
 .env
 **/__pycache__
+spotfetcher/

@@ -1,0 +1,29 @@
+name: SpotFetcher release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["spotfetcher-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: powershell -ExecutionPolicy Bypass -File spotfetcher/build-exe.ps1
+      - name: Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag="spotfetcher-$(date +%Y.%m.%d)-$GITHUB_RUN_NUMBER"; fi
+          gh release create "$tag" spotfetcher/dist/SpotFetcher-windows.zip --target "$GITHUB_SHA" --latest \
+            --title "SpotFetcher $tag" \
+            --notes "Unzip, keep SpotFetcher.exe and deno.exe together, and open SpotFetcher.exe. Keep its window open while you fetch on the Bardify page."

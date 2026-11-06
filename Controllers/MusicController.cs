@@ -4,16 +4,10 @@ using dndhelper.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,17 +21,11 @@ namespace dndhelper.Controllers
         private const long MaxAudioBytes = 50 * 1024 * 1024;
         private const long MaxCoverBytes = 2 * 1024 * 1024;
 
-        private const string FetcherDown = "SpotFetcher is not running on the server. Try again in a minute.";
-
         private readonly MusicService _music;
-        private readonly SpotFetcherClient _fetcher;
-        private readonly ILogger<MusicController> _logger;
 
-        public MusicController(MusicService music, SpotFetcherClient fetcher, ILogger<MusicController> logger)
+        public MusicController(MusicService music)
         {
             _music = music;
-            _fetcher = fetcher;
-            _logger = logger;
         }
 
         public record NameRequest(string Name);
@@ -58,101 +46,6 @@ namespace dndhelper.Controllers
         public record VoteRequest(bool Yes);
         public record LayerRequest(double? Level, bool? On);
         public record AmbienceRequest(string? CollectionId);
-        public record FetchResolveRequest(string Url);
-        public record FetchSearchRequest(string Query);
-        public record FetchTrackRequest(string Id, int Bitrate, string? Pick);
-
-        [HttpGet("fetch/health")]
-        public async Task<IActionResult> FetchHealth(string campaignId, CancellationToken ct)
-        {
-            await _music.EnsureDriverAsync(campaignId);
-            using var res = await _fetcher.TrySendAsync(HttpMethod.Get, "/health", null, false, ct);
-            if (res is not { IsSuccessStatusCode: true }) return Ok(new { available = false, ffmpeg = false });
-            var health = await res.Content.ReadFromJsonAsync<JsonElement>(ct);
-            return Ok(new { available = true, ffmpeg = health.TryGetProperty("ffmpeg", out var f) && f.ValueKind == JsonValueKind.True });
-        }
-
-        [HttpPost("fetch/resolve")]
-        public Task<IActionResult> FetchResolve(string campaignId, FetchResolveRequest r, CancellationToken ct) =>
-            RelayAsync(campaignId, "/resolve", new { url = r.Url }, ct);
-
-        [HttpPost("fetch/search")]
-        public Task<IActionResult> FetchSearch(string campaignId, FetchSearchRequest r, CancellationToken ct) =>
-            RelayAsync(campaignId, "/search", new { query = r.Query }, ct);
-
-        private async Task<IActionResult> RelayAsync(string campaignId, string path, object body, CancellationToken ct)
-        {
-            await _music.EnsureDriverAsync(campaignId);
-            using var res = await _fetcher.TrySendAsync(HttpMethod.Post, path, body, false, ct);
-            if (res == null) return StatusCode(503, new { error = FetcherDown });
-            return new ContentResult { StatusCode = (int)res.StatusCode, ContentType = "application/json", Content = await res.Content.ReadAsStringAsync(ct) };
-        }
-
-        [HttpPost("fetch/track")]
-        public async Task FetchTrack(string campaignId, FetchTrackRequest r, CancellationToken ct)
-        {
-            await _music.EnsureDriverAsync(campaignId);
-            using var res = await _fetcher.TrySendAsync(HttpMethod.Post, "/fetch", new { id = r.Id, bitrate = r.Bitrate, pick = r.Pick, maxBytes = MaxAudioBytes }, true, ct);
-            if (res is not { IsSuccessStatusCode: true })
-            {
-                Response.StatusCode = res == null ? 503 : (int)res.StatusCode;
-                Response.ContentType = "application/json";
-                if (res == null) await Response.WriteAsJsonAsync(new { error = FetcherDown }, ct);
-                else await res.Content.CopyToAsync(Response.Body, ct);
-                return;
-            }
-
-            Response.ContentType = "application/x-ndjson";
-            Response.Headers.CacheControl = "no-store";
-            using var reader = new StreamReader(await res.Content.ReadAsStreamAsync(ct));
-            while (await reader.ReadLineAsync(ct) is { } line)
-            {
-                if (line.Length == 0) continue;
-                if (JsonNode.Parse(line) is not JsonObject ready || ready["file"] is not JsonValue file)
-                {
-                    await SendLineAsync(line, ct);
-                    continue;
-                }
-
-                await SendLineAsync(JsonSerializer.Serialize(new { stage = "saving" }), ct);
-                try
-                {
-                    using var audio = await _fetcher.DownloadAsync(file.GetValue<string>(), MaxAudioBytes, ct);
-                    using var cover = await CoverAsync(ready["cover"], ct);
-                    var artists = ready["artists"] is JsonArray list ? string.Join(", ", list.Select(a => a?.GetValue<string>()).Where(a => !string.IsNullOrWhiteSpace(a))) : null;
-                    var duration = ready["duration"] is JsonValue d ? d.GetValue<double>() : 0;
-                    await _music.AddTrackAsync(campaignId, null, audio, ready["name"]?.GetValue<string>(), cover, ready["title"]?.GetValue<string>(), artists, duration);
-                    await SendLineAsync(JsonSerializer.Serialize(new { done = true }), ct);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    var userFacing = ex is ArgumentException or UnauthorizedAccessException or ConcurrencyException or NotFoundException;
-                    if (!userFacing) _logger.LogError(ex, "Could not store a fetched song in campaign {CampaignId}", campaignId);
-                    await SendLineAsync(JsonSerializer.Serialize(new { error = userFacing ? ex.Message : "The song came down, but could not be added to the library." }), ct);
-                }
-                return;
-            }
-        }
-
-        private async Task<MemoryStream?> CoverAsync(JsonNode? path, CancellationToken ct)
-        {
-            if (path is not JsonValue value) return null;
-            try
-            {
-                return await _fetcher.DownloadAsync(value.GetValue<string>(), MaxCoverBytes, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                return null;
-            }
-        }
-
-        private async Task SendLineAsync(string line, CancellationToken ct)
-        {
-            await Response.WriteAsync(line + "\n", ct);
-            await Response.Body.FlushAsync(ct);
-        }
-
         [HttpGet("now")]
         public IActionResult Now() => Ok(MusicRuntime.Now);
 

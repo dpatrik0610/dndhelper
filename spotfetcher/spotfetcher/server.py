@@ -1,7 +1,7 @@
-"""The helper the API talks to: a small web server on the same machine, never exposed.
+"""The helper the site's SpotFetcher tab talks to: a small web server on this computer only.
 
-It finds and downloads songs and hands each finished MP3 (and its cover) to the API, which stores it.
-It holds no site credentials. Browsers cannot use it: any request carrying an Origin is refused.
+It finds and downloads songs and hands each finished MP3 to the browser, which uploads it with the
+DM's own sign-in. So it holds no site credentials. Only pages from SPOTFETCHER_ORIGINS may use it.
 """
 from __future__ import annotations
 
@@ -11,31 +11,35 @@ import queue
 import re
 import secrets
 import shutil
+import sys
 import tempfile
 import threading
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from mutagen.mp3 import MP3
-
-from . import __version__, spotify, tagger, ytmusic
+from . import __version__, spotify, ytmusic
 from .core import Options, process_track
 from .download import BITRATES, DownloadError, ffmpeg_path
 
 PORT = 47821
+DEFAULT_ORIGINS = "https://dndreforged.quest,https://www.dndreforged.quest,http://localhost:3000"
 _TRACK_ID = re.compile(r"^[A-Za-z0-9]{22}$")
 _MAX_BODY = 64 * 1024
 
 _work_dir = Path(tempfile.mkdtemp(prefix="spotfetcher-helper-"))
-_files: dict[str, tuple[Path, str]] = {}  # single-use token -> (finished file, content type)
+_files: dict[str, tuple[Path, str]] = {}  # single-use token -> (finished file, name)
 _found: dict[str, ytmusic.Match] = {}  # what searches returned: the only videos a page may pick
 
 
-def request_allowed(origin: str | None, host: str | None, port: int = PORT) -> bool:
-    """Only the API on this machine: browsers always send Origin on these requests, so no page gets in.
+def allowed_origins() -> set[str]:
+    return {o.strip().rstrip("/") for o in os.getenv("SPOTFETCHER_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()}
+
+
+def request_allowed(origin: str | None, host: str | None, origins: set[str], port: int = PORT) -> bool:
+    """Browsers always send Origin on these requests, so another site's page, or a plain link or image, gets nothing.
     The Host check stops a site pointing its own domain name at 127.0.0.1 (DNS rebinding)."""
-    return origin is None and host in {f"127.0.0.1:{port}", f"localhost:{port}"}
+    return origin in origins and host in {f"127.0.0.1:{port}", f"localhost:{port}"}
 
 
 def _has_ffmpeg() -> bool:
@@ -53,15 +57,21 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def _allowed(self) -> bool:
-        if request_allowed(self.headers.get("Origin"), self.headers.get("Host")):
+        if request_allowed(self.headers.get("Origin"), self.headers.get("Host"), allowed_origins()):
             return True
-        print(f"Refused a request from {self.headers.get('Origin') or self.headers.get('Host')}.")
-        self._send_json(403, {"error": "Only the API may use the helper."})
+        print(f"Refused a request from {self.headers.get('Origin')}. Add it to SPOTFETCHER_ORIGINS if it is your site.")
+        self._send_json(403, {"error": "This page is not allowed to use the helper."}, cors=False)
         return False
 
-    def _send_json(self, status: int, body: dict) -> None:
+    def _cors(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
+        self.send_header("Vary", "Origin")
+
+    def _send_json(self, status: int, body: dict, cors: bool = True) -> None:
         data = json.dumps(body).encode()
         self.send_response(status)
+        if cors:
+            self._cors()
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -75,6 +85,17 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(body, dict):
             raise ValueError("That request is not understood.")
         return body
+
+    def do_OPTIONS(self) -> None:
+        if not self._allowed():
+            return
+        self.send_response(204)
+        self._cors()
+        self.send_header("Access-Control-Allow-Methods", "GET, POST")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Private-Network", "true")  # lets a public site reach this computer
+        self.send_header("Access-Control-Max-Age", "600")
+        self.end_headers()
 
     def do_GET(self) -> None:
         if not self._allowed():
@@ -149,15 +170,9 @@ class Handler(BaseHTTPRequestHandler):
                 opts = Options(output_dir=out, bitrate=bitrate, musicbrainz=False, overwrite=True, max_bytes=max_bytes, cookies=os.getenv("SPOTFETCHER_COOKIES"))
                 result = process_track(track_id, opts, log=print, emit=stage, pick=pick)
                 if result.path:
-                    t = result.track
-                    events.put({
-                        "file": _share(result.path, "audio/mpeg"),
-                        "name": result.path.name,
-                        "title": t.title,
-                        "artists": t.artists,
-                        "duration": MP3(result.path).info.length or t.duration_s,
-                        "cover": _cover(t.cover_url),
-                    })
+                    token = secrets.token_urlsafe(16)
+                    _files[token] = (result.path, result.path.name)
+                    events.put({"file": f"/file/{token}", "name": result.path.name})
                 elif result.status == "not_found":
                     events.put({"notFound": True})
                 else:
@@ -168,6 +183,7 @@ class Handler(BaseHTTPRequestHandler):
 
         threading.Thread(target=work, daemon=True).start()
         self.send_response(200)
+        self._cors()
         self.send_header("Content-Type", "application/x-ndjson")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -185,9 +201,10 @@ class Handler(BaseHTTPRequestHandler):
         entry = _files.pop(token, None)
         if not entry:
             return self._send_json(404, {"error": "That file is gone."})
-        path, content_type = entry
+        path, _name = entry
         self.send_response(200)
-        self.send_header("Content-Type", content_type)
+        self._cors()
+        self.send_header("Content-Type", "audio/mpeg")
         self.send_header("Content-Length", str(path.stat().st_size))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -200,28 +217,19 @@ class Handler(BaseHTTPRequestHandler):
             shutil.rmtree(path.parent, ignore_errors=True)
 
 
-def _share(path: Path, content_type: str) -> str:
-    token = secrets.token_urlsafe(16)
-    _files[token] = (path, content_type)
-    return f"/file/{token}"
-
-
-def _cover(url: str | None) -> str | None:
-    found = tagger.fetch_cover(url)
-    if not found:
-        return None
-    data, mime = found
-    path = Path(tempfile.mkdtemp(dir=_work_dir)) / "cover"
-    path.write_bytes(data)
-    return _share(path, mime)
-
-
 def main() -> None:
-    # Bound to this machine only: nothing on the network can reach it, only the API beside it.
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"SpotFetcher helper {__version__} is running for the API on 127.0.0.1:{PORT}.")
+    # Bound to this computer only: nothing on the network can reach it.
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    except OSError:
+        print("SpotFetcher is already running in another window, or something else uses its port.")
+        if getattr(sys, "frozen", False):
+            input("Press Enter to close.")
+        return
+    print(f"SpotFetcher helper {__version__} is running. Leave this window open while you fetch songs; close it when you are done.")
+    print(f"Pages allowed to use it: {', '.join(sorted(allowed_origins()))}")
     if not _has_ffmpeg():
-        print("ffmpeg was not found. Reinstall requirements.txt.")
+        print("ffmpeg was not found. Reinstall SpotFetcher.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -246,13 +246,6 @@ namespace dndhelper.Core
 
             services.AddHttpClient<DiscordWebhookClient>(client => client.Timeout = TimeSpan.FromSeconds(5));
 
-            services.AddHostedService<SpotFetcherHost>();
-            services.AddHttpClient<SpotFetcherClient>(client =>
-            {
-                client.BaseAddress = new Uri(config.GetValue<string>("SpotFetcher:Url") ?? "http://127.0.0.1:47821");
-                client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
-            });
-
             return services;
         }
     }

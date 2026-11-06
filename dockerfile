@@ -17,16 +17,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends mongodb-database-tools \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=denoland/deno:bin-2.1.4 /deno /usr/local/bin/deno
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-venv \
-    && rm -rf /var/lib/apt/lists/*
-COPY spotfetcher /opt/spotfetcher
-RUN python3 -m venv /opt/spotfetcher/venv \
-    && /opt/spotfetcher/venv/bin/pip install --no-cache-dir -r /opt/spotfetcher/requirements.txt
-ENV SpotFetcher__Dir=/opt/spotfetcher \
-    SpotFetcher__Venv=/opt/spotfetcher/venv
-
 WORKDIR /app
 COPY --from=build /app .
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Callable
@@ -29,6 +30,13 @@ def ffmpeg_path() -> str:
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception as e:
         raise DownloadError("ffmpeg was not found. Install it, or reinstall requirements.txt.") from e
+
+
+def js_runtimes() -> dict:
+    bundled = Path(sys.executable).parent / "deno.exe"
+    if getattr(sys, "frozen", False) and bundled.exists():
+        return {"deno": {"path": str(bundled)}}
+    return {"deno": {}, "node": {}, "bun": {}}
 
 
 def download_mp3(
@@ -58,7 +66,7 @@ def download_mp3(
             "noplaylist": True,
             "ffmpeg_location": ffmpeg,
             # YouTube needs a JS runtime to unlock all formats (avoids 403s); use whichever is installed.
-            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
+            "js_runtimes": js_runtimes(),
             "retries": 5,
             "fragment_retries": 5,
             "progress_hooks": [hook],
