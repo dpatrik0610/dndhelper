@@ -32,6 +32,7 @@ namespace dndhelper.Services
             [StorageFolder.Music] = ("music", 50 * 1024 * 1024, FileSniffer.Audio),
             [StorageFolder.Docs] = ("docs", 25 * 1024 * 1024, FileSniffer.Document),
             [StorageFolder.Monsters] = ("images/monsters", 10 * 1024 * 1024, FileSniffer.Image),
+            [StorageFolder.Chronicle] = ("images/chronicle", 3 * 1024 * 1024, FileSniffer.Image),
         };
 
         private static readonly TimeSpan MaxSignedUrlLifetime = TimeSpan.FromDays(7); // SigV4 limit

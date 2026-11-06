@@ -13,6 +13,7 @@ namespace dndhelper.Models
         Music,
         Docs,
         Monsters,
+        Chronicle,
     }
 
     /// <summary>

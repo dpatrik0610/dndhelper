@@ -165,6 +165,9 @@ namespace dndhelper.Core
             services.AddScoped<ISellRequestRepository, SellRequestRepository>();
             services.AddScoped<IQuestRepository, QuestRepository>();
             services.AddScoped<IPollRepository, PollRepository>();
+            services.AddScoped<IChronicleEntryRepository, ChronicleEntryRepository>();
+            services.AddScoped<IChronicleFolderRepository, ChronicleFolderRepository>();
+            services.AddScoped<IChronicleCommentRepository, ChronicleCommentRepository>();
             services.AddScoped<IStoredFileRepository, StoredFileRepository>();
             #endregion
 
@@ -197,6 +200,7 @@ namespace dndhelper.Core
             services.AddScoped<ILootService, LootService>();
             services.AddScoped<IQuestService, QuestService>();
             services.AddScoped<IPollService, PollService>();
+            services.AddScoped<IChronicleService, ChronicleService>();
 
             services.AddScoped<IInternalBaseService<Inventory>, InventoryService>();
             services.AddScoped<IInternalBaseService<Character>, CharacterService>();
