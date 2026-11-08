@@ -160,6 +160,7 @@ namespace dndhelper.Services
                 var before = existing == null ? null : CharacterFields(existing);
 
                 token.Name = Text(input.Name, 60, "Token");
+                token.MonsterId = ObjectId.TryParse(input.MonsterId, out _) ? input.MonsterId : null;
                 token.ImageUrl = ImageUrl(input.ImageUrl);
                 token.Color = Color(input.Color, "#f87171");
                 token.X = Coord(input.X);
@@ -1034,6 +1035,7 @@ namespace dndhelper.Services
             if (token.CharacterId != null) return token;
             var copy = token.ShallowCopy();
             copy.Hp = copy.MaxHp = copy.TempHp = copy.Ac = copy.Speed = 0;
+            copy.MonsterId = null;
             return copy;
         }
 

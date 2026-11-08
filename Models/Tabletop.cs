@@ -142,6 +142,10 @@ namespace dndhelper.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? CharacterId { get; set; }
 
+        /// <summary>The bestiary entry a monster token was placed from, for the DM's stat block. Never sent to players.</summary>
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? MonsterId { get; set; }
+
         /// <summary>User ids allowed to move this token (copied from the character).</summary>
         public List<string> OwnerIds { get; set; } = new();
 
