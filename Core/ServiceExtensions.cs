@@ -175,6 +175,8 @@ namespace dndhelper.Core
             #region Services
             services.AddScoped<IEntitySyncService, EntitySyncService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddSingleton<CritterSpawner>();
+            services.AddHostedService(sp => sp.GetRequiredService<CritterSpawner>());
             services.AddScoped<IDiceRollService, DiceRollService>();
             services.AddScoped<ISubtleRollService, SubtleRollService>();
             services.AddScoped<IRollHistoryService, RollHistoryService>();

@@ -4,7 +4,6 @@ using dndhelper.Models.DTOs;
 using dndhelper.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using System;
@@ -91,16 +90,16 @@ namespace dndhelper.Controllers
             return Ok(response);
         }
 
-        // POST: api/user/me/critters/{critter} (a theme critter was caught; returns the user's new score row)
         [HttpPost("me/critters/{critter}")]
-        [EnableRateLimiting(AuthRateLimits.CritterCatch)]
-        public async Task<ActionResult<CritterScoreDto>> CatchCritter(string critter)
+        public async Task<ActionResult<CritterScoreDto>> CatchCritter(string critter, [FromQuery] string spawn)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
-            var score = await _userService.RecordCritterCatchAsync(userId, critter);
-            // Every signed-in client is on this hub: open scoreboards update live.
+            var score = await _userService.RecordCritterCatchAsync(userId, critter, spawn);
+            if (score == null)
+                return NoContent();
+            await _hub.Clients.All.SendAsync("CritterCaught", spawn, score.Username);
             await _hub.Clients.All.SendAsync("CritterScoreChanged", score);
             return Ok(score);
         }

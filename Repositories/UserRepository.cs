@@ -1,5 +1,6 @@
 ﻿using dndhelper.Authentication;
 using dndhelper.Database;
+using dndhelper.Models;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Utils;
 using MongoDB.Bson;
@@ -13,8 +14,11 @@ namespace dndhelper.Repositories
 {
     public class UserRepository : MongoRepository<User>, IUserRepository
     {
+        private readonly IMongoCollection<CritterCatch> _critterCatches;
+
         public UserRepository(MongoDbContext context, ILogger logger) : base(logger, null!, context, "Users")
         {
+            _critterCatches = context.GetCollection<CritterCatch>("CritterCatches");
             if (_indexesCreated) return;
             // ponytail: not unique, existing data may hold duplicates; make it unique once they're cleaned up.
             TryCreateIndexes(new CreateIndexModel<User>(
@@ -91,6 +95,8 @@ namespace dndhelper.Repositories
                 throw CustomExceptions.ThrowNotFoundException(_logger, nameof(userId));
             return user;
         }
+
+        public Task LogCritterCatchAsync(CritterCatch entry) => _critterCatches.InsertOneAsync(entry);
 
         public async Task<List<User>> GetCritterCatchersAsync()
         {

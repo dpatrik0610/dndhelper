@@ -1,4 +1,5 @@
 ﻿using dndhelper.Authentication;
+using dndhelper.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -19,5 +20,6 @@ namespace dndhelper.Repositories.Interfaces
         Task<User> IncrementCritterAsync(string userId, string critter);
         /// <summary>Active users with at least one catch (username + counts only).</summary>
         Task<List<User>> GetCritterCatchersAsync();
+        Task LogCritterCatchAsync(CritterCatch entry);
     }
 }

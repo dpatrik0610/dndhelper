@@ -1,4 +1,6 @@
 ﻿using dndhelper.Authentication;
+using dndhelper.Core;
+using dndhelper.Models;
 using dndhelper.Models.DTOs;
 using dndhelper.Repositories.Interfaces;
 using dndhelper.Services.Interfaces;
@@ -17,13 +19,15 @@ namespace dndhelper.Services
     {
         private readonly ICharacterRepository _characterRepository;
         private readonly ICampaignRepository _campaignRepository;
+        private readonly CritterSpawner _critterSpawner;
 
         public UserService(IUserRepository repository, ILogger logger, IAuthorizationService authorizationService,
-        IHttpContextAccessor httpContextAccessor, ICharacterRepository characterRepository, ICampaignRepository campaignRepository)
+        IHttpContextAccessor httpContextAccessor, ICharacterRepository characterRepository, ICampaignRepository campaignRepository, CritterSpawner critterSpawner)
             : base(repository, logger, authorizationService, httpContextAccessor)
         {
             _characterRepository = Guard.NotNull(characterRepository, nameof(characterRepository));
             _campaignRepository = Guard.NotNull(campaignRepository, nameof(campaignRepository));
+            _critterSpawner = Guard.NotNull(critterSpawner, nameof(critterSpawner));
         }
 
         /// <summary>Every user with their characters and campaign memberships, without password hashes.</summary>
@@ -229,12 +233,18 @@ namespace dndhelper.Services
             "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll",
         };
 
-        public async Task<CritterScoreDto> RecordCritterCatchAsync(string userId, string critter)
+        public async Task<CritterScoreDto?> RecordCritterCatchAsync(string userId, string critter, string spawnId)
         {
             Guard.NotNullOrWhiteSpace(userId, nameof(userId));
             if (string.IsNullOrEmpty(critter) || !Critters.Contains(critter))
                 throw CustomExceptions.ThrowArgumentException(_logger, nameof(critter));
-            return ToCritterScore(await _repository.IncrementCritterAsync(userId, critter));
+            if (!_critterSpawner.TryClaim(spawnId))
+                return null;
+            var user = await _repository.IncrementCritterAsync(userId, critter);
+            var caughtAt = DateTime.UtcNow;
+            await _repository.LogCritterCatchAsync(new CritterCatch { UserId = userId, Username = user.Username, Critter = critter, CaughtAt = caughtAt });
+            _logger.Information("Critter caught: {Critter} by {Username} ({UserId}) at {CaughtAt:o}", critter, user.Username, userId, caughtAt);
+            return ToCritterScore(user);
         }
 
         public async Task<List<CritterScoreDto>> GetCritterScoreboardAsync()

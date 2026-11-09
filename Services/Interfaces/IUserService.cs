@@ -18,7 +18,7 @@ namespace dndhelper.Services.Interfaces
         Task<User?> RefreshLastLogin(string username);
         Task<User?> UpdateSettingsForUser(User user, Dictionary<string, string> settings);
 
-        Task<CritterScoreDto> RecordCritterCatchAsync(string userId, string critter);
+        Task<CritterScoreDto?> RecordCritterCatchAsync(string userId, string critter, string spawnId);
         Task<List<CritterScoreDto>> GetCritterScoreboardAsync();
 
         Task<List<AdminUserDto>> GetAdminOverviewAsync();
