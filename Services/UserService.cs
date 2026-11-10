@@ -233,12 +233,20 @@ namespace dndhelper.Services
             "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll", "Imp",
         };
 
+        private static readonly HashSet<string> GoldenCritters = new HashSet<string>
+        {
+            "Golden Owl", "Golden Lantern", "Golden Chalice", "Golden Snow Fox", "Golden Pixie",
+            "Golden Toad", "Golden Star", "Golden Wind-up Beetle", "Golden Seahorse", "Golden Mimic",
+            "Golden Rogue AI", "Golden Peacock", "Golden Scarab", "Golden Quill", "Golden Soul Coin",
+        };
+
         public async Task<CritterScoreDto?> RecordCritterCatchAsync(string userId, string critter, string spawnId)
         {
             Guard.NotNullOrWhiteSpace(userId, nameof(userId));
-            if (string.IsNullOrEmpty(critter) || !Critters.Contains(critter))
+            var golden = !string.IsNullOrEmpty(critter) && GoldenCritters.Contains(critter);
+            if (string.IsNullOrEmpty(critter) || (!golden && !Critters.Contains(critter)))
                 throw CustomExceptions.ThrowArgumentException(_logger, nameof(critter));
-            if (!_critterSpawner.TryClaim(spawnId))
+            if (!_critterSpawner.TryClaim(spawnId, golden))
                 return null;
             var user = await _repository.IncrementCritterAsync(userId, critter);
             var caughtAt = DateTime.UtcNow;
