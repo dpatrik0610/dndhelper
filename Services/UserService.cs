@@ -230,7 +230,7 @@ namespace dndhelper.Services
         private static readonly HashSet<string> Critters = new HashSet<string>
         {
             "Moth", "Wisp", "Bat", "Snowflake", "Butterfly", "Spore", "Watcher",
-            "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll",
+            "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll", "Imp",
         };
 
         public async Task<CritterScoreDto?> RecordCritterCatchAsync(string userId, string critter, string spawnId)
