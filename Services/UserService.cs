@@ -230,14 +230,14 @@ namespace dndhelper.Services
         private static readonly HashSet<string> Critters = new HashSet<string>
         {
             "Moth", "Wisp", "Bat", "Snowflake", "Butterfly", "Spore", "Watcher",
-            "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll", "Imp",
+            "Cog", "Fish", "Lurker", "Drone", "Plume", "Scorpion", "Scroll", "Imp", "Lodestar",
         };
 
         private static readonly HashSet<string> GoldenCritters = new HashSet<string>
         {
             "Golden Owl", "Golden Lantern", "Golden Chalice", "Golden Snow Fox", "Golden Pixie",
             "Golden Toad", "Golden Star", "Golden Wind-up Beetle", "Golden Seahorse", "Golden Mimic",
-            "Golden Rogue AI", "Golden Peacock", "Golden Scarab", "Golden Quill", "Golden Soul Coin",
+            "Golden Rogue AI", "Golden Peacock", "Golden Scarab", "Golden Quill", "Golden Soul Coin", "Golden Dove",
         };
 
         public async Task<CritterScoreDto?> RecordCritterCatchAsync(string userId, string critter, string spawnId)
